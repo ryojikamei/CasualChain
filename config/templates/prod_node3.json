@@ -1,0 +1,79 @@
+{
+    "logger": {
+        "console_output": true,
+        "console_level": "notice",
+        "file_output": true,
+        "file_path": "/<appropriate path>/node3.log",
+        "file_rotation": true,
+        "file_level": "notice"
+    },
+    "block": {
+        "ca3": {
+            "minLifeTime": 40,
+            "maxLifeTime": 360,
+            "abnormalCountForJudging": 2,
+            "minSignNodes": 2,
+            "maxSignNodes": 2
+        }
+    },
+    "system": {
+        "node_mode": "standard",
+        "events_internal": {
+            "postScanAndFixBlockIntervalHours": 5,
+            "postScanAndFixPoolIntervalHours": 5,
+            "postDeliveryPoolIntervalMinutes": 5,
+            "postAppendBlocksIntervalMinutes": 5
+        }
+    },
+    "internode": {
+        "self": {
+            "nodename": "node3",
+            "rpc_port": 7003
+        },
+        "nodes": [
+            {
+                "allow_outgoing": true,
+                "nodename": "node1",
+                "host": "127.0.0.1",
+                "rpc_port": 7001
+            },
+            {
+                "allow_outgoing": true,
+                "nodename": "node2",
+                "host": "127.0.0.1",
+                "rpc_port": 7002
+            }
+        ]
+
+    },
+    "keyring": {
+        "create_keys_if_no_sign_key_exists": true,
+        "sign_key_file": "node3.key",
+        "verify_key_file": "node3.pub"
+    },
+    "datastore": {
+        "password_encryption": false,
+        "mongo_host": "127.0.0.1",
+        "mongo_port": 27017,
+        "mongo_password": "<some hard password>",
+        "mongo_dbname": "bcdb3",
+        "mongo_dbuser": "bcuser3",
+        "mongo_authdb": "bcdb3",
+        "mongo_blockcollection": "block",
+        "mongo_poolcollection": "pool"
+    },
+    "event": {
+        "enable_internaltasks": false
+    },
+    "api": {
+        "rest": {
+            "password_encryption": false,
+            "userapi_port": 9003,
+            "userapi_user": "cc",
+            "userapi_password": "<some hard password>",
+            "adminapi_port": 8003,
+            "adminapi_user": "admin",
+            "adminapi_password": "<some hard password>"
+        }
+    }
+}

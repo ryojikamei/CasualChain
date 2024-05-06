@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+*.js
+*.map
+docs/
+*.csr
+*.crt
+*.pub
+*.key
+keys.pool

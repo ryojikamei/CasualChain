@@ -1,0 +1,72 @@
+{
+    "logger": {
+        "console_output": true,
+        "console_level": "debug",
+        "file_output": true,
+        "file_path": "/home/ryoji/cc_debug_node2.log",
+        "file_rotation": false,
+        "file_level": "debug"
+    },
+    "block": {
+        "ca3": {
+            "minLifeTime": 20,
+            "maxLifeTime": 360,
+            "abnormalCountForJudging": 2,
+            "minSignNodes": 2,
+            "maxSignNodes": 2
+        }
+    },
+    "system": {
+        "node_mode": "testing+init",
+        "events_internal": {
+            "postScanAndFixBlockIntervalHours": 5,
+            "postScanAndFixPoolIntervalHours": 5,
+            "postDeliveryPoolIntervalMinutes": 5,
+            "postAppendBlocksIntervalMinutes": 5
+        }
+    },
+    "internode": {
+        "self": {
+            "nodename": "dev_node2",
+            "rpc_port": 7002
+        },
+        "nodes": [
+            {
+                "allow_outgoing": true,
+                "nodename": "dev_node1",
+                "host": "localhost",
+                "rpc_port": 7001
+            }
+        ]
+    },
+    "keyring": {
+        "create_keys_if_no_sign_key_exists": true,
+        "sign_key_file": "dev_node2.key",
+        "verify_key_file": "dev_node2.pub"
+    },
+    "datastore": {
+        "password_encryption": true,
+        "mongo_host": "127.0.0.1",
+        "mongo_port": -1,
+        "mongo_password": "8a822a061dded7f3ca195d148373cb47$76e3bfd9336362d95461151fac10e967$fea14bc485e801d82728df26bede95be9a684cb34c038abc9556b1d519703077",
+        "mongo_dbname": "bcdb",
+        "mongo_dbuser": "bcuser",
+        "mongo_authdb": "admin",
+        "mongo_blockcollection": "block_node2",
+        "mongo_poolcollection": "pool_node2"
+    },
+    "event": {
+        "enable_internaltasks": false
+    },
+    "api": {
+        "rest": {
+            "password_encryption": true,
+            "userapi_port": 9002,
+            "userapi_user": "cc",
+            "userapi_password": "1fc5c2aeb71ba3cd3ea729973a268da2$ce821c8d78da043f40e87768585736fa$e6a7832763b664cea138a0997d8131d7",
+            "adminapi_port": 8002,
+            "adminapi_user": "admin",
+            "adminapi_password": "ebeefeca4f5cd7b09959079797076091$9621596bb56a24c257f7ea86e14d5fc5$7842b582b93d0c245bd264ebbd05f6df"
+        }
+    }
+}

@@ -1,0 +1,82 @@
+{
+    "logger": {
+        "console_output": true,
+        "console_level": "informational",
+        "file_output": true,
+        "file_path": "/home/ryoji/cc.log",
+        "file_rotation": true,
+        "file_level": "infomational"
+    },
+    "block": {
+        "algorithm": "ca2",
+        "signature": "7067bbc0e9209e0945dfb9ac57c666dc7cade0683ac336743a23fd8bfb219504",
+        "ca3": {
+            "minTxData": 1,
+            "maxTxData": 64,
+            "minLifeTime": 40,
+            "maxLifeTime": 360,
+            "abnormalCountForJudging": 2,
+            "minSignNodes": 2,
+            "maxSignNodes": 2
+        }
+    },
+    "main": {
+        "node_mode": "standard"
+    },
+    "internode": {
+        "self": {
+            "nodename": "test_node1",
+            "rpc_port": 7000,
+            "use_tls_internode": false
+        },
+        "nodes": [
+            {
+                "allow_outgoing": true,
+                "nodename": "test_node2",
+                "host": "192.168.1.51",
+                "rpc_port": 7000,
+                "use_tls_internode": false
+            },
+            {
+                "allow_outgoing": true,
+                "nodename": "test_node3",
+                "host": "192.168.1.52",
+                "rpc_port": 7000,
+                "use_tls_internode": false
+            }
+        ]
+    },
+    "keyring": {
+        "create_keys_if_no_sign_key_exists": true,
+        "sign_key_file": "test_node1.key",
+        "verify_key_file": "test_node1.pub",
+        "tls_crt_file": "test_node1.crt",
+        "tls_csr_file": "test_node1.csr",
+        "tls_ca_key_file": "example_ca.key",
+        "tls_ca_crt_file": "example_ca.crt"
+    },
+    "datastore": {
+        "mongo_host": "192.168.1.50",
+        "mongo_port": 27017,
+        "mongo_password": "rablock-pass-20230123",
+        "mongo_dbname": "bcdb",
+        "mongo_dbuser": "bcuser",
+        "mongo_authdb": "bcdb",
+        "mongo_blockcollection": "block",
+        "mongo_poolcollection": "pool"
+    },
+    "executer": {
+        "verify_binary": true
+    },
+    "api": {
+        "compat": {
+            "controller_port": 9000,
+            "mining_port": 8000,
+            "userapi_user": "cc",
+            "userapi_password": "ccpassword",
+            "adminapi_user": "admin",
+            "adminapi_password": "admin-password"
+        }
+
+    }
+}

@@ -1,0 +1,40 @@
+{
+    "mongoms": {
+        "password_encryption": false,
+        "mongo_host": "127.0.0.1",
+        "mongo_password": "apitest-password_27017",
+        "mongo_dbname": "bcdb",
+        "mongo_dbuser": "bcuser",
+        "mongo_authdb": "admin",
+        "mongo_blockcollection_node1": "block_node1",
+        "mongo_poolcollection_node1": "pool_node1",
+        "mongo_blockcollection_node2": "block_node2",
+        "mongo_poolcollection_node2": "pool_node2"
+    },
+    "bcapi": {
+        "password_encryption": false,
+        "node1": {
+            "host": "127.0.0.1",
+            "userapi_port": 9002,
+            "userapi_user": "cc",
+            "userapi_password": "userapi-password",
+            "adminapi_port": 8002,
+            "adminapi_user": "admin",
+            "adminapi_password": "adminapi-password"
+        },
+        "node2": {
+            "host": "127.0.0.1",
+            "userapi_port": 9001,
+            "userapi_user": "cc",
+            "userapi_password": "userapi-password",
+            "adminapi_port": 8001,
+            "adminapi_user": "admin",
+            "adminapi_password": "adminapi-password"
+        }
+    },
+    "tool": {
+        "mongoimport": "/usr/bin/mongoimport",
+        "mongoexport": "/usr/bin/mongoexport"
+    },
+    "default_tenant_id": "a24e797d-84d1-4012-ba78-8882f2711f6c"
+}

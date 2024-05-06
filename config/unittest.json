@@ -1,0 +1,73 @@
+{
+    "logger": {
+        "console_output": true,
+        "console_level": "informational",
+        "file_output": false,
+        "file_path": "",
+        "file_rotation": false,
+        "file_level": "infomational"
+    },
+    "block": {
+        "ca3": {
+            "minLifeTime": 20,
+            "maxLifeTime": 360,
+            "abnormalCountForJudging": 2,
+            "minSignNodes": 1,
+            "maxSignNodes": 1
+        }
+    },
+    "system": {
+        "node_mode": "testing",
+        "events_internal": {
+            "postScanAndFixBlockIntervalHours": 5,
+            "postScanAndFixPoolIntervalHours": 5,
+            "postDeliveryPoolIntervalMinutes": 5,
+            "postAppendBlocksIntervalMinutes": 5
+        }
+    },
+    "internode": {
+        "self": {
+            "nodename": "unittest_node1",
+            "rpc_port": 7001
+        },
+        "nodes": [
+            {
+                "allow_outgoing": true,
+                "nodename": "unittest_node2",
+                "host": "localhost",
+                "rpc_port": 7002
+            }
+        ]
+    },
+    "keyring": {
+        "create_keys_if_no_sign_key_exists": true,
+        "sign_key_file": "unittest_node1.key",
+        "verify_key_file": "unittest_node1.pub"
+    },
+    "datastore": {
+        "password_encryption": false,
+        "mongo_host": "127.0.0.1",
+        "mongo_port": 27017,
+        "mongo_password": "unittest-password",
+        "mongo_dbname": "bcdb",
+        "mongo_dbuser": "bcuser",
+        "mongo_authdb": "bcdb",
+        "mongo_blockcollection": "block_node1",
+        "mongo_poolcollection": "pool_node1"
+    },
+    "event": {
+        "enable_internaltasks": false
+    },
+    "api": {
+        "rest": {
+            "password_encryption": false,
+            "userapi_port": 9001,
+            "userapi_user": "cc",
+            "userapi_password": "userapi-password",
+            "adminapi_port": 8001,
+            "adminapi_user": "admin",
+            "adminapi_password": "adminapi-password"
+        }
+
+    }
+}
