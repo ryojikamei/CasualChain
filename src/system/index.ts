@@ -18,6 +18,9 @@ import { ccBlockType } from "../block/index.js"
 import { internalEventFormat, ccEventType } from "../event/index.js"
 import { randomUUID } from "crypto"
 
+/**
+ * Defined internal tasks that run automatically
+ */
 type autoTasks = {
     postDeliveryPool: internalEventFormat,
     postAppendBlocks: internalEventFormat
@@ -25,6 +28,9 @@ type autoTasks = {
     postScanAndFixPool: internalEventFormat
 }
 
+/**
+ * System tasks that cannot be executed more than once at the same time
+ */
 type serializationLocks = {
     postDeliveryPool: boolean,
     postAppendBlocks: boolean,

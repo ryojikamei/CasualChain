@@ -75,7 +75,7 @@ export class ListnerV3UserApi {
     }
     /**
      * Abnormal return method
-     * @param api - set the api name
+     * @param module - set the api name
      * @param func - set the function/method name
      * @param pos - set the position in the func
      * @param message - set the error message
@@ -115,7 +115,6 @@ export class ListnerV3UserApi {
     /**
      * Register basic authentication and API endpoints
      * @param acore - set ccApiType instance
-     * @param conf - set apiConfigType
      * @returns returns with gResult type that contains express.Express if it's success, and unknown if it's failure.
      */
     public async init(acore: ccApiType): Promise<gResult<express.Express, unknown>> {

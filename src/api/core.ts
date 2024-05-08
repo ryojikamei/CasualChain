@@ -13,6 +13,9 @@ import { ccLogType } from "../logger/index.js";
 import { ListnerV3UserApi } from "./rest/user.js";
 import { ListnerV3AdminApi } from "./rest/admin.js";
 
+/**
+ * Provided APIs
+ */
 type ListnerApis = {
     firstApi: ListnerV3UserApi,
     secondApi: ListnerV3AdminApi
