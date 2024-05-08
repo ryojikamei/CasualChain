@@ -5,10 +5,14 @@ A blockchain core system that doesn't have any incentive features inside
 
 - Man shall not live by crypto currency alone
 
+# Documentation
+
+- [Code reference](https://ryojikamei.github.io/CasualChain/index.html)
+- [Overview(Japanese)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-ja.pdf)
 
 # Setup for evaluation
 
-Currently, no convenient setup program is provided. Future versions may simplify the setup process.
+Currently, no convenient setup program is provided. Future versions may simplify the setup process using npm
 
 ## Prerequirements: a Linux system that can run following components: 
 
