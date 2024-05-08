@@ -21,7 +21,6 @@ import { ccMainType } from '../main/index';
 import { randomOid } from '../utils.js';
 import { ccEventType, internalEventFormat } from '../event/index.js';
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
-import { boolean } from "zod";
 
 /**
  * The result of single block diagnostics

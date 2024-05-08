@@ -1,5 +1,5 @@
 {
 	"entryPointStrategy": "expand",
-	"entryPoints":["src/"],
+	"entryPoints":["src/","grpc/"],
 	"out": "docs"
 }
