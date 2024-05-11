@@ -212,7 +212,7 @@ export class CC {
         // Run post scripts after startup
         const ret12 = await core.i.lib.startServer(core.i);
         if (ret12.isFailure()) return ret12;
-        const ret13 = await core.i.lib.waitForRPCisOK(core.i, 10);
+        const ret13 = await core.i.lib.waitForRPCisOK(core.i, 100);
         if (ret13.isFailure()) return ret13;
         const ret14 = await core.k.lib.postSelfPublicKeys(core.k);
         if (ret14.isFailure()) return ret14;
