@@ -98,10 +98,10 @@ export class ApiModule {
         let firstApi;
         let secondApi;
         const ret1 = await core.lib.restApi.firstApi.init(core);
-        if (ret1.isFailure()) return this.aError("activateApi", "Init", "unknown error");
+        if (ret1.isFailure()) return this.aError("activateApi", "firstApi", "unknown error");
         firstApi = ret1.value
         const ret2 = await core.lib.restApi.secondApi.init(core);
-        if (ret2.isFailure()) return this.aError("activateApi", "Init", "unknown error");
+        if (ret2.isFailure()) return this.aError("activateApi", "secondApi", "unknown error");
         secondApi = ret2.value
 
         // Listen
@@ -111,6 +111,25 @@ export class ApiModule {
         } catch (error: any) {
             return this.aError("activateApi", "Listen", error.toString());
         }
+
+        return this.aOK<void>(undefined);
+    }
+
+    /**
+     * Deactivate APIs
+     * @param core  - set ccApiType
+     * @param log - set ccLogType
+     * @returns  returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async deactivateApi(core: ccApiType, log: ccLogType): Promise<gResult<void, gError>> {
+        const LOG = log.lib.LogFunc(log);
+        LOG("Info", 0, "ApiModule:deactivateApi");
+
+        const ret1 = await core.lib.restApi.firstApi.shutdown(core);
+        if (ret1.isFailure()) return this.aError("deactivateApi", "firstApi", "unknown error");
+        const ret2 = await core.lib.restApi.secondApi.shutdown(core);
+        if (ret2.isFailure()) return this.aError("deactivateApi", "secondApi", "unknown error");
 
         return this.aOK<void>(undefined);
     }

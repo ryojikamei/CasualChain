@@ -11,17 +11,40 @@
     
 import figlet from "figlet"
 
+import { gResult, gError } from "./utils.js";
+
 import { CC } from "./cc.js";
+import { ccType } from "./index.js";
 
 /**
  * The main
  */
-async function main() {
+async function main(): Promise<gResult<ccType, gError>> {
     console.log(figlet.textSync("CasualChain"));
 
     const lib: CC = new CC();
-    const core = await lib.init();
-
-
+    const ret = await lib.init();
+    if (ret.isFailure()) { return ret };
+    return ret;
 }
-main()
+const ret = await main()
+if (ret.isFailure()) {
+    console.log(JSON.stringify(ret));
+    process.exit(-1);
+};
+const core = ret.value;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+    console.log("");
+    console.log("Signal " + signal.toString() + " received. Shutting down...");
+    const ret = await core.lib.shutdown(core);
+    if (ret.isFailure()) {
+        console.log("WARNING: Shutdown process is aborted:");
+        console.log(JSON.stringify(ret.value));
+    } else {
+        process.exit(0);
+    }
+}
+process.on("SIGINT", (signal) => {shutdown(signal)});
+process.on("SIGTERM", (signal) => {shutdown(signal)});
+process.on("SIGQUIT", (signal) => {shutdown(signal)});

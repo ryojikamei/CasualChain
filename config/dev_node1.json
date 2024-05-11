@@ -45,10 +45,10 @@
         "verify_key_file": "dev_node1.pub"
     },
     "datastore": {
-        "password_encryption": true,
+        "password_encryption": false,
         "mongo_host": "127.0.0.1",
         "mongo_port": -1,
-        "mongo_password": "1fa5fb1e2bb073725cc85adc96417ce9$663c37ecaacc05b16cb50be1f0571db1$e8d10ab50c8a0f3061e976ac1b88fc04052126e34e8d400a033c17f7b39b3fde",
+        "mongo_password": "dev-password_27017",
         "mongo_dbname": "bcdb",
         "mongo_dbuser": "bcuser",
         "mongo_authdb": "admin",
@@ -60,13 +60,13 @@
     },
     "api": {
         "rest": {
-            "password_encryption": true,
+            "password_encryption": false,
             "userapi_port": 9001,
             "userapi_user": "cc",
-            "userapi_password": "4776caeb5fe0930389ca0e7bebd07f10$a6f0751d1b7d0946d36363770d028f69$0080a85f63b24990602262573b69a1c9",
+            "userapi_password": "userapi-password",
             "adminapi_port": 8001,
             "adminapi_user": "admin",
-            "adminapi_password": "3e3168a238569f7fd8e2cbb750b68582$53ff316e55e540fc427a9f04e73ecfd8$effcfbe78b67a64de22142b5fe93363e"
+            "adminapi_password": "adminapi-password"
         }
 
     }

@@ -245,4 +245,35 @@ export class CC {
 
         return this.wOK<ccType>(core);
     }
+
+    /**
+     * The shutdown process
+     * @param core - set ccType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async shutdown(core: ccType): Promise<gResult<void, gError>> {
+        const LOG = core.l.lib.LogFunc(core.l);
+
+        LOG("Notice", 0, "Close the api");
+        const ret1 = await core.a.lib.deactivateApi(core.a, core.a.log);
+        if (ret1.isFailure()) return ret1;
+
+        LOG("Notice", 0, "Block incoming requests from other nodes");
+        const ret2 = await core.i.lib.stopServer(core.i);
+        if (ret2.isFailure()) return ret2;
+
+        LOG("Notice", 0, "Unregister auto tasks");
+        const ret3 = core.s.lib.unregisterAutoTasks(core.s);
+
+        LOG("Notice", 0, "Flushing caching transactions to blocks");
+        if (core.s.conf.node_mode.startsWith("testing") === false) {
+            const ret4 = await core.s.lib.postDeliveryPool(core.s);
+            if (ret4.isFailure()) return ret4;
+            LOG("Notice", 0, "");
+            const ret5 = await core.s.lib.postAppendBlocks(core.s);
+            if (ret5.isFailure()) return ret5;
+        }
+        return this.wOK<void>(undefined);
+    }
 }

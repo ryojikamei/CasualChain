@@ -7,6 +7,8 @@
 import express from "express";
 import basicAuth from "express-basic-auth";
 
+import { setInterval } from "timers/promises";
+
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { ccApiType } from "../index.js";
@@ -82,6 +84,21 @@ export class ListnerV3AdminApi {
     }
 
     /**
+     * The express API handler
+     */
+    protected api: express.Express;
+
+    /**
+     * Count the number of running APIs
+     */
+    protected runcounter: number;
+
+    constructor() {
+        this.api = express();
+        this.runcounter = 0;
+    }
+
+    /**
      * Basic authentication helper method to return unauthorized response
      * @param req - request body 
      * @returns returns req.auth
@@ -101,17 +118,18 @@ export class ListnerV3AdminApi {
         const LOG = acore.log.lib.LogFunc(acore.log);
         LOG("Info", 0, "AdminApi:init");
 
-        const api: express.Express = express();
-        api.use(express.json({ limit: '16777216b' }));
-        api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
+        this.api.use(express.json({ limit: '16777216b' }));
+        this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
         const authUser = acore.conf.rest.adminapi_user;
         const authPassword = acore.conf.rest.adminapi_password;
-        api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
+        this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
 
-        api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-initbc");
             if (acore.s !== undefined) {
+                this.runcounter++;
                 acore.s.lib.postGenesisBlock(acore.s, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/initbc"));
                     }
@@ -124,10 +142,12 @@ export class ListnerV3AdminApi {
             }
         });
 
-        api.post("/sys/syncblocked", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/syncblocked", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-syncblocked");
             if (acore.s !== undefined) {
+                this.runcounter++;
                 acore.s.lib.postScanAndFixBlock(acore.s, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/syncblocked"));
                     }
@@ -140,10 +160,12 @@ export class ListnerV3AdminApi {
             }
         });
 
-        api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-syncpooling");
             if (acore.s !== undefined) {
+                this.runcounter++;
                 acore.s.lib.postScanAndFixPool(acore.s, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/syncpooling"));
                     }
@@ -156,15 +178,16 @@ export class ListnerV3AdminApi {
             }
         });
         
-        return this.adminOK<express.Express>(api);
+        return this.adminOK<express.Express>(this.api);
     }
 
     /**
      * Listen the port to accept calls of REST-like APIs
      * @param acore - set ccApiType
      * @param api - set express.Express that can be get in the initialization process
+     * @returns - returns no useful return value
      */
-    public async listen(acore: ccApiType, api: express.Express) {
+    public async listen(acore: ccApiType, api: express.Express): Promise<void> {
         const LOG = acore.log.lib.LogFunc(acore.log);
         api.listen(acore.conf.rest.adminapi_port, () => {
             LOG("Info", 0, "AdminApi:Listen");
@@ -172,6 +195,42 @@ export class ListnerV3AdminApi {
     
     }
 
+    /**
+     * Block any further API access 
+     * @param acore - set ccApiType
+     * @param api - set express.Express that can be get in the initialization process
+     * @returns - returns no useful return value
+     */
+    public async shutdown(acore: ccApiType): Promise<gResult<void, unknown>> {
+        const LOG = acore.log.lib.LogFunc(acore.log);
+        LOG("Info", 0, "AdminApi:shutdown");
 
+        const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
+
+        this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/initbc"));
+        });
+        this.api.post("/sys/syncblocked", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncblocked"));
+        });
+        this.api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncpooling"));
+        });
+
+        let retry: number = 60;
+        for await (const currentrun of setInterval(1000, this.runcounter, undefined)) {
+            if (currentrun === 0) {
+                return this.adminOK<void>(undefined);
+            } else {
+                LOG("Notice", 0, "UserApi:some APIs are still running.");
+                retry--;
+            }
+            if (retry === 0) {
+                LOG("Warning", 0, "UserApi:gave up all APIs to terminate.");
+            }
+        }
+
+        return this.adminOK<void>(undefined);
+    }
 
 }

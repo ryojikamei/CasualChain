@@ -81,12 +81,15 @@ export class InModule {
     protected master_key: string
     protected common_parsel: string
 
+    protected server: grpc.Server
+
     constructor(log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType) {
         this.log = log;
         this.score = systemInstance;
         this.bcore = blockInstance;
         this.master_key = RUNTIME_MASTER_IDENTIFIER;
         this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
+        this.server = new grpc.Server();
     }
 
     /**
@@ -131,15 +134,12 @@ export class InModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "InModule:startServer");
 
-        let server: grpc.Server;
-        if (serverInstance === undefined) {
-            server = new grpc.Server();
-        } else {
-            server = serverInstance;
+        if (serverInstance !== undefined) {
+            this.server = serverInstance;
         }
         //addReflection(server, "./grpc/systemrpc_descriptor.pb");
         try {
-            server.addService(systemrpc_grpc.gSystemRpcService,
+            this.server.addService(systemrpc_grpc.gSystemRpcService,
                 new gSystemRpcServer(this.pingCallback, this.addPoolCallback, this.addBlockCa2Callback, 
                     this.addBlockCa3Callback,this.getPoolHeightCallback, this.getBlockHeightCallback,
                     this.getBlockDigestCallback, this.getBlockCallback, 
@@ -150,12 +150,31 @@ export class InModule {
             let creds: grpc.ServerCredentials;
             LOG("Notice", 0, "Inter-node server starts");
             creds = grpc.ServerCredentials.createInsecure();
-            server.bindAsync("0.0.0.0:" + core.conf.self.rpc_port, creds, () => {
+            this.server.bindAsync("0.0.0.0:" + core.conf.self.rpc_port, creds, () => {
                 LOG("Info", 0, "InModule:Listen");
             })
         } catch (error: any) {
             return this.iError("startServer", undefined, error.toString());
         }
+        return this.iOK<void>(undefined);
+    }
+
+    /**
+     * Stop gRPC server
+     * @param core - set ccInType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async stopServer(core: ccInType): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:stopServer");
+
+        const promisedTryShutdown = promisify(this.server.tryShutdown).bind(this.server);
+        await promisedTryShutdown()
+        .then(() => {})
+        .catch((error: any) => {
+            return this.iError("stopServer", undefined, error.toString());
+        })
         return this.iOK<void>(undefined);
     }
 

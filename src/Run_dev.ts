@@ -68,7 +68,7 @@ const node2 = childProcess.spawn("node", ["--experimental-specifier-resolution",
 console.log("== PID: " + node2.pid + " is starting with using configuration file dev_node2.json ==")
 
 
-function cleanup(signal: NodeJS.Signals) {
+async function cleanup(signal: NodeJS.Signals) {
     try {
         if (node2.pid !== undefined) process.kill(node2.pid, signal);
     } catch (error) {
@@ -76,6 +76,11 @@ function cleanup(signal: NodeJS.Signals) {
     }
     try {
         if (node1.pid !== undefined) process.kill(node1.pid, signal);
+    } catch (error) {
+        // no problem
+    }
+    try {
+        await server.stop();
     } catch (error) {
         // no problem
     }
