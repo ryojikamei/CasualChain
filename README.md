@@ -19,7 +19,7 @@ Currently, no convenient setup program is provided. Future versions may simplify
 - Node.js 18 (20 will be supported soon)
 - OpenSSL (probably already installed)
 - Git
-- 4.4 =< MongoDB =< 6.0 (required transaction feature. 6.1 - 6.5 was not tested but they may work. 7.0 will be supported later)
+- 4.4 =< MongoDB =< 7.0 (required transaction feature.)
 
 Here is a installation example for ubuntu 22.04:
 ```
@@ -30,11 +30,11 @@ $ sudo n 18
 $ sudo apt purge nodejs npm
 $ sudo apt autoremove
 $ sudo apt install gnupg curl
-$ curl -fsSL https://www.mongodb.org/static/pgp/server-6.0.asc | \
-  sudo gpg -o /usr/share/keyrings/mongodb-server-6.0.gpg \
+$ curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+  sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
   --dearmor
-$ echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-6.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | \
-  sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+$ echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | \
+  sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 $ sudo apt update
 $ sudo apt install -y mongodb-org
 ``` 
@@ -159,6 +159,7 @@ $ sudo systemctl restart mongod
 Unfinished configuration files are provided.
 
 ```
+$ cp -a config/template/* .
 $ ls config/prod_*
 config/prod_node1.json        config/prod_node2.json
 config/prod_node3.json
