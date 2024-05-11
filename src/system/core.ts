@@ -170,7 +170,7 @@ export class SystemModule {
 
     /**
      * Rester auto tasks, such as blocking
-     * @param core  - set ccSystemType instance
+     * @param core - set ccSystemType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and unknown if it's failure.
      */
     public registerAutoTasks(core: ccSystemType): gResult<void, unknown> {
@@ -238,6 +238,25 @@ export class SystemModule {
             postDeliveryPool: event3,
             postAppendBlocks: event4
         }
+
+        return this.sOK<void>(undefined);
+    }
+
+    /**
+     * Unregister auto tasks
+     * @param core - set ccSystemType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and unknown if it's failure.
+     */
+    public unregisterAutoTasks(core: ccSystemType): gResult<void, unknown> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "SystemModule:unregisterAutoTasks");
+
+        core.autoTasks = undefined;
+
+        if (core.e === undefined) {
+            return this.sError("resiterAutoTasks", "registerInternalEvent", "The event module is down");
+        }
+        core.e.lib.unregisterAllInternalEvents(core.e);
 
         return this.sOK<void>(undefined);
     }

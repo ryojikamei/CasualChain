@@ -37,8 +37,11 @@ export class EventModule {
 
     protected eventQueue: { internal: internalEventFormat[] }
 
+    protected runcounter: number
+
     constructor() {
         this.eventQueue = { internal: [] };
+        this.runcounter = 0;
     }
 
     /**
@@ -90,6 +93,32 @@ export class EventModule {
         }
 
         return this.eOK<string>(event.eventId);
+    }
+
+    /**
+     * Unregister internal events and wait for all events to finish
+     * @param core - set ccEventType instance
+     * @returns returns no useful values
+     */
+    public async unregisterAllInternalEvents(core: ccEventType): Promise<gResult<void, unknown>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "EventModule:unregisterAllInternalEvents");
+
+        core.lib.eventQueue.internal = [];
+
+        let retry: number = 60;
+        for await (const currentrun of setInterval(1000, this.runcounter, undefined)) {
+            if (currentrun === 0) {
+                return this.eOK<void>(undefined);
+            } else {
+                LOG("Notice", 0, "EventModule:some events are still running.");
+                retry--;
+            }
+            if (retry === 0) {
+                LOG("Warning", 0, "UserApi:gave up all events to finish.");
+            }
+        }
+        return this.eOK<void>(undefined);
     }
 
     /**
@@ -167,9 +196,12 @@ export class EventModule {
                         LOG("Info", 0, "EventModule:eventLoop:It's time to run " + event.methodPath);
                         try {
                             event.status = "run";
+                            this.runcounter++;
                             event.executionResult = await core.lib.runInternalMethod(core, event.methodPath, event.methodArgs)
+                            this.runcounter--;
                             event.status = "done";
                         } catch (error: any) {
+                            this.runcounter--;
                             event.status = "error";
                             event.executionResult = this.eError("eventLoop", "method", error.toString());
                             LOG("Info", 0, "EventModule:eventLoop:registered internal method " + event.methodPath + " cannot be run properly:" + JSON.stringify(event.executionResult));

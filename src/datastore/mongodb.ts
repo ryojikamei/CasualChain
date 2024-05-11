@@ -372,7 +372,8 @@ export class BackendDbSubModule {
     public async blockAppendToDb(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, 
         wcache: objBlock[], __t: string): Promise<gResult<InsertManyResult, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockAppendToDb:" + JSON.stringify(wcache));
+        LOG("Info", 0, "mongodb:blockAppendToDb");
+        LOG("Debug", 0, "mongodb:blockAppendToDb:" + JSON.stringify(wcache));
 
         let res: dbInsertionResult = {
             status: 0,

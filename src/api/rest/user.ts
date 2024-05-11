@@ -7,6 +7,8 @@
 import express from "express";
 import basicAuth from "express-basic-auth";
 
+import { setInterval } from "timers/promises";
+
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { ccApiType } from "../index.js";
@@ -102,6 +104,21 @@ export class ListnerV3UserApi {
     }
 
     /**
+     * The express API handler
+     */
+    protected api: express.Express;
+
+    /**
+     * Count the number of running APIs
+     */
+    protected runcounter: number;
+
+    constructor() {
+        this.api = express();
+        this.runcounter = 0;
+    }
+
+    /**
      * Basic authentication helper method to return unauthorized response
      * @param req - request body 
      * @returns returns req.auth
@@ -121,17 +138,18 @@ export class ListnerV3UserApi {
         const LOG = acore.log.lib.LogFunc(acore.log);
         LOG("Info", 0, "UserApi:init");
 
-        const api: express.Express = express();
-        api.use(express.json({ limit: '16777216b' }));
-        api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
+        this.api.use(express.json({ limit: '16777216b' }));
+        this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
         const authUser = acore.conf.rest.userapi_user;
         const authPassword = acore.conf.rest.userapi_password;
-        api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
+        this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
 
-        api.get("/get/byjson", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-byjson");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getSearchByJson(acore.m, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/byjson"));
                     }
@@ -144,10 +162,12 @@ export class ListnerV3UserApi {
             }
         });
 
-        api.get("/get/byoid/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/byoid/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-byoid");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getSearchByOid(acore.m, req.params.oid, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/byoid"));
                     }
@@ -162,10 +182,12 @@ export class ListnerV3UserApi {
             }
         });
 
-        api.get("/get/alltxs", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/alltxs", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-alltxs");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getAll(acore.m, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/alltxs"));
                     }
@@ -178,10 +200,12 @@ export class ListnerV3UserApi {
             }
         });
 
-        api.get("/get/blocked", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/blocked", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-blocked");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getAllBlock(acore.m, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/blocked"));
                     }
@@ -194,10 +218,12 @@ export class ListnerV3UserApi {
             }
         });
 
-        api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-histrory");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getHistoryByOid(acore.m, req.params.oid, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/history"));
                     }
@@ -210,10 +236,12 @@ export class ListnerV3UserApi {
             }
         });
 
-        api.post("/post/byjson", (req: express.Request, res: express.Response) => {
+        this.api.post("/post/byjson", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:post-byjson");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.postByJson(acore.m, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/post/byjson"));
                     }
@@ -226,15 +254,16 @@ export class ListnerV3UserApi {
             }
         });
         
-        return this.userOK<express.Express>(api);
+        return this.userOK<express.Express>(this.api);
     }
 
     /**
      * Listen the port to accept calls of REST-like APIs
      * @param acore - set ccApiType
      * @param api - set express.Express that can be get in the initialization process
+     * @returns - returns no useful return value
      */
-    public async listen(acore: ccApiType, api: express.Express) {
+    public async listen(acore: ccApiType, api: express.Express): Promise<void> {
         const LOG = acore.log.lib.LogFunc(acore.log);
         api.listen(acore.conf.rest.userapi_port, () => {
             LOG("Info", 0, "UserApi:Listen");
@@ -242,6 +271,51 @@ export class ListnerV3UserApi {
     
     }
 
+    /**
+     * Block any further API access 
+     * @param acore - set ccApiType
+     * @param api - set express.Express that can be get in the initialization process
+     * @returns - returns no useful return value
+     */
+    public async shutdown(acore: ccApiType): Promise<gResult<void, unknown>> {
+        const LOG = acore.log.lib.LogFunc(acore.log);
+        LOG("Info", 0, "UserApi:shutdown");
 
+        const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
+
+        this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/byjson"));
+        });
+        this.api.get("/get/byoid/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/byoid/:oid(\\w{24})"));
+        });
+        this.api.get("/get/alltxs", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/alltxs"));
+        });
+        this.api.get("/get/blocked", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/blocked"));
+        });
+        this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/history/:oid(\\w{24})"));
+        });
+        this.api.post("/post/byjson", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/post/byjson"));
+        });
+
+        let retry: number = 60;
+        for await (const currentrun of setInterval(1000, this.runcounter, undefined)) {
+            if (currentrun === 0) {
+                return this.userOK<void>(undefined);
+            } else {
+                LOG("Notice", 0, "UserApi:some APIs are still running.");
+                retry--;
+            }
+            if (retry === 0) {
+                LOG("Warning", 0, "UserApi:gave up all APIs to terminate.");
+            }
+        }
+
+        return this.userOK<void>(undefined);
+    }
 
 }
