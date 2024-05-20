@@ -10,25 +10,93 @@ A blockchain core system that doesn't have any incentive features inside
 - [Code reference](https://ryojikamei.github.io/CasualChain/index.html)
 - [Overview(Japanese)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-ja.pdf)
 
-# Setup for evaluation
+# Try to run a demo
 
-Currently, no convenient setup program is provided. Future versions may simplify the setup process using npm
+## Setup path
 
-## Prerequirements: a Linux system that can run following components: 
+There are three different ways:
 
-- Node.js 18 (20 will be supported soon)
-- OpenSSL (probably already installed)
-- Git
-- 4.4 =< MongoDB =< 7.0 (required transaction feature.)
+1. Building from the code (Current recommendation)
+2. Using npm
+3. Downloading SEA (In preparation)
 
-Here is a installation example for ubuntu 22.04:
+In any case, a Linux system with MongoDB version 4.4 or higher can be installed is required.
+CasualChain also uses OpenSSL commands directly. This is usually already installed.
+
+
+## When building from the code
+
+### Install the Node.js
+
+Version 18.x is tested. 20.x is testing.
+Here is a installation example for ubuntu 22.04.
 ```
-$ sudo apt install git
 $ sudo apt install nodejs npm
 $ sudo npm install n -g
 $ sudo n 18
 $ sudo apt purge nodejs npm
 $ sudo apt autoremove
+```
+
+### Download and compile the code
+
+```
+$ sudo apt install git
+$ git clone https://github.com/ryojikamei/CasualChain.git
+$ cd CasualChain
+$ npm install
+$ npm run build
+```
+
+## When using npm
+
+Registered in npm, but not a library, so not a very smart way to do it.
+In future versions, the core will be made into a library, which will be more useful.
+
+### Install the Node.js
+
+```
+$ sudo apt install nodejs npm
+$ sudo npm install n -g
+$ sudo n 18
+$ sudo apt purge nodejs npm
+$ sudo apt autoremove
+```
+
+### Install CasualChain
+
+```
+$ npm install casualchain
+$ cd node_modules/casualchain
+$ ln -s systemrpc_grpc_pb.cjs  grpc/systemrpc_grpc_pb.js
+$ ln -s systemrpc_pb.cjs  grpc/systemrpc_pb.js
+$ npm install
+```
+
+### When downloading SEA (In preparation)
+
+This way is under preparation
+
+## Run a demo
+
+```
+$ npm run demo
+```
+Demo can be stopped with Ctrl-C.
+APIs are listed in the overview pdf file.
+
+
+# Run for a evaluation
+
+The two startup modes - dev, and demo - build the MongoDB on volatile memory.
+When starting in evaluation, MongoDB must be configured as normal.
+
+## MongoDB installation
+
+CasualChain stores blocked data in MongoDB. Version 4.4 or higher is required because CasualChain requires the transaction feature.
+
+Here is a installation example for ubuntu 22.04. MongoDB for ubuntu 24.04 does not yet exist.
+```
 $ sudo apt install gnupg curl
 $ curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
   sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
@@ -37,43 +105,13 @@ $ echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.
   sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 $ sudo apt update
 $ sudo apt install -y mongodb-org
-``` 
-MongoDB server can also be run on a different node than the one running CasualChain. However, some of the api tests require MongoDB tools.
-
-## Get the code
-
-```
-$ git clone https://github.com/ryojikamei/CasualChain.git
-$ cd CasualChain
-```
-or download the zip and unzip it instead.
-
-
-## Build the tree
-
-```
-$ npm install
-$ npm run build
 ```
 
-## Prepare a private key to run a node
+## A pair of private key and public key to run a node
 
-One private key is required to create a block. If you have your own unique private key, use it. Alternatively, create it as follows
-
-```
-$ openssl genpkey -algorithm ed25519 -out config/example_ca.key
-
-```
-
-By default, CasualChain automatically generates the necessary files based on example_ca.key under config. Please put your private key here.
-
-## Run a demo
-
-Try to see if the demo is bootable. This process can be skipped. Demo can be stopped with Ctrl-C.
-
-```
-$ npm run demo
-```
+Required keys are automatically generated upon initial startup.
+They will be in config/<run mode>_<node name>.key and config/<run mode>_<node name>.pub.
+Alternatively, you may use keys you have provided.
 
 ## MongoDB configuration
 
@@ -154,7 +192,7 @@ bcdb3> <exit with Ctrl-D>
 $ sudo systemctl restart mongod
 ```
 
-### Create configuration file for each instance
+### Put configuration file for each instance
 
 Unfinished configuration files are provided.
 
@@ -167,7 +205,7 @@ config/prod_node3.json
 
 There is one configuration file per node.
 
-#### Make configuration file for community edition
+### Edit configuration files
 
 Edit the three files, prod_node1.json, prod_node2.json, and prod_node3.json, and activate them as configuration files.
 The following is a list of the parts of each file that need to be modified.
