@@ -141,7 +141,7 @@ export class CC {
 
         LOG("Notice", 0, "Initialize Event: ", {lf: false});
         const elib: EventModule = new EventModule();
-        const ret9 = await elib.init(c.e, l);
+        const ret9 = elib.init(c.e, l);
         if (ret9.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
         } else {
@@ -205,26 +205,45 @@ export class CC {
         // Early access for debugging/testing only
         if (core.s.conf.node_mode.startsWith("testing") === true) {
             const ret11 = await core.a.lib.activateApi(core.a, core.a.log);
-            if (ret11.isFailure()) return ret11;
+            if (ret11.isFailure()) { 
+                LOG("Error", 0, JSON.stringify(ret11.value));
+                process.exit(11); 
+            }
             LOG("Notice", 0, "Now open the api");
         }
 
         // Run post scripts after startup
         const ret12 = await core.i.lib.startServer(core.i);
-        if (ret12.isFailure()) return ret12;
+        if (ret12.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret12.value));
+            process.exit(12); 
+        }
         const ret13 = await core.i.lib.waitForRPCisOK(core.i, 100);
-        if (ret13.isFailure()) return ret13;
+        if (ret13.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret13.value));
+            process.exit(13); 
+        }
         const ret14 = await core.k.lib.postSelfPublicKeys(core.k);
-        if (ret14.isFailure()) return ret14;
+        if (ret14.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret14.value));
+            process.exit(14); 
+        }
         const ret15 = await core.k.lib.refreshPublicKeyCache(core.k, true);
-        if (ret15.isFailure()) return ret15;
-        if (core.s.conf.node_mode === "testing+init") {
-            LOG("Notice", 0, "Initializing blockchain on a volatile storage: ", {lf: false});
-            const ret16 = await core.s.lib.postGenesisBlock(core.s);
-            if (ret16.isSuccess()) {
-                LOG("Notice", 0, "[ OK ]");
-            } else {
-                LOG("Notice", 0, "The IPC have not been activated yet. Run /sync/gen later.");
+        if (ret15.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret15.value));
+            process.exit(15); 
+        }
+        if (core.s.conf.node_mode.endsWith("+init") === true) {
+            const ret16 = await core.m.lib.getLastBlock(core.m);
+            if (ret16.value === undefined) {
+                LOG("Notice", 0, "Initializing the blockchain: ", {lf: false});
+                const ret17 = await core.s.lib.postGenesisBlock(core.s);
+                if (ret17.isSuccess()) {
+                    LOG("Notice", 0, "[ OK ]");
+                } else {
+                    LOG("Error", 0, JSON.stringify(ret17.value));
+                    process.exit(17); 
+                }
             }
         }
 
@@ -238,8 +257,11 @@ export class CC {
 
         // Finally open the api
         if (core.s.conf.node_mode.startsWith("testing") === false) {
-            const ret17 = await core.a.lib.activateApi(core.a, core.a.log);
-            if (ret17.isFailure()) return ret17;
+            const ret18 = await core.a.lib.activateApi(core.a, core.a.log);
+            if (ret18.isFailure()) {
+                LOG("Error", 0, JSON.stringify(ret18.value));
+                process.exit(18); 
+            }
             LOG("Notice", 0, "Now open the api");
         }
 

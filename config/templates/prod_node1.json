@@ -17,7 +17,7 @@
         }
     },
     "system": {
-        "node_mode": "standard",
+        "node_mode": "standard+init",
         "events_internal": {
             "postScanAndFixBlockIntervalHours": 5,
             "postScanAndFixPoolIntervalHours": 5,

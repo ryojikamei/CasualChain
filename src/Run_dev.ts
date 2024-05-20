@@ -7,6 +7,8 @@
 process.env.SUPPRESS_NO_CONFIG_WARNING="1"
 process.env.NODE_CONFIG_STRICT_MODE="0";
 process.env.NODE_CONFIG_ENV="dev_node1";
+process.env.GRPC_VERBOSITY="DEBUG";
+process.env.GRPC_TRACE="all";
 
 import nodeConfig from "config";
 import { ConfigModule, dsConfigType } from "./config/index.js";
@@ -60,7 +62,7 @@ process.env.MONGO_MS_PORT=server.getUri().split(":")[2].split("/")[0];
 import childProcess from "child_process";
 
 
-const node1 = childProcess.spawn("node", ["--experimental-specifier-resolution", "node", "dist/server.js"], { detached: true, stdio: "ignore" });
+const node1 = childProcess.spawn("node", ["--experimental-specifier-resolution", "node", "dist/server.js"], { detached: true, stdio: "inherit" });
 console.log("== PID: " + node1.pid + " is starting with using configuration file dev_node1.json (stdio is ignored) ==")
 
 process.env.NODE_CONFIG_ENV="dev_node2";
