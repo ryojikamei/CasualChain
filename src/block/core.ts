@@ -125,7 +125,7 @@ export class BlockModule {
             if ((core.algorithm.travelingIds[trackingId] === undefined) || 
             ((core.algorithm.travelingIds[trackingId] !== undefined) && 
             (core.algorithm.travelingIds[trackingId].timeoutMs <= currentTimeMs))) {
-                core.algorithm.setupCreator(core, txArr, currentTimeMs, lifeTimeMs, trackingId, commonId);
+                core.algorithm.setupCreator(core, blockOptions.type, txArr, __t, currentTimeMs, lifeTimeMs, trackingId, commonId);
                 const ret1: gResult<Ca3ReturnFormat, gError> = await core.algorithm.proceedCreator(core, pObj, txArr, trackingId, __t, blockOptions);
                 if (ret1.isFailure()) {
                     if (ret1.value.origin.pos === "Timeout") {
@@ -134,7 +134,8 @@ export class BlockModule {
                             lifeTime = core.conf.ca3.maxLifeTime;
                         }
                     } else {
-                        return ret1;
+                        LOG("Debug", 0, "BlockModule:createBlock:proceedCreator:" + JSON.stringify(ret1));
+                        //return ret1;
                     }
                 }
             }

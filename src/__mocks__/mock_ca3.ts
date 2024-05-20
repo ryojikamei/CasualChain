@@ -51,6 +51,8 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
         finished: packet.finished,
         stored: packet.stored,
         timeoutMs: packet.timeoutMs,
+        type: packet.type,
+        tenant: packet.tenant,
         txOids: packet.txOids,
         block: packet.block
     }
@@ -111,25 +113,26 @@ export async function verifyABlock(core: ccBlockType, bObj: Ca3BlockFormat, trac
     }
 }
 
-export function setupCreator(core: ccBlockType, data: objTx[] | undefined, startTimeMs: number, lifeTimeMs: number, trackingId: string): gResult<string, unknown> {
-    
+export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t: string, startTimeMs: number, lifeTimeMs: number, trackingId: string, commonId?: string): gResult<string, unknown> {    
     const timeoutMs = startTimeMs + lifeTimeMs;
     if (travelingIds[trackingId] === undefined) {
         // The target oids
-        let oidList: string[] | undefined = [];
-        if ((data !== undefined) && (data.length !== 0)) {
+        let oidList: string[] = [];
+        if (data.length !== 0) {
             let tx: any;
             for (tx of data) {
                 oidList.push(tx._id.toString());
             }
         } else {
-            oidList = undefined;
+            oidList = [];
         }
         // generate new tracking ID and register
         travelingIds[trackingId] = {
             finished: false,
             stored: false,
             timeoutMs: timeoutMs,
+            type: type,
+            tenant: __t,
             txOids: oidList,
             block: undefined
         }

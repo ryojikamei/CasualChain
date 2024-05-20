@@ -74,7 +74,9 @@ export type Ca3TravelingIdFormat = {
         finished: boolean,
         stored: boolean,
         timeoutMs: number,
-        txOids: string[] | undefined,
+        type: string,
+        tenant: string,
+        txOids: string[],
         block: Ca3BlockFormat | undefined
     }
 }
@@ -86,7 +88,9 @@ export type Ca3TravelingIdFormat2 = {
     finished: boolean,
     stored: boolean,
     timeoutMs: number,
-    txOids: string[] | undefined,
+    type: string,
+    tenant: string,
+    txOids: string[],
     block: Ca3BlockFormat | undefined
 }
 
@@ -165,7 +169,7 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
     LOG("Debug", 0, "CA3:declareCreation:result:" + JSON.stringify(rets));
     for (const ret of rets) {
         if (ret.status === 0) {
-            if (ret.data === "1") {// Already started
+            if (Number(ret.data) < 0) {// Already started
                 return ca3Error("declareCreation", "sendRpcAll", "Already started");
             }
         } else {
@@ -178,7 +182,6 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
             }
         }
     }
-
     return ca3OK<ccBlockType>(core);
 }
 
@@ -186,51 +189,66 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
  * Add oids to the list of under generation to suppress the generation of blocks at this node.
  * @param core - set ccBlockType instance
  * @param packet - set traveled block and its properties with Ca3TravelingIdFormat2
- * @returns returns with gResult type that contains ccSystemType if it's success, and unknown if it's failure.
- * So there is no need to be concerned about the failure status.
+ * @returns returns with gResult type that contains ccSystemType if it's success, and gError if it's failure.
  * On success, if some or all of the sent oids appear to be becoming blocked, it returns negative value.
  * Otherwise, including if it has the same tracking ID, it returns positive value.
  * 
  */
-export async function requestToDeclareBlockCreation(core: ccBlockType, packet: Ca3TravelingIdFormat2): Promise<gResult<number, unknown>> {
+export async function requestToDeclareBlockCreation(core: ccBlockType, packet: Ca3TravelingIdFormat2): Promise<gResult<number, gError>> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:requestToDeclareBlockCreation:" + packet.trackingId);
 
     // Except new (first time) and timeout
     // Checks to see if the sent oid does not exist in the list of oids (idList) that has already been started.
     if (travelingIds[packet.trackingId] === undefined) {
-        if ((packet.txOids !== undefined) && (packet.txOids.length !== 0)) {
-            const travelings = Object.keys(travelingIds);
-            let idList: string[] = [];
-            for (const traveling of travelings) {
-                const id = travelingIds[traveling].txOids;
-                if (id !== undefined) {
-                    idList = idList.concat(id);
+        const travelings = Object.keys(travelingIds);
+        switch (packet.type) {
+            case "data":
+                let idList: string[] = [];
+                for (const traveling of travelings) {
+                    if (travelingIds[traveling].type !== "data") { continue };
+                    idList = idList.concat(travelingIds[traveling].txOids);
                 }
-            }
-            for (const id of idList) {
-                if ((packet.txOids !== undefined) && (packet.txOids.includes(id))) {
-                    LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate");
-                    LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:txOids:" + JSON.stringify(packet.txOids));
-                    LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:idList:" + JSON.stringify(idList));
-                    return ca3OK<number>(packet.timeoutMs * -1);
+                for (const id of idList) {
+                    if (packet.txOids.includes(id)) {
+                        LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Cancelled due to duplication of some oids");
+                        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:txOids:" + JSON.stringify(packet.txOids));
+                        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:idList:" + JSON.stringify(idList));
+                        return ca3OK<number>(-101);
+                    }
                 }
-            }
+                break;
+            case "genesis":
+            case "parcel_open":
+            case "parcel_close":
+                for (const traveling of travelings) {
+                    if (travelingIds[traveling].type !== packet.type) { continue };
+                    if (travelingIds[traveling].tenant === packet.tenant) {
+                        LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Cancelled due to collision of " + packet.type +  " block creation");
+                        return ca3OK<number>(-102);
+                    }
+                }
+                break;
+            default:
+                LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Unknown packet type " + packet.type);
+                return ca3Error("requestToDeclareBlockCreation", "packetType", "Unknown packet type " + packet.type);
         }
         // register
         travelingIds[packet.trackingId] = {
             finished: packet.finished,
             stored: packet.stored,
             timeoutMs: packet.timeoutMs,
+            type: packet.type,
+            tenant: packet.tenant,
             txOids: packet.txOids,
             block: packet.block
         }
         LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:register:" + JSON.stringify(travelingIds[packet.trackingId]));
-        return ca3OK<number>(travelingIds[packet.trackingId].timeoutMs);
+        return ca3OK<number>(101);
     } else { // For retry request, from same node with same trackingId, update the timeout
         LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:retry");
         travelingIds[packet.trackingId].timeoutMs = packet.timeoutMs;
-        return ca3OK<number>(travelingIds[packet.trackingId].timeoutMs);
+        return ca3OK<number>(102);
     }
 }
 
@@ -753,7 +771,9 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
 /**
  * Set up the block generator
  * @param core - set ccBlockType instance
+ * @param type - set block type
  * @param data - set target transactions
+ * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
  * @param startTimeMs - set starting time in ms
  * @param lifeTimeMs - set life time against starting time in ms
  * @param trackingId - set trackingId to trace
@@ -761,7 +781,7 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @returns returns with gResult type that contains the trackingId of the starting process if it's success, and unknown if it's failure.
  * So there is no need to be concerned about the failure status.
  */
-export function setupCreator(core: ccBlockType, data: objTx[] | undefined, startTimeMs: number, lifeTimeMs: number, trackingId: string, commonId?: string): gResult<string, unknown> {
+export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t: string, startTimeMs: number, lifeTimeMs: number, trackingId: string, commonId?: string): gResult<string, unknown> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:setupCreator");
 
@@ -778,20 +798,35 @@ export function setupCreator(core: ccBlockType, data: objTx[] | undefined, start
     const timeoutMs = startTimeMs + lifeTimeMs;
     if (travelingIds[trackingId] === undefined) {
         // The target oids
-        let oidList: string[] | undefined = [];
-        if ((data !== undefined) && (data.length !== 0)) {
-            let tx: any;
-            for (tx of data) {
-                oidList.push(tx._id.toString());
-            }
-        } else {
-            oidList = undefined;
+        let oidList: string[] = [];
+        let tenant: string = __t;
+        switch (type) {
+            case "data":
+                for (const tx of data) {
+                    oidList.push(tx._id.toString());
+                }
+                LOG("Debug", 0, "CA3:setupCreator:creating data block for:" + JSON.stringify(oidList));
+                break;
+            case "genesis":
+                LOG("Debug", 0, "CA3:setupCreator:creating genesis block for:" + common_parsel);
+                tenant = common_parsel;
+                break;
+            case "parcel_open":
+                LOG("Debug", 0, "CA3:setupCreator:creating parcel_open block for:" + __t);
+                break;
+            case "parcel_close":
+                LOG("Debug", 0, "CA3:setupCreator:creating parcel_close block for:" + __t);
+                break;
+            default:
+                return ca3Error("setupCreator", "prepareDeclareCreation", "unknown block type:" + type);
         }
         // generate new tracking ID and register
         travelingIds[trackingId] = {
             finished: false,
             stored: false,
             timeoutMs: timeoutMs,
+            type: type,
+            tenant: tenant,
             txOids: oidList,
             block: undefined
         }
@@ -814,26 +849,16 @@ export function setupCreator(core: ccBlockType, data: objTx[] | undefined, start
  * @param blockOptions - can set blocking options with createBlockOptions
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
-export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: any, 
-    trackingId: string, __t: string, blockOptions?: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
+export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: objTx[], 
+    trackingId: string, __t: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:proceedCreator");
     
-    if (blockOptions === undefined) {
-        blockOptions = { type: "data" }
-    }
     let ret1: Ca3ReturnFormat = {
         status: 0,
         detail: ""
     };
 
-    // The target oids
-    let oidList: string[] = [];
-    if (data !== undefined) {
-        for (const tx of data) {
-            oidList.push(tx._id.toString());
-        }
-    }
     // suppression request => have the parameter adjusted according to the result
     const ret2 = await declareCreation(core, trackingId);
     if (ret2.isFailure()) {
@@ -841,7 +866,7 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
         travelingIds[trackingId].block = undefined;
         return ret2;
     }
-    core = ret2.value;
+    if ((core.i !== undefined) && (ret2.value.i !== undefined)) core.i.conf = ret2.value.i.conf;
 
     // block creation
     const ret3 = packTxsToANewBlockObject(core, pObj, data, trackingId, __t, blockOptions);

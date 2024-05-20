@@ -10,6 +10,8 @@ import { ccSystemType } from "../system"
 import { ccBlockType } from "../block"
 import { ccKeyringType } from "../keyring"
 
+import systemrpc_grpc from "../../grpc/systemrpc_grpc_pb.js";
+
 import * as core from "./core"
 export import InModule = core.InModule
 
@@ -38,6 +40,13 @@ export type heightDataFormat = {
 export type digestDataFormat = {
     hash: string
     height: number
+}
+
+/**
+ * Type for storing client connections
+ */
+export type rpcConnectionFormat = {
+    [target: string]: systemrpc_grpc.gSystemRpcClient
 }
 
 /**

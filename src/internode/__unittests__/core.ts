@@ -315,6 +315,8 @@ describe("Test of InModule", () => {
                 finished: false,
                 stored: false,
                 timeoutMs: 10000,
+                type: "data",
+                tenant: randomUUID(),
                 txOids: [ "fake" ],
                 block: undefined
             };
@@ -328,6 +330,8 @@ describe("Test of InModule", () => {
                 finished: false,
                 stored: false,
                 timeoutMs: 10000,
+                type: "data",
+                tenant: randomUUID(),
                 txOids: [ "duplicateSample" ],
                 block: undefined
             };

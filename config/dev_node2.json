@@ -28,14 +28,14 @@
     "internode": {
         "self": {
             "nodename": "dev_node2",
-            "rpc_port": 7002
+            "rpc_port": 7001
         },
         "nodes": [
             {
                 "allow_outgoing": true,
                 "nodename": "dev_node1",
                 "host": "localhost",
-                "rpc_port": 7001
+                "rpc_port": 7000
             }
         ]
     },

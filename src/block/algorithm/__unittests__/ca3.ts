@@ -161,6 +161,8 @@ describe("Test of CA3 functions", () => {
                 finished: false,
                 stored: false,
                 timeoutMs: 100,
+                type: "data",
+                tenant: randomUUID(),
                 txOids: [randomOid().byStr()],
                 block: undefined
             }
@@ -169,7 +171,7 @@ describe("Test of CA3 functions", () => {
         test("succeed in register", async () => {
             const ret = await CA3.requestToDeclareBlockCreation(core, packet);
             if (ret.isSuccess()) {
-                expect(ret.value).toBe(packet.timeoutMs);
+                expect(ret.value).toBe(101);
             } else {
                 throw new Error("FAIL");
             }
@@ -181,7 +183,7 @@ describe("Test of CA3 functions", () => {
             await CA3.requestToDeclareBlockCreation(core, packet);
             const ret = await CA3.requestToDeclareBlockCreation(core, packetResend);
             if (ret.isSuccess()) {
-                expect(ret.value).toBe(packetResend.timeoutMs);
+                expect(ret.value).toBe(102);
             } else {
                 throw new Error("FAIL");
             }
@@ -193,7 +195,7 @@ describe("Test of CA3 functions", () => {
             packetClone.trackingId = randomUUID();
             const ret = await CA3.requestToDeclareBlockCreation(core, packetClone);
             if (ret.isSuccess()) {
-                expect(ret.value).toBe(packet.timeoutMs * -1);
+                expect(ret.value).toBe(-101);
             } else {
                 throw new Error("FAIL");
             }
@@ -209,6 +211,8 @@ describe("Test of CA3 functions", () => {
                 finished: false,
                 stored: false,
                 timeoutMs: 10000,
+                type: "data",
+                tenant: randomUUID(),
                 txOids: [randomOid().byStr()],
                 block: block0_0
             }
@@ -226,7 +230,7 @@ describe("Test of CA3 functions", () => {
 
         test("failed due to timeout", async () => {
             const trackingId = randomUUID();
-            CA3.setupCreator(core, undefined, new Date().valueOf(), 0, trackingId);
+            CA3.setupCreator(core, "genesis", [], randomUUID(), new Date().valueOf(), 0, trackingId);
             const ret = await CA3.verifyABlock(core, block0_0, trackingId);
             if (ret.isFailure()) {
                 expect(ret.value.origin.pos).toBe("Timeout");
@@ -311,11 +315,12 @@ describe("Test of CA3 functions", () => {
                 finished: false,
                 stored: false,
                 timeoutMs: Number.MAX_SAFE_INTEGER,
-                txOids: undefined,
+                type: "data",
+                tenant: block0_0.tenant,
+                txOids: [],
                 block: block0_0
             }
             await CA3.requestToDeclareBlockCreation(core, packet);
-            //CA3.setupCreator(core, undefined, new Date().valueOf(), 100000, packet.trackingId)
         })
 
         test("succeed in resending", async () => {
@@ -407,7 +412,7 @@ describe("Test of CA3 functions", () => {
             const startTimeMs = new Date().valueOf();
             const lifeTimeMs = ca3ConfMock.minLifeTime * 1000;
             const trackingId = randomUUID();
-            CA3.setupCreator(core, [tx3], startTimeMs, lifeTimeMs, trackingId);
+            CA3.setupCreator(core, "data", [tx3], tx3.tenant, startTimeMs, lifeTimeMs, trackingId);
             expect(CA3.travelingIds[trackingId]).toBeDefined()
         })
     })
@@ -420,11 +425,11 @@ describe("Test of CA3 functions", () => {
             startTimeMs = new Date().valueOf();
             lifeTimeMs = ca3ConfMock.minLifeTime * 1000;
             trackingId = randomUUID();
-            CA3.setupCreator(core, undefined, startTimeMs, lifeTimeMs, trackingId);
+            CA3.setupCreator(core, "genesis", [], randomUUID(), startTimeMs, lifeTimeMs, trackingId);
         })
 
         test("succeed in creating genesis block", async () => {
-            const ret1 = await CA3.proceedCreator(core, undefined, undefined, trackingId, default_tenant_id, { type: "genesis" });
+            const ret1 = await CA3.proceedCreator(core, undefined, [], trackingId, default_tenant_id, { type: "genesis" });
             let ret2: CA3.Ca3ReturnFormat;
             if (ret1.isSuccess()) {
                 ret2 = ret1.value;

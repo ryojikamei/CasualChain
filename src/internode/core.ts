@@ -17,7 +17,7 @@ import systemrpc from '../../grpc/systemrpc_pb.js';
 import systemrpc_grpc from "../../grpc/systemrpc_grpc_pb.js";
 const { ccSystemRpcFormat, Param, ReturnCode, ReturnValues } = systemrpc;
 const { gSystemRpcClient } = systemrpc_grpc;
-import { ccInType, heightDataFormat, digestDataFormat, rpcReturnFormat } from "./index.js";
+import { ccInType, heightDataFormat, digestDataFormat, rpcConnectionFormat, rpcReturnFormat } from "./index.js";
 
 import { inConfigType, nodeProperty } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
@@ -82,6 +82,8 @@ export class InModule {
     protected common_parsel: string
 
     protected server: grpc.Server
+    protected serverWatch: number // -1: shutdown, 0: not running, 1: runnning
+    protected connections: rpcConnectionFormat
 
     constructor(log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType) {
         this.log = log;
@@ -90,6 +92,8 @@ export class InModule {
         this.master_key = RUNTIME_MASTER_IDENTIFIER;
         this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
         this.server = new grpc.Server();
+        this.serverWatch = 0;
+        this.connections = {};
     }
 
     /**
@@ -175,6 +179,7 @@ export class InModule {
         .catch((error: any) => {
             return this.iError("stopServer", undefined, error.toString());
         })
+        this.serverWatch = -1;
         return this.iOK<void>(undefined);
     }
 
@@ -183,7 +188,8 @@ export class InModule {
      * @param core - set ccInType instance
      * @param retryCount - set retry count of the ping
      * @param rpcInstance - can set rpcInstance. Mainly for testing
-     * @returns 
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
      */
     public async waitForRPCisOK(core: ccInType, retryCount: number, rpcInstance?: any): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
@@ -216,6 +222,11 @@ export class InModule {
                 }
             }
             if (retryNodes.length === 0) {
+                // Wait for wake up of heartbeat
+                /* this.serverHeartbeat(core, rpcInstance);
+                for await (const serverWatch of setInterval(100, this.serverWatch, undefined)) {
+                    if (serverWatch === 1) break
+                } */
                 return this.iOK<void>(undefined);
             } else if (retryCount === 0) {
                 return this.iError("waitForRPCisOK", "sendRpc", "Unreachable nodes have been remained yet:" + JSON.stringify(retryNodes));
@@ -225,6 +236,134 @@ export class InModule {
             }
         }
         return this.iError("waitForRPCisOK", "setInterval", "unknown error occured");
+    }
+
+    public async waitForServerIsOK(core: ccInType, target: nodeProperty, rpcInstance?: any): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:waitForServerIsOK");
+
+        let rpc;
+        if (rpcInstance === undefined) {
+            rpc = core.lib.sendRpc;
+        } else {
+            rpc = rpcInstance;
+        }
+
+        let sObj: systemrpc.ccSystemRpcFormat.AsObject;
+        sObj = {
+            version: 3,
+            request: "Ping",
+            param: undefined,
+            dataasstring: ""
+        }
+
+        LOG("Info", 0, "InModule:waitForServerIsOK__2");
+        for await (const node of setInterval(1000, target, undefined)) {
+            LOG("Info", 0, "InModule:waitForServerIsOK__3");
+            let ret: any
+            try {
+                ret = await rpc(core, node, sObj, 1000);
+            } catch (error: any) {
+                LOG("Info", 0, "InModule:waitForServerIsOK__4:" + error.toString());
+            }
+            LOG("Info", 0, "InModule:waitForServerIsOK__5");
+            if (ret.isSuccess()) {
+                if ((ret.value.status === 0) && (ret.value.data === "Pong")) {
+                    LOG("Notice", 0, "Server " + node.nodename + " is OK");
+                    break;
+                }
+            }
+            LOG("Debug", 0, "Server " + node.nodename + " is still down");
+        }
+        return this.iOK<void>(undefined);
+    }
+
+    /**
+     * Detect and recover from unexpected server termination
+     * @param core - set ccInType instance
+     * @param rpcInstance - can set rpcInstance. Mainly for testing
+     * @param serverInstance - can inject serverInstance
+     * @returns returns no useful values
+     */
+    public async serverHeartbeat(core: ccInType, rpcInstance?: any, serverInstance?: any): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:serverHeartbeat");
+
+        let rpc;
+        if (rpcInstance === undefined) {
+            rpc = core.lib.sendRpc;
+        } else {
+            rpc = rpcInstance;
+        }
+
+        let sObj: systemrpc.ccSystemRpcFormat.AsObject;
+        sObj = {
+            version: 3,
+            request: "Ping",
+            param: undefined,
+            dataasstring: ""
+        }
+
+        const target: nodeProperty = {
+            allow_outgoing: true,
+            nodename: core.conf.self.nodename,
+            rpc_port: core.conf.self.rpc_port,
+            host: "localhost",
+            abnormal_count: 999
+        }
+
+        for await (const serverWatch of setInterval(1000, this.serverWatch, undefined)) {
+            if (serverWatch === -1) break;
+            if (serverWatch === 0) this.serverWatch = 1;
+            LOG("Debug", 0, "Server heartbeat check");
+
+            const ret = await rpc(core, target, sObj);
+            if (ret.isSuccess()) {
+                if ((ret.value.status === 0) && (ret.value.data === "Pong")) {
+                    LOG("Debug", 0, "Server heartbeat OK")
+                    continue
+                }
+            }
+            LOG("Notice", 0, "Unexpected internode server termination detected. Restarting: ", { lf: false });
+            const ret2 = await core.lib.startServer(core, serverInstance);
+            if (ret2.isSuccess()) {
+                LOG("Notice", 0, "[ OK ]");
+            } else {
+                LOG("Notice", 0, "[FAIL]");
+                LOG("Notice", 0, JSON.stringify(ret2.value));
+                LOG("Notice", 0, "Force restarting: ", { lf: false });
+                const promisedForceShutdown = promisify(this.server.forceShutdown).bind(this.server);
+                await promisedForceShutdown()
+                .then(() => {
+                    core.lib.startServer(core, serverInstance)
+                    .then(() => { LOG("Notice", 0, "[ OK ]"); })
+                    .catch((error: any) => {
+                        LOG("Notice", 0, "[FAIL]");
+                        LOG("Notice", 0, error.toString());
+                    })
+                })
+                .catch((error: any) => {
+                    LOG("Notice", 0, "[FAIL]");
+                    LOG("Notice", 0, error.toString());
+                })
+            }
+        }
+
+        return this.iOK<void>(undefined);
+    }
+
+    public async startPing(core: ccInType): Promise<void> {
+
+        let payload =  new systemrpc.ccSystemRpcFormat();
+        payload.setVersion(1);
+        payload.setRequest("Ping");
+        payload.setParam(undefined);
+        payload.setDataasstring("");
+
+        for await (const _ of setInterval(100)) {
+            const ret = await this.sendRpcAll(core, payload.toObject())
+            console.log("[" + core.conf.self.nodename + "]:" + JSON.stringify(ret));
+        }
     }
 
     /**
@@ -621,16 +760,23 @@ export class InModule {
 
         const targetHost: string = target.host + ":" + target.rpc_port;
         let client: systemrpc_grpc.gSystemRpcClient;
-        if (clientInstance === undefined) {
-            let creds: grpc.ChannelCredentials;
-            creds = grpc.credentials.createInsecure();
-            if (timeoutMs === undefined) {
-                client = new gSystemRpcClient(targetHost, creds);
-            } else {
-                client = new gSystemRpcClient(targetHost, creds, { deadline: timeoutMs });
-            }
+
+        if (this.connections[targetHost] !== undefined) {
+            LOG("Debug", 0, "InModule:createRpcConnection:reuse");
+            client = this.connections[targetHost];
         } else {
-            client = clientInstance;
+            if (clientInstance === undefined) {
+                let creds: grpc.ChannelCredentials;
+                creds = grpc.credentials.createInsecure();
+                if (timeoutMs === undefined) {
+                    client = new gSystemRpcClient(targetHost, creds, { waitForReady: true });
+                } else {
+                    client = new gSystemRpcClient(targetHost, creds, { waitForReady: true, deadline: timeoutMs });
+                }
+            } else {
+                client = clientInstance;
+            }
+            this.connections[targetHost] = client;
         }
 
         return this.iOK(client);
@@ -647,11 +793,18 @@ export class InModule {
      * Note that the stringified rpcReturnFormat is stored in the error details.
      */
     public async sendRpc(core: ccInType, target: nodeProperty, payload: systemrpc.ccSystemRpcFormat.AsObject, 
-        timeoutMs?: number, clientInstance?: systemrpc_grpc.gSystemRpcClient): Promise<gResult<rpcReturnFormat, gError>> {
+        timeoutMs?: number, clientInstance?: systemrpc_grpc.gSystemRpcClient, retry?: number): Promise<gResult<rpcReturnFormat, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
 
         const targetHost: string = target.host + ":" + target.rpc_port;
-        LOG("Info", 0, "InModule:sendRpc:" + targetHost);
+        if (retry === undefined) {
+            LOG("Info", 0, "InModule:sendRpc:" + targetHost);
+            retry = 1;
+        } else {
+            retry++;
+            delete this.connections[targetHost];
+            LOG("Info", 0, "InModule:sendRpc(" + retry.toString()  + "):" + targetHost);
+        }
         let ret: rpcReturnFormat = {
             targetHost: targetHost,
             request: payload.request,
@@ -672,7 +825,22 @@ export class InModule {
         }
         const client: systemrpc_grpc.gSystemRpcClient = ret2.value;
 
-        return await core.lib.callRpcFunc(core, client, payload, ret);
+        //return await core.lib.callRpcFunc(core, client, payload, ret);
+        const ret3 = await core.lib.callRpcFunc(core, client, payload, ret);
+        if (ret3.isSuccess()) { return ret3 };
+        const ret4: rpcReturnFormat = JSON.parse(ret3.value.message);
+        switch (ret4.status) {
+            case -1:
+                if (retry > 10) return ret3;
+                //await core.lib.waitForServerIsOK(core, target);
+                return await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance, retry);
+            case -14:
+            //    if (retry > 10) return ret3;
+            //    await core.lib.waitForServerIsOK(core, target);
+                return await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance, retry);
+            default:
+                return ret3;
+        }
     }
 
     /**
@@ -729,7 +897,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -742,7 +910,7 @@ export class InModule {
                     ret.status = res.getReturncode() * 100; // Shift to avoid conflicts with gRPC status codes
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -755,7 +923,7 @@ export class InModule {
                     ret.status = res.getReturncode() * 100;
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -768,7 +936,7 @@ export class InModule {
                     ret.status = res.getReturncode() * 100;
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -782,7 +950,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -796,7 +964,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -810,7 +978,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -824,7 +992,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -838,7 +1006,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -852,7 +1020,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -866,7 +1034,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -880,7 +1048,7 @@ export class InModule {
                     ret.data = res.getDataasstring();
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -893,7 +1061,7 @@ export class InModule {
                     ret.status = res.getReturncode() * 100;
                 }).catch((reason) => {
                     const gRPCException: any = reason;
-                    ret.status = gRPCException.code;
+                    ret.status = gRPCException.code * -1;
                     ret.data = gRPCException.details;
                     LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
                 })
@@ -903,7 +1071,7 @@ export class InModule {
                 break;
         }
 
-        if (ret.status === 0) {
+        if (ret.status >= 0) {
             return this.iOK<rpcReturnFormat>(ret);
         } else {
             return this.iError("sendRpc", "rpcReturnFormat", JSON.stringify(ret));
