@@ -1,0 +1,17 @@
+/coverage
+/docs
+/grpc/*.pb
+/grpc/*.ts
+/grpc/*.proto
+/node_modules
+/src
+.gitignore
+*.pdf
+*.csr
+*.crt
+*.pub
+*.key
+keys.pool
+jest.config.ts
+tsconfig.json
+typedoc.json
