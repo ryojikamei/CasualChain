@@ -8,6 +8,7 @@ A blockchain core system that doesn't have any incentive features inside
 # Documentation
 
 - [Code reference](https://ryojikamei.github.io/CasualChain/index.html)
+- [Overview(English)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-en.pdf)
 - [Overview(Japanese)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-ja.pdf)
 
 # Try to run a demo
