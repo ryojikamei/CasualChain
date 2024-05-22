@@ -146,7 +146,7 @@ export class MainModule {
                 if (i.hasOwnProperty("data") === false) {
                     jArr.push(i);
                 } else {
-                    amountSizeCurrent = amountSizeCurrent + Buffer.from(i.data).length;
+                    amountSizeCurrent = amountSizeCurrent + Buffer.from(JSON.stringify(i.data)).length;
                     if (amountSizeCurrent <= options.constrainedSize) {
                         jArr.push(i);
                     } else {
@@ -436,7 +436,7 @@ export class MainModule {
                 let blk: any;
                 if (ret2.value.cursor !== undefined) {
                     for await(blk of ret2.value.cursor) {
-                        if (blk.value.data === undefined) continue;
+                        if (blk.data === undefined) continue;
                         let tx: any;
                         for (tx of blk.data) {
                             if (tx.value._id.toString() === oid) {
