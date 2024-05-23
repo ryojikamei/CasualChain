@@ -257,16 +257,13 @@ export class InModule {
             dataasstring: ""
         }
 
-        LOG("Info", 0, "InModule:waitForServerIsOK__2");
         for await (const node of setInterval(1000, target, undefined)) {
-            LOG("Info", 0, "InModule:waitForServerIsOK__3");
             let ret: any
             try {
                 ret = await rpc(core, node, sObj, 1000);
             } catch (error: any) {
-                LOG("Info", 0, "InModule:waitForServerIsOK__4:" + error.toString());
+                LOG("Warning", 0, "InModule:waitForServerIsOK:" + error.toString());
             }
-            LOG("Info", 0, "InModule:waitForServerIsOK__5");
             if (ret.isSuccess()) {
                 if ((ret.value.status === 0) && (ret.value.data === "Pong")) {
                     LOG("Notice", 0, "Server " + node.nodename + " is OK");

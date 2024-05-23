@@ -144,7 +144,7 @@ export class BlockModule {
             LOG("Info", 0, "BlockModule:created a block with CA3:" + trackingId);
             return this.bOK<blockFormat>(core.algorithm.travelingIds[trackingId].block);
         } else {
-            LOG("Warning", -1, "BlockModule:create a block with CA3 failed");
+            LOG("Notice", -1, "BlockModule:create a block with CA3 failed");
             return this.bError("createBlock", "proceedCreator", "create a block with CA3 failed");
         }
     }
