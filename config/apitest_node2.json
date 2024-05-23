@@ -19,10 +19,10 @@
     "system": {
         "node_mode": "testing",
         "events_internal": {
-            "postScanAndFixBlockIntervalHours": 5,
-            "postScanAndFixPoolIntervalHours": 5,
-            "postDeliveryPoolIntervalMinutes": 5,
-            "postAppendBlocksIntervalMinutes": 5
+            "postScanAndFixBlockMinInterval": 300,
+            "postScanAndFixPoolMinInterval": 300,
+            "postDeliveryPoolMinInterval": 5,
+            "postAppendBlocksMinInterval": 5
         }
     },
     "internode": {

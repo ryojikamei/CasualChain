@@ -835,8 +835,8 @@ export class InModule {
                 //await core.lib.waitForServerIsOK(core, target);
                 return await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance, retry);
             case -14:
-            //    if (retry > 10) return ret3;
-            //    await core.lib.waitForServerIsOK(core, target);
+                if (retry > 10) return ret3;
+                await core.lib.waitForServerIsOK(core, target);
                 return await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance, retry);
             default:
                 return ret3;
