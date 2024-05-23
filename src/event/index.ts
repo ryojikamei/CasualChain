@@ -28,7 +28,7 @@ export type ccEventType = {
  * - methodPath: the target method. The path must start with "w."
  * - status: "queue", "run", "done", or "error"
  * - executionResult: when the execution finishes, the result is stored in the gResult type
- * - intervalMs: set interval in milliseconds
+ * - minIntervalMs: set minimum interval in milliseconds
  * - nextExecuteTimeMs: after this time, the function is executed 
  * - exitOnError: treat error as fatal, and exit the system
  */
@@ -38,7 +38,7 @@ export type internalEventFormat = {
     methodArgs: any[],
     status: string,
     executionResult: gResult<any, any> | undefined,
-    intervalMs: number,
+    minIntervalMs: number,
     nextExecuteTimeMs: number | undefined,
     exitOnError: boolean
 }

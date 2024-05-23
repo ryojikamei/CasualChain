@@ -5,7 +5,7 @@
  */
 
 import clone from "clone";
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
@@ -190,8 +190,8 @@ export class SystemModule {
             methodArgs: ["w.s"],
             status: "queue",
             executionResult: undefined,
-            intervalMs: core.conf.events_internal.postScanAndFixBlockIntervalHours * 60 * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs,
+            minIntervalMs: core.conf.events_internal.postScanAndFixBlockMinInterval * 60 * 1000,
+            nextExecuteTimeMs: currentTimeMs + randomInt(10000, 30000),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event1);
@@ -202,8 +202,8 @@ export class SystemModule {
             methodArgs: ["w.s"],
             status: "queue",
             executionResult: undefined,
-            intervalMs: core.conf.events_internal.postScanAndFixPoolIntervalHours * 60 * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + 30 * 60 * 1000,
+            minIntervalMs: core.conf.events_internal.postScanAndFixPoolMinInterval * 60 * 1000,
+            nextExecuteTimeMs: currentTimeMs,
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event2);
@@ -214,8 +214,8 @@ export class SystemModule {
             methodArgs: ["w.s"],
             status:"queue",
             executionResult: undefined,
-            intervalMs: core.conf.events_internal.postDeliveryPoolIntervalMinutes * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + 0.5 * 60 * 1000,
+            minIntervalMs: core.conf.events_internal.postDeliveryPoolMinInterval * 60 * 1000,
+            nextExecuteTimeMs: currentTimeMs + randomInt(30000, 45000),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event3);
@@ -226,8 +226,8 @@ export class SystemModule {
             methodArgs: ["w.s"],
             status: "queue",
             executionResult: undefined,
-            intervalMs: core.conf.events_internal.postAppendBlocksIntervalMinutes * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + 1.3 * 60 * 1000,
+            minIntervalMs: core.conf.events_internal.postAppendBlocksMinInterval * 60 * 1000,
+            nextExecuteTimeMs: currentTimeMs + randomInt(45000, 60000),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event4);

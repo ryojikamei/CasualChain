@@ -5,6 +5,7 @@
  */
 
 import { setInterval } from "timers/promises";
+import { randomInt } from "crypto";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 import { eventConfigType } from "../config";
@@ -206,7 +207,7 @@ export class EventModule {
                             event.executionResult = this.eError("eventLoop", "method", error.toString());
                             LOG("Info", 0, "EventModule:eventLoop:registered internal method " + event.methodPath + " cannot be run properly:" + JSON.stringify(event.executionResult));
                         }
-                        event.nextExecuteTimeMs = event.intervalMs + currentTimeMs;
+                        event.nextExecuteTimeMs = currentTimeMs + event.minIntervalMs + randomInt(0, 60000);
                     }
                 }
                 // for testing

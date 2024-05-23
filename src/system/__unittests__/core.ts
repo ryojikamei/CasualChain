@@ -24,10 +24,10 @@ const default_tenant_id = randomUUID()
 let confMock: systemConfigType = {
     node_mode: "testing",
     events_internal: {
-        postScanAndFixBlockIntervalHours: 5,
-        postScanAndFixPoolIntervalHours: 5,
-        postDeliveryPoolIntervalMinutes: 300,
-        postAppendBlocksIntervalMinutes: 300
+        postScanAndFixBlockMinInterval: 300,
+        postScanAndFixPoolMinInterval: 300,
+        postDeliveryPoolMinInterval: 300,
+        postAppendBlocksMinInterval: 300
     }
 }
 

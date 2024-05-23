@@ -44,10 +44,10 @@ export const logConfigInputSchema = z.object({
 export type logConfigInputType = z.infer<typeof logConfigInputSchema>;
 
 export const internalEventsInputSchema = z.object({
-    postScanAndFixBlockIntervalHours: z.number().safe().positive(),
-    postScanAndFixPoolIntervalHours: z.number().safe().positive(),
-    postDeliveryPoolIntervalMinutes: z.number().safe().positive(),
-    postAppendBlocksIntervalMinutes: z.number().safe().positive()
+    postScanAndFixBlockMinInterval: z.number().max(10080).min(0),
+    postScanAndFixPoolMinInterval: z.number().max(10080).min(0),
+    postDeliveryPoolMinInterval: z.number().max(10080).min(0),
+    postAppendBlocksMinInterval: z.number().max(10080).min(0)
 })
 /**
  * Internal event configuration
