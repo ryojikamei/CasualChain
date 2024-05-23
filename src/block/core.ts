@@ -4,6 +4,8 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
+import clone from "clone";
+
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { blockConfigType } from "../config/index.js";
@@ -140,9 +142,10 @@ export class BlockModule {
             }
         } while (core.algorithm.travelingIds[trackingId].finished === false);
         if (core.algorithm.travelingIds[trackingId].stored === true) {
+            const block = clone(core.algorithm.travelingIds[trackingId].block);
             core.algorithm.stopCreator(core, trackingId);
             LOG("Info", 0, "BlockModule:created a block with CA3:" + trackingId);
-            return this.bOK<blockFormat>(core.algorithm.travelingIds[trackingId].block);
+            return this.bOK<blockFormat>(block);
         } else {
             core.algorithm.stopCreator(core, trackingId);
             LOG("Notice", -1, "BlockModule:create a block with CA3 failed");
