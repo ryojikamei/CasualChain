@@ -151,6 +151,19 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
         return ca3Error("declareCreation", "Timeout", trackingId + " is timeouted");
     }
 
+    // check whether they have been already started by another node or not
+    const oids = travelingIds[trackingId].txOids;
+    const travelings = Object.keys(travelingIds);
+    for (const travelingId of travelings) {
+        if (travelingId === trackingId) continue; // self
+        for (const oid of oids) {
+            if (travelingIds[travelingId].txOids.includes(oid)) {
+                return ca3Error("declareCreation", "checkDeclaration", "Already started");
+            }
+        }
+
+    }
+
     const target: Ca3TravelingIdFormat2 = { ...{trackingId}, ...travelingIds[trackingId] };
     const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
         version: 3,
@@ -788,7 +801,7 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
     // Overwrite common_parsel value if specified
     if (commonId !== undefined) common_parsel = commonId;
     
-    // Delete timeouted travelingIds
+    // Delete timeouted travelingIds (Usually stopCreator unlocks)
     for (const traveling_id of Object.keys(travelingIds)) {
         if (travelingIds[traveling_id].timeoutMs < startTimeMs) {
             delete travelingIds[traveling_id];
@@ -836,6 +849,24 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
     }
 
     return ca3OK<string>(trackingId);
+}
+
+/**
+ * Release the lock of blocking immediately
+ * @param core - set ccBlockType instance
+ * @param trackingId - set trackingId to unregister
+ * @returns returns no useful values
+ */
+export function stopCreator(core: ccBlockType, trackingId: string): gResult<void, unknown>  {
+    const LOG = core.log.lib.LogFunc(core.log);
+    LOG("Info", 0, "CA3:stopCreator");
+
+    try {
+        delete travelingIds[trackingId];
+    } catch (error) {
+        
+    }
+    return ca3OK<void>(undefined);
 }
 
 /**
