@@ -135,15 +135,16 @@ export class BlockModule {
                         }
                     } else {
                         LOG("Debug", 0, "BlockModule:createBlock:proceedCreator:" + JSON.stringify(ret1));
-                        //return ret1;
                     }
                 }
             }
         } while (core.algorithm.travelingIds[trackingId].finished === false);
         if (core.algorithm.travelingIds[trackingId].stored === true) {
+            core.algorithm.stopCreator(core, trackingId);
             LOG("Info", 0, "BlockModule:created a block with CA3:" + trackingId);
             return this.bOK<blockFormat>(core.algorithm.travelingIds[trackingId].block);
         } else {
+            core.algorithm.stopCreator(core, trackingId);
             LOG("Notice", -1, "BlockModule:create a block with CA3 failed");
             return this.bError("createBlock", "proceedCreator", "create a block with CA3 failed");
         }
