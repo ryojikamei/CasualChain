@@ -111,7 +111,7 @@ export class DirectIoSubModule {
      * Turn some the delivery flags true on the queue.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
@@ -119,8 +119,12 @@ export class DirectIoSubModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:poolModifyReadsFlag");
 
+        if (__t !== this.master_key) {
+            LOG("Debug", 0, "DirectIoSubModule:poolModifyReadsFlag:IncorrectAuthorization:" + __t);
+            return this.ioError("poolModifyReadsFlag", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        }
+
         for (const tx of core.queue) {
-            if (tx.tenant !== __t) continue;
             for (const oid of oids) {
                 if (tx._id === oid) tx.deliveryF = true;
             }
@@ -133,7 +137,7 @@ export class DirectIoSubModule {
      * Danger: delete some transactions of pool on the queue.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
@@ -141,8 +145,12 @@ export class DirectIoSubModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:poolDeleteTransactions");
 
+        if (__t !== this.master_key) {
+            LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:IncorrectAuthorization:" + __t);
+            return this.ioError("poolDeleteTransactions", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        }
+
         for (let index = 0; index < core.queue.length; index++) {
-            if (core.queue[index].tenant !== __t) continue;
             for (const oid of oids) {
                 if (core.queue[index]._id === oid) delete core.queue[index];
             }
@@ -155,13 +163,18 @@ export class DirectIoSubModule {
      * Danger: delete some blocks on the db.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
     public async blockDeleteBlocks(core: ccDirectIoType, oids: string[], __t: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:blockDeleteBlocks");
+
+        if (__t !== this.master_key) {
+            LOG("Debug", 0, "DirectIoSubModule:blockDeleteBlocks:IncorrectAuthorization:" + __t);
+            return this.ioError("blockDeleteBlocks", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        }
 
         if (core.db.obj !== undefined) {
             const ret2 = await core.db.lib.blockDeleteByOid(core, core.db.obj, core.conf, oids, __t);
@@ -177,7 +190,7 @@ export class DirectIoSubModule {
      * Update blocks with specified blocks.
      * @param core - set ccDirectIoType instance
      * @param blocks - a legitimate block of blocks.
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
@@ -186,6 +199,11 @@ export class DirectIoSubModule {
         LOG("Info", 0, "DirectIoSubModule:blockUpdateBlocks");
 
         if (blocks.length === 0) return this.ioOK<void>(undefined);
+
+        if (__t !== this.master_key) {
+            LOG("Debug", 0, "DirectIoSubModule:blockUpdateBlocks:IncorrectAuthorization:" + __t);
+            return this.ioError("blockUpdateBlocks", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        }
 
         if (core.db.obj !== undefined) {
             const ret2 = await core.db.lib.blockReplaceByBlocks(core, core.db.obj, core.conf, blocks, __t);
