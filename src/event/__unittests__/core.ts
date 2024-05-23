@@ -30,7 +30,7 @@ describe("Test of EventModule", () => {
             methodArgs: ["w.s"],
             status: "queue",
             executionResult: undefined,
-            intervalMs: Number.MAX_SAFE_INTEGER,
+            minIntervalMs: Number.MAX_SAFE_INTEGER,
             nextExecuteTimeMs: 0,
             exitOnError: false
         }

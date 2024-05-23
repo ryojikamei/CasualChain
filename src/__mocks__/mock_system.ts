@@ -26,10 +26,10 @@ export function sError(func: string, pos?: string, message?: string): gResult<ne
 export const systemConf: systemConfigType = {
     node_mode: "",
     events_internal: {
-        postScanAndFixBlockIntervalHours: 5,
-        postScanAndFixPoolIntervalHours: 5,
-        postDeliveryPoolIntervalMinutes: 300,
-        postAppendBlocksIntervalMinutes: 300
+        postScanAndFixBlockMinInterval: 300,
+        postScanAndFixPoolMinInterval: 300,
+        postDeliveryPoolMinInterval: 300,
+        postAppendBlocksMinInterval: 300
     }
 }
 
