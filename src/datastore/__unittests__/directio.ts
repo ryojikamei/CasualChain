@@ -15,13 +15,15 @@ import clone from "clone";
 import { getBlockResult } from "../../system";
 import { dataSet, generateSamples } from "../../__testdata__/generator";
 
+import { RUNTIME_MASTER_IDENTIFIER } from "../../system";
+
 const confMock: dsConfigType = { // example
     password_encryption: false,
     mongo_blockcollection: "block_" + randomUUID(),
     mongo_dbname: "bcdb",
     mongo_dbuser: "bcuser",
     mongo_host: "192.168.1.50",
-    mongo_password: "rablock-pass-20230123",
+    mongo_password: "cc-pass-202040526",
     mongo_poolcollection: "pool_" + randomUUID(),
     mongo_port: 27017,
     mongo_authdb: "admin",
@@ -104,16 +106,16 @@ describe("Test of IoSubModule()", () => {
                     }
                 }
             }
-            const ret2 = await d.lib.poolModifyReadsFlag(d, oids, tx3.tenant);
+            const ret2 = await d.lib.poolModifyReadsFlag(d, oids, RUNTIME_MASTER_IDENTIFIER);
 
             expect(ret2.type).toBe("success");
         });
-        test("Success to modify wrong target (it returns true anyway)", async () => {
+        test("Failure", async () => {
 
             let oids: string[] = ["fake"];
             const ret = await d.lib.poolModifyReadsFlag(d, oids, "fake");
             
-            expect(ret.type).toBe("success");
+            expect(ret.type).toBe("failure");
         });
     });
 
@@ -134,7 +136,7 @@ describe("Test of IoSubModule()", () => {
                     }
                 }
             }
-            const ret2 = await d.lib.poolDeleteTransactions(d, oids, tx3.tenant);
+            const ret2 = await d.lib.poolDeleteTransactions(d, oids, RUNTIME_MASTER_IDENTIFIER);
 
             expect(ret2.type).toBe("success");
 
@@ -146,11 +148,11 @@ describe("Test of IoSubModule()", () => {
             const ret4 = await d.lib.getPoolCursor(d);
             expect(ret4.type).toBe("success");
         },10000);
-        test("Success to delete wrong target (it returns true anyway)", async () => {
+        test("Failure", async () => {
             let oids: string[] = ["fake"];
             const ret5 = await d.lib.poolDeleteTransactions(d, oids, "fake");
             
-            expect(ret5.type).toBe("success");
+            expect(ret5.type).toBe("failure");
         });
     });
 
@@ -165,18 +167,18 @@ describe("Test of IoSubModule()", () => {
             if (ret7.isSuccess()) {
                 const oids: string[] = [blk2._id];
                 d.conf.mongo_host = "returnOK"; // BackendDbSubModuleMock control for blockDeleteByOid()
-                const ret8 = await d.lib.blockDeleteBlocks(d, oids, blk2.tenant);
+                const ret8 = await d.lib.blockDeleteBlocks(d, oids, RUNTIME_MASTER_IDENTIFIER);
 
                 expect(ret8.type).toBe("success");
             } else {
                 throw new Error("FAIL");
             }
         },10000);
-        test("Success to delete wrong target (it returns true anyway)", async () => {
+        test("Failure0", async () => {
             let oids: string[] = ["fake"];
             d.conf.mongo_host = "returnOK";
             const ret9 = await d.lib.blockDeleteBlocks(d, oids, "fake");
-            expect(ret9.type).toBe("success");
+            expect(ret9.type).toBe("failure");
         });
         test("Failure1", async () => {
             let oids: string[] = ["fake"];
@@ -210,7 +212,7 @@ describe("Test of IoSubModule()", () => {
             if (ret11.isSuccess()) {
                 const targets: getBlockResult[] = [{ oid: block3._id, block: blk2  }];
                 d.conf.mongo_host = "returnOK"; // BackendDbSubModuleMock control for blockReplaceByBlocks()
-                const ret12 = await d.lib.blockUpdateBlocks(d, targets, block3.tenant);
+                const ret12 = await d.lib.blockUpdateBlocks(d, targets, RUNTIME_MASTER_IDENTIFIER);
 
                 expect(ret12.type).toBe("success");
             } else {
@@ -222,28 +224,28 @@ describe("Test of IoSubModule()", () => {
             const blk2: any = ds.blks.get("blk2");
             let targets: getBlockResult[] = [{ oid: "fake", block: blk2 }];
             d.conf.mongo_host = "returnOK";
-            const ret12 = await d.lib.blockUpdateBlocks(d, targets, blk2.tenant);
+            const ret12 = await d.lib.blockUpdateBlocks(d, targets, RUNTIME_MASTER_IDENTIFIER);
             expect(ret12.type).toBe("success");
         });
         test("Failure1", async () => {
             const blk2: any = ds.blks.get("blk2");
             let targets: getBlockResult[] = [{ oid: "fake", block: blk2 }];
             d.conf.mongo_host = "returnError1";
-            const ret12 = await d.lib.blockUpdateBlocks(d, targets, blk2.tenant);
+            const ret12 = await d.lib.blockUpdateBlocks(d, targets, RUNTIME_MASTER_IDENTIFIER);
             expect(ret12.type).toBe("failure");
         });
         test("Failure2", async () => {
             const blk2: any = ds.blks.get("blk2");
             let targets: getBlockResult[] = [{ oid: "fake", block: blk2 }];
             d.conf.mongo_host = "returnError2";
-            const ret12 = await d.lib.blockUpdateBlocks(d, targets, blk2.tenant);
+            const ret12 = await d.lib.blockUpdateBlocks(d, targets, RUNTIME_MASTER_IDENTIFIER);
             expect(ret12.type).toBe("failure");
         });
         test("Failure3", async () => {
             const blk2: any = ds.blks.get("blk2");
             let targets: getBlockResult[] = [{ oid: "fake", block: blk2 }];
             d.conf.mongo_host = "returnOK";
-            const ret12 = await d.lib.blockUpdateBlocks(dWrong, targets, blk2.tenant);
+            const ret12 = await d.lib.blockUpdateBlocks(dWrong, targets, RUNTIME_MASTER_IDENTIFIER);
             expect(ret12.type).toBe("failure");
         });
     });

@@ -4,8 +4,6 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { createHash, randomUUID } from "crypto";
-
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 import { ccBlockType, createBlockOptions } from "../block";
 import { Ca3BlockFormat, Ca3ReturnFormat, Ca3TravelingFormat, Ca3TravelingIdFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3";
@@ -174,6 +172,10 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
 
             return ca3OK<Ca3ReturnFormat>(ret1);
     }
+}
+
+export function stopCreator(core: ccBlockType, trackingId: string): gResult<void, unknown>  {
+    return ca3OK<void>(undefined);
 }
 
 export function closeATransaction(trackingId: string) {

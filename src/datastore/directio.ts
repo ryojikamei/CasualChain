@@ -150,17 +150,15 @@ export class DirectIoSubModule {
             return this.ioError("poolDeleteTransactions", "CheckAuthorization", "IncorrectAuthorization:" + __t);
         }
 
-        let index = -1;
-        for (const qItem of core.queue) {
-            index++;
-            for (const oid of oids) {
-                LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:oids:" + JSON.stringify(oids));
-                LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:queue:" + JSON.stringify(core.queue));
+        for (const oid of oids) {
+            let index = 0;
+            for (const qItem of core.queue) {
                 if (qItem._id === oid) {
-                    core.queue = core.queue.splice(index, 1);
+                    core.queue.splice(index, 1);
                     continue;
                 }
             }
+            index++;
         }
 
         return this.ioOK<void>(undefined);
