@@ -5,12 +5,17 @@ A blockchain core system that doesn't have any incentive features inside
 
 - Man shall not live by crypto currency alone
 
+# NOTE
+
+In order to brush up on functionality, we may make changes that will cause incompatibility during version 0.9.x.
+
 # Documentation
 
 - [Code reference](https://ryojikamei.github.io/CasualChain/index.html)
 - [Overview(English)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-en.pdf)
 - [Overview(Japanese)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-ja.pdf)
 - [API guide](https://github.com/ryojikamei/CasualChain/blob/main/API.md)
+- [DataFormat guide](https://github.com/ryojikamei/CasualChain/blob/main/DATAFORMAT.md)
 
 # Try to run a demo
 
