@@ -17,6 +17,24 @@ import { ccApiType } from "../index.js";
  * Provide Administration APIs.
  * It provides following REST-like APIs:
  * 
+ * - "/sys/deliverpooling": delivers pooling transactions to remote nodes, type POST.
+ *   By default, it is kicked by cron periodically, so programmers do not need to care 
+ *   about. However, it can be kick manually when transactions should delivered immediately.
+ *   IN: no options are needed.
+ *   OUT: on success, returns response code 200 and 0 as return code.
+ *        On fail, returns response code 503 with error detail.
+ *   FYI: see postDeliveryPool() in system module for understanding the essentials of
+ *        processing.
+ * 
+ * - "/sys/blocking": gather transactions and add a block to the blockchain, type POST.
+ *   By default, it is kicked by cron periodically, so programmers do not need to care 
+ *   about. However, it can be kick manually when transactions should crete a block 
+ *   immediately. Note that 'delivered' state transactions are used to create a block
+ *   IN: no options are needed.
+ *   OUT: on success, returns response code 200 and 0 as return code.
+ *        On fail, returns response code 503 with error detail.
+ *   FYI: see postAppendBlocks() in system module for understanding the core of processing.
+ * 
  * - "/sys/initbc": creates the genesis block and delivers it to remote nodes, type POST.
  *   The initialize of the blockchain. It must be run only once when there are no blocks in 
  *   the data store. The execution will be interrupted when some blocks exists.
@@ -124,6 +142,38 @@ export class ListnerV3AdminApi {
         const authPassword = acore.conf.rest.adminapi_password;
         this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
 
+        this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-deliverpooling");
+            if (acore.s !== undefined) {
+                acore.s.lib.postDeliveryPool(acore.s).then((data) => {
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/deliverpooling"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "System Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postDeliveryPool", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/deliverpooling"));
+            }
+        });
+
+        this.api.post("/sys/blocking", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-blocking");
+            if (acore.s !== undefined) {
+                acore.s.lib.postAppendBlocks(acore.s).then((data) => {
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/blocking"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "System Module is currently down");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postAppendBlocks", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/blocking"));
+            }
+        });
+
         this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-initbc");
             if (acore.s !== undefined) {
@@ -207,6 +257,12 @@ export class ListnerV3AdminApi {
 
         const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
 
+        this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/deliverpooling"));
+        });
+        this.api.post("/sys/blocking", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/blocking"));
+        });
         this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/initbc"));
         });

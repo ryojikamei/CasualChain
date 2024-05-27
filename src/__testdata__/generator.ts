@@ -292,11 +292,10 @@ export async function generateSamples(__t?: string, hostname?: string): Promise<
 }
 
 export async function generateData(datanumber: string): Promise<string | undefined> {
-    const datadir = process.cwd() + "/enterprise/src/__apitests__/data/"
 
     switch (datanumber) {
         case "01-1":
-            const data = await generateRandomTextData("01-1.data", 15364);
+            const data = await generateRandomTextData("01-1.testdata", 15364);
             return data;
         default:
             console.log("Unknown case " + datanumber);
@@ -306,16 +305,17 @@ export async function generateData(datanumber: string): Promise<string | undefin
 }
 
 async function generateRandomTextData(filename: string, sizeInKiB: number): Promise<string | undefined> {
-    const dumppath = process.cwd() + "/enterprise/src/__apitests__/data/" + filename;
+    const dumppath = process.cwd() + "/src/__testdata__/" + filename;
 
     const binpath = dumppath + ".bin";
     const size = Math.floor(sizeInKiB * 3 / 4); 
     const bin: string = "/usr/bin/dd"
     const args: string[] = ["if=/dev/urandom", "of=" + binpath, "bs=1024", "count=" + size.toString() ];
     const ret = await execa(bin, args, { shell: false });
-    console.log(ret.stdout);
-    console.error(ret.stderr);
-    if (ret.exitCode !== 0) return undefined;
+    if (ret.exitCode !== 0) {
+        console.error(ret.stderr);
+        return undefined;
+    }
 
     const bin2: string = "/usr/bin/base64"
     const args2: string[] = [ binpath ];

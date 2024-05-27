@@ -11,7 +11,7 @@
 *.crt
 *.pub
 *.key
-keys.pool
+initial.blocks
 jest.config.ts
 tsconfig.json
 typedoc.json

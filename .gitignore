@@ -6,4 +6,4 @@ dist/
 *.crt
 *.pub
 *.key
-keys.pool
+initial.blocks
