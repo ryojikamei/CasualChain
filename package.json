@@ -19,6 +19,11 @@
     "unittest": "export SUPPRESS_NO_CONFIG_WARNING=0 && export NODE_CONFIG_ENV=\"unittest\" && export NODE_CONFIG_DIR=\"./dist/config/__unittests__/\" && export NODE_OPTIONS=\"--experimental-vm-modules \" && npx jest --verbose --detectOpenHandles --forceExit ",
     "doc": "typedoc"
   },
+  "keywords": [
+    "blockchain",
+    "database",
+    "mongodb"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ryojikamei/CasualChain.git"
