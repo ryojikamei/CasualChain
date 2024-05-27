@@ -58,7 +58,7 @@ type StorageEngine = "ephemeralForTest" | "wiredTiger";
 const engine: StorageEngine = "wiredTiger";
 const dbServerOpts = {
     binary: {
-        version: "6.0.14",
+        version: "6.0.15",
         skipMD5: true
     },
     auth: {
