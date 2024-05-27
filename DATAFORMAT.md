@@ -193,17 +193,18 @@ This property indicates the position of this block within the chain. The first b
 
 #### size: number
 
-This property indicates how much data this block contains. If the type is other than data, this value should be 0.
+This property indicates how much transaction data this block contains. If the type is other than data, this value should be 0.
 
 #### data: objTx[] (optional)
 
-If the type is data, the actual data is stored under the data property. Otherwise, this property does not exist.
+If the type is "data", the actual transaction data are stored under the data property. Otherwise, this property does not exist.
 
 #### type: string
 
-This property specifies the type of block. Specify “genesis” or “data” here.
+This property specifies the type of block. It is “genesis” or “data”.
 - “genesis”: refers to the first block in the blockchain; in CasualChain it contains no data.
-- “data”: refers to a block that contains transaction data; in CasualChain, a single block can have multiple transaction data. For compatibility, this property is treated as optional, but in practice this property is never omitted.
+- “data”: refers to a block that contains transaction data; in CasualChain, a single block can have multiple transaction data.
+For compatibility, this property is treated as optional, but in practice this property is never omitted.
 
 #### settime: string
 
