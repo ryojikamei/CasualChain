@@ -115,7 +115,6 @@ However, since data order is not guaranteed, in practice it would need to be use
 curl -X GET --basic --user cc:demo-password -H'Content-Type: application/JSON; charset=UTF-8' -d '{ "constrainedSize": 1048576, "sortOrder": -1 }' http://localhost:9002/get/alltxs
 ```
 
-
 ---
 ### /get/blocked
 
@@ -153,6 +152,32 @@ curl -X GET --basic --user cc:demo-password -H'Content-Type: application/JSON; c
 ```
 
 Note that the presence or absence of the bareTransaction option changes the target on which subsequent options act.
+
+---
+### /get/pooling
+
+#### Summary
+It gets all waiting data to blockchained, type GET.
+
+#### IN
+There are no mandatory arguments.
+
+#### OUT
+On success, it returns response code 200 and transaction data in an array of JSON format. On fail, it returns response code 503 with error detail.
+
+#### Examples
+
+The following retrieves all transaction data from the node waiting on localhost:9002. 
+```
+curl -X GET --basic --user cc:demo-password http://localhost:9002/get/pooling
+```
+
+As with /get/alltxs, the sortOrder and constrainedSize options can be used. The two options can be specified in any order, but the order in which they are evaluated is fixed. The sortOrder option is evaluated first, and then the constrainedSize option.
+
+In the next example, transaction data are sorted in descending order, and then transactions from the first to just before exceeding 1 MiB are output.
+```
+curl -X GET --basic --user cc:demo-password -H'Content-Type: application/JSON; charset=UTF-8' -d '{ "sortOrder": -1, "constrainedSize": 1048576 }' http://localhost:9002/get/pooling
+```
 
 ---
 ### /get/history/:oid(\w{24})
@@ -201,6 +226,42 @@ User data can be freely designed as values relative to the “data” key in JSO
 ---
 ## Administration APIs
 
+### /sys/deliverpooling
+
+#### Summary
+It propagates transaction data that exists only on this node to other nodes, type POST. By default, it is kicked by event module periodically, so programmers do not need to care about. However, it can be kick manually when transactions should be propagated immediately.
+
+#### IN
+There are no arguments.
+
+#### OUT
+On success, it returns response code 200 and 0 as return code. On fail, returns response code 503 with error detail.
+
+#### Examples
+
+The following propagates transaction data that exists only on this node to other nodes.
+```
+curl -X POST --basic --user admin:admin-password http://localhost:8002/sys/deliverpooling
+```
+
+### /sys/blocking
+
+#### Summary
+It gathers transactions and adds a block to the blockchain, type POST. By default, it is kicked by event module periodically, so programmers do not need to care about. However, it can be kick manually when transactions should crete a block immediately. Note that only 'delivered' state transactions are used to create a block.
+
+#### IN
+There are no arguments.
+
+#### OUT
+On success, it returns response code 200 and 0 as return code. On fail, it returns response code 503 with error detail.
+
+#### Examples
+
+The following stores pooled transactions that have already been propagated to other nodes in a single block. However, the total size of transactions that can be stored in a single block is less than 15 MiB from the oldest one; new transactions exceeding 15 MiB will remain in the pool.
+```
+curl -X POST --basic --user admin:admin-password http://localhost:8002/sys/blocking
+```
+
 ### /sys/syncblocked
 
 #### Summary
@@ -213,7 +274,6 @@ There are no mandatory arguments.
 On success, it returns response code 200 and 0 as return code. On fail, it returns response code 503 with error detail.
 
 #### Examples
-
 The entire process is automatic. If run without any options, the repair will continue from the inspection. The following example is executed for the node allocated to localhost:8002.
 ```
 curl -X POST --basic --user admin:admin-password http://localhost:8002/sys/syncblocked

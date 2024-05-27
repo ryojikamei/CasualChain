@@ -46,6 +46,12 @@ import { ccApiType } from "../index.js";
  *        block and contains no data. On fail, returns response code 503 with no 
  *        data.
  *   FYI: see getAllBlock() in main module for understanding the essentials of processing.
+ * 
+ * - "/get/pooling": gets all waiting data to blockchained, type GET.
+ *   IN: no options are needed.
+ *   OUT: on success, returns response code 200 and transaction data in an array of JSON
+ *        format. On fail, returns response code 503 with error detail.
+ *   FYI: see getAllPool() in main module for understanding the essentials of processing.
  *
  * - "/get/history/:oid(\\w{24})": gets the chain to the past of the specified transaction,
  *   type GET.
@@ -218,6 +224,22 @@ export class ListnerV3UserApi {
             }
         });
 
+        this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:get-pooling");
+            if (acore.m !== undefined) {
+                acore.m.lib.getAllPool(acore.m, req.body).then((data) => {
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/get/pooling"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "Main Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAllPool", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/get/pooling"));
+            }
+        });
+
         this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-histrory");
             if (acore.m !== undefined) {
@@ -294,6 +316,9 @@ export class ListnerV3UserApi {
         });
         this.api.get("/get/blocked", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/get/blocked"));
+        });
+        this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/pooling"));
         });
         this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/get/history/:oid(\\w{24})"));

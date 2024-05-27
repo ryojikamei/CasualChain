@@ -117,7 +117,7 @@ $ sudo apt install -y mongodb-org
 ## A pair of private key and public key to run a node
 
 Required keys are automatically generated upon initial startup.
-They will be in config/<run mode>_<node name>.key and config/<run mode>_<node name>.pub.
+They will be in config/\<run mode>_\<node name>.key and config/\<run mode>_\<node name>.pub.
 Alternatively, you may use keys you have provided.
 
 ## MongoDB configuration

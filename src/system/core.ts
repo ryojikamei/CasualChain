@@ -191,7 +191,7 @@ export class SystemModule {
             status: "queue",
             executionResult: undefined,
             minIntervalMs: core.conf.events_internal.postScanAndFixBlockMinInterval * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + randomInt(10000, 30000),
+            nextExecuteTimeMs: currentTimeMs + randomInt(1000, 2500),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event1);
@@ -215,7 +215,7 @@ export class SystemModule {
             status:"queue",
             executionResult: undefined,
             minIntervalMs: core.conf.events_internal.postDeliveryPoolMinInterval * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + randomInt(30000, 45000),
+            nextExecuteTimeMs: currentTimeMs + randomInt(5000, 7500),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event3);
@@ -227,7 +227,7 @@ export class SystemModule {
             status: "queue",
             executionResult: undefined,
             minIntervalMs: core.conf.events_internal.postAppendBlocksMinInterval * 60 * 1000,
-            nextExecuteTimeMs: currentTimeMs + randomInt(45000, 60000),
+            nextExecuteTimeMs: currentTimeMs + randomInt(7500, 10000),
             exitOnError: false
         }
         core.e.lib.registerInternalEvent(core.e, event4);

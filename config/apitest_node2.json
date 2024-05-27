@@ -5,7 +5,7 @@
         "file_output": true,
         "file_path": "/tmp/cc_apitest_node2.log",
         "file_rotation": false,
-        "file_level": "info"
+        "file_level": "debug"
     },
     "block": {
         "ca3": {
@@ -17,12 +17,12 @@
         }
     },
     "system": {
-        "node_mode": "testing",
+        "node_mode": "testing+init",
         "events_internal": {
             "postScanAndFixBlockMinInterval": 300,
             "postScanAndFixPoolMinInterval": 300,
-            "postDeliveryPoolMinInterval": 5,
-            "postAppendBlocksMinInterval": 5
+            "postDeliveryPoolMinInterval": 300,
+            "postAppendBlocksMinInterval": 300
         }
     },
     "internode": {
@@ -56,7 +56,7 @@
         "mongo_poolcollection": "pool_node2"
     },
     "event": {
-        "enable_internaltasks": false
+        "enable_internaltasks": true
     },
     "api": {
         "rest": {
