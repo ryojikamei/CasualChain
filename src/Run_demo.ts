@@ -63,7 +63,7 @@ const node1 = childProcess.spawn("node", ["dist/server.js"], { detached: true, s
 console.log("== PID: " + node1.pid + " is starting with using configuration file demo_node1.json (stdio is ignored) ==");
 
 process.env.NODE_CONFIG_ENV="demo_node2";
-const node2 = childProcess.spawn("node", ["node", "dist/server.js"], { detached: true, stdio: "inherit" });
+const node2 = childProcess.spawn("node", ["dist/server.js"], { detached: true, stdio: "inherit" });
 console.log("== PID: " + node2.pid + " is starting with using configuration file demo_node2.json ==");
 
 
