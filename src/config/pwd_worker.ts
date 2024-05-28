@@ -8,7 +8,7 @@ console.log("=====================");
 
 import nodeConfig from "config"; // read apitest_worker.json
 
-import { ConfigModule } from ".";
+import { ConfigModule } from "./index.js";
 
 const mod = new ConfigModule();
 
