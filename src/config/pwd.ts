@@ -5,7 +5,7 @@
  */
 
 console.log("=====================");
-import { ConfigModule } from ".";
+import { ConfigModule } from "./index.js";
 
 const mod = new ConfigModule();
 const ret = await mod.init();

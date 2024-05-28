@@ -7,7 +7,7 @@
 import { setInterval } from "timers/promises";
 import { randomInt } from "crypto";
 
-import { gResult, gSuccess, gFailure, gError } from "../utils";
+import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { eventConfigType } from "../config";
 import { ccLogType } from "../logger";
 import { internalEventFormat, ccEventType } from ".";

@@ -9,7 +9,7 @@ import { ccLogType } from "../logger"
 import { ccSystemType } from "../system"
 import { ccMainType } from "../main"
 
-import * as core from "./core"
+import * as core from "./core.js"
 export import KeyringModule = core.KeyringModule
 import { ccInType } from "../internode"
 

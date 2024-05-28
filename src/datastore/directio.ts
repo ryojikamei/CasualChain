@@ -5,14 +5,14 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { gResult, gSuccess, gFailure, gError } from "../utils";
+import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { objBlock, objTx, poolResultObject, blockResultObject, getPoolCursorOptions, getBlockCursorOptions, poolCursor, blockCursor, ccCommonIoType } from ".";
-import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, getBlockResult } from "../system";
+import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, getBlockResult } from "../system/index.js";
 import { dsConfigType } from "../config"
 import { ccLogType } from "../logger"
-import { BackendDbSubModule } from "./mongodb"
-import { cachedIoIterator } from "./ioiterator";
+import { BackendDbSubModule } from "./mongodb.js"
+import { cachedIoIterator } from "./ioiterator.js";
 
 /**
  * ccDirectIoType definition

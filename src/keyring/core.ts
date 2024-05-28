@@ -9,7 +9,7 @@ import { execa } from "execa";
 import { ed25519 } from "@noble/curves/ed25519";
 import { readFile } from "fs/promises";
 
-import { gResult, gSuccess, gFailure, gError } from "../utils";
+import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { ccKeyringType } from ".";
 import { keyringConfigType } from "../config";
@@ -17,7 +17,7 @@ import { ccLogType } from "../logger";
 
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
-import { DEFAULT_PARSEL_IDENTIFIER } from "../system";
+import { DEFAULT_PARSEL_IDENTIFIER } from "../system/index.js";
 
 /**
  * The tag string for the transaction of public keys

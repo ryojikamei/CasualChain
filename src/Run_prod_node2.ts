@@ -11,8 +11,8 @@ process.env.NODE_CONFIG_ENV="prod_node2";
 import childProcess from "child_process";
 
 
-const node2 = childProcess.spawn("node", ["--experimental-specifier-resolution", "node", "dist/server.js"], { detached: true, stdio: "inherit" });
-console.log("== PID: " + node2.pid + " is starting ==")
+const node2 = childProcess.spawn("node", ["dist/server.js"], { detached: true, stdio: "inherit" });
+console.log("== PID: " + node2.pid + " is starting ==");
 
 function cleanup(signal: NodeJS.Signals) {
     if (node2.pid !== undefined) process.kill(node2.pid, signal);

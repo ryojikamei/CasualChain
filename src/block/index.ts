@@ -11,7 +11,7 @@ import { ccSystemType } from "../system"
 import { ccKeyringType } from "../keyring"
 import { ccMainType } from "../main"
 
-import * as core from "./core"
+import * as core from "./core.js"
 export import BlockModule = core.BlockModule;
 import { objTx } from "../datastore"
 import { Ca3BlockFormat } from "./algorithm/ca3";
