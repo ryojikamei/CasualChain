@@ -275,18 +275,18 @@ describe("Test of MainModule", () => {
         test("Succeed to get data", async () => {
             const ret0 = await(new DsModuleMock().init());
             if (ret0.isSuccess()) mcore.d = ret0.value;
-            const ret = await mlib.getSearchByJson<objTx>(mcore, { key: "type", value: "fake", whole: true, newonly: true });
+            const ret = await mlib.getSearchByJson<objTx>(mcore, { key: "type", value: "fake", whole: true });
             expect(ret.type).toBe("success");
             expect(ret.value).toEqual([]);
         })
 
         test("Failed to get data", async () => {
-            const ret = await mlib.getSearchByJson<objTx>(mcoreWrong, { key: "type", value: "fake", whole: true, newonly: true });
+            const ret = await mlib.getSearchByJson<objTx>(mcoreWrong, { key: "type", value: "fake", whole: true });
             expect(ret.type).toBe("failure");
         })
 
         test("Failure4", async () => {
-            const ret = await mlib.getSearchByJson<objTx>(mcoreFailure, { key: "type", value: "fake", whole: true, newonly: true });
+            const ret = await mlib.getSearchByJson<objTx>(mcoreFailure, { key: "type", value: "fake", whole: true });
             expect(ret.type).toBe("failure");
         })
     })
@@ -311,8 +311,8 @@ describe("Test of MainModule", () => {
     describe("Method getTransactionHeight()", () => {
         test("Succeed to get data", async () => {
             const ret1 = await mlib.getTransactionHeight(mcore);
-            const ret2 = await mlib.getTransactionHeight(mcore, {skipblocked : true});
-            const ret3 = await mlib.getTransactionHeight(mcore, {skippooling : true});
+            const ret2 = await mlib.getTransactionHeight(mcore, {excludeBlocked : true});
+            const ret3 = await mlib.getTransactionHeight(mcore, {excludePooling : true});
             if ((ret1.isSuccess()) && (ret2.isSuccess()) && (ret3.isSuccess())) {
                 expect(ret1.value + ret2.value + ret3.value).toBeGreaterThanOrEqual(2);
             } else {

@@ -203,7 +203,7 @@ export class KeyringModule {
         let ret1;
         while (true) {
             if (core.m !== undefined) {
-                ret1 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_pubkey_data, sortOrder: -1, skipblocked: true});
+                ret1 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_pubkey_data, sortOrder: -1, excludeBlocked: true});
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.length === 0) {
                     LOG("Notice", -1, "No verify keys have been published yet");

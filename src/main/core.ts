@@ -8,9 +8,8 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { ccLogType } from "../logger/index.js";
 import { mainConfigType } from "../config/index.js";
-import { ccMainType, getTransactionOptions, getTransactionHeightOptions, getAllBlockOptions, getTransactionOrBlockOptions, getJsonOptions, postJsonOptions } from "./index.js";
+import { ccMainType, getTransactionOptions, getTransactionHeightOptions, getAllBlockOptions, getTransactionOrBlockOptions, getJsonOptions, postJsonOptions, getBlockOptions } from "./index.js";
 import { objTx, objBlock, getPoolCursorOptions, getBlockCursorOptions, poolIoIterator, blockIoIterator } from "../datastore/index.js";
-import { blockFormat } from "../block/index.js";
 import { randomOid } from "../utils.js";
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
 import { DEFAULT_PARSEL_IDENTIFIER } from "../system/index.js";
@@ -208,6 +207,8 @@ export class MainModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllUndeliveredPool");
 
+        if (options?.excludeNonpropergate === true) { return this.mOK([]) };
+
         const optCursor: getPoolCursorOptions = {
             sortOrder: options?.sortOrder,
             constrainedSize: options?.constrainedSize
@@ -245,6 +246,8 @@ export class MainModule {
     public async getAllPool(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllPool");
+
+        if (options?.excludeNonpropergate === true) { return await core.lib.getAllDeliveredPool(core, options, __t) };
 
         const optCursor: getPoolCursorOptions = {
             sortOrder: options?.sortOrder,
@@ -339,7 +342,15 @@ export class MainModule {
             if (ret1.isFailure()) return ret1;
             let ret2: any[] = [];
             if (ret1.value.cursor !== undefined) {
-                ret2 = await ret1.value.cursor.toArray();
+                if (options?.excludeNonpropergate === true) {
+                    for await (const tx of ret1.value.cursor) {
+                        if (tx.value["deliveryF"] === true) {
+                            ret2.push(tx.value);
+                        }
+                    }
+                } else {
+                    ret2 = await ret1.value.cursor.toArray();
+                }
             }
             const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
             if (ret3.isFailure()) return ret3;
@@ -360,16 +371,16 @@ export class MainModule {
     /**
      * Pick the last block. Mainly it uses to know last hash or height for constructing the chain.
      * @param core - set ccMainType or ccSystemType
-     * @param options - can set options with getTransactionOptions format
+     * @param options - can set options with getBlockOptions format
      * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the corresponding block if it's success, and gError if it's failure.
      */
-    public async getLastBlock(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objBlock | undefined, gError>> {
+    public async getLastBlock(core: ccMainType, options?: getBlockOptions, __t?: string): Promise<gResult<objBlock | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getLastBlock");
 
         const optCursor: getBlockCursorOptions = {
-            sortOrder: -1,
+            sortOrder: options?.sortOrder ?? -1,
             ignoreGenesisBlockIsNotFound: false,
             constrainedSize: undefined
         }
@@ -526,19 +537,16 @@ export class MainModule {
             constrainedSize: options.constrainedSize
         };
 
-        if (options.searchblock === true) {
-            options.skippooling = true;
-        }
+        if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
 
         if (core.d !== undefined) {
-            if (options.skippooling !== true) {
+            if (options.excludePooling !== true) {
                 const optCursor1: getPoolCursorOptions = {};
                 const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
                 if (ret1.isFailure()) return ret1;
                 let tx: IteratorResult<objTx | undefined>;
                 if (ret1.value.cursor !== undefined) { 
                     for await(tx of ret1.value.cursor) {
-                        if ((options.newonly === true) && (tx.value.type !== "new")) continue;
                         let ret2;
                         if (options.whole === true) {
                             ret2 = await this.searchTxData(core, tx.value, options);
@@ -551,7 +559,7 @@ export class MainModule {
                 }
                 await core.d.lib.closeCursor(core.d, ret1.value);
             }
-            if (options.skipblocked !== true) {
+            if (options.excludeBlocked !== true) {
                 const optCursor2: getBlockCursorOptions = {
                     ignoreGenesisBlockIsNotFound : options.ignoreGenesisBlockIsNotFound
                 };
@@ -559,12 +567,11 @@ export class MainModule {
                 if (ret3.isFailure()) return ret3;
                 let blk: IteratorResult<objBlock | undefined>;
                 if (ret3.value.cursor !== undefined) {
-                    if (options.searchblock === true) {
+                    if (options.searchBlocks === true) {
                         for await(blk of ret3.value.cursor) {
                             if (blk.value.data === undefined) continue;
                             let tx: objTx;
                             for (tx of blk.value.data) {
-                                if ((options.newonly === true) && (tx.type !== "new")) continue;
                                 let ret4;
                                 if (options.whole === true) {
                                     ret4 = await this.searchTxData(core, tx, options);
@@ -586,7 +593,7 @@ export class MainModule {
                 }
                 await core.d.lib.closeCursor(core.d, ret3.value);
             }
-            if (options.searchblock === true) {
+            if (options.searchBlocks === true) {
                 return this.mOK<T[]>(this.convA(blockArr, optConv));
             } else {
                 return this.mOK<T[]>(this.convA(txArr, optConv));
@@ -740,7 +747,15 @@ export class MainModule {
             if (ret1.isFailure()) return ret1;
             let ret2: any[] = [];
             if (ret1.value.cursor !== undefined) {
-                ret2 = await ret1.value.cursor.toArray();
+                if (options?.excludeNonpropergate === true) {
+                    for await (const tx of ret1.value.cursor) {
+                        if (tx.value["deliveryF"] === true) {
+                            ret2.push(tx.value);
+                        }
+                    }
+                } else {
+                    ret2 = await ret1.value.cursor.toArray();
+                }
             }
             const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
             if (ret3.isFailure()) return ret3;
@@ -772,18 +787,24 @@ export class MainModule {
     public async getTransactionHeight(core: ccMainType, options?: getTransactionHeightOptions, __t?: string): Promise<gResult<number, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getBlockHeight");
-        let count: number = 0;
+
+        if ((options?.excludeBlocked === true) && (options?.excludePooling === true)) { return this.mOK(0); }
         
+        let count: number = 0;
         const optCursor1: getPoolCursorOptions = {}
         const optCursor2: getBlockCursorOptions = {}
 
-        if (options?.skippooling !== true) {
+        if (options?.excludePooling !== true) {
             if (core.d !== undefined) {
                 const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.cursor !== undefined) {
-                    for await (const val of ret1.value.cursor) {
-                        count++;
+                    if (options?.excludeNonpropergate === true) {
+                        for await (const tx of ret1.value.cursor) {
+                            if (tx.value["deliveryF"] === true) { count++; }
+                        }
+                    } else {
+                        for await (const tx of ret1.value.cursor) { count++; }
                     }
                 }
                 await core.d.lib.closeCursor(core.d, ret1.value);
@@ -791,7 +812,7 @@ export class MainModule {
                 return this.mError("getAll", "getPoolCursor", "The datastore module is down");
             }
         }
-        if (options?.skipblocked !== true) {
+        if (options?.excludeBlocked !== true) {
             if (core.d !== undefined) {
                 const ret2 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
                 if (ret2.isFailure()) return ret2;

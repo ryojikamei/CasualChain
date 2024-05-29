@@ -8,7 +8,7 @@ import { randomUUID } from "crypto"
 
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
-import { ccMainType, getAllBlockOptions, getJsonOptions, getTransactionHeightOptions, getTransactionOptions, getTransactionOrBlockOptions, postJsonOptions } from "../main";
+import { ccMainType, getAllBlockOptions, getBlockOptions, getJsonOptions, getTransactionHeightOptions, getTransactionOptions, getTransactionOrBlockOptions, postJsonOptions } from "../main";
 import { mainConfigType } from "../config";
 import { objBlock, objTx } from "../datastore";
 
@@ -69,7 +69,7 @@ export class MainModuleMock {
                     const txs = [tx1, tx2, tx3];
                     return mOK(txs);
                 },
-                async getLastBlock(core: ccMainType, options?: getTransactionOptions): Promise<gResult<blockFormat, gError>> {
+                async getLastBlock(core: ccMainType, options?: getBlockOptions): Promise<gResult<blockFormat, gError>> {
                     return mOK(block0);
                 },
                 async getSearchByOid<T>(core: ccMainType, oid: string, options?: getTransactionOrBlockOptions): Promise<gResult<T | undefined, gError>> {
