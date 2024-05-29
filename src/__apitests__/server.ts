@@ -5,15 +5,16 @@
  */
 
 import clone from "clone";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 import { execa } from "execa"
 import nodeConfig from "config"; // read apitest_worker.json
 
 import { setInterval } from "timers/promises";
-import { readFile, readdir, writeFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 
-import { ConfigModule } from "../config";
-import { responseType, runAxios } from "./axios";
+import { ConfigModule } from "../config/index.js";
+
+import { responseType, runAxios } from "./axios.js";
 
 
 let conf: any;

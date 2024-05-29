@@ -27,7 +27,6 @@ export type ccMainType = {
 
 /**
  * Options for getAllBlock
- * - tenant: set tenant ID. If not, the value of default_tenant_id is used
  * - sortOrder: 1 for ascending order, -1 for descending order
  * - bareTranaction: returns transactions contained in blocks, not blocks 
  * - ignoreGenesisBlockIsNotFound: no error without the genesis block 
@@ -41,19 +40,31 @@ export type getAllBlockOptions = {
 }
 
 /**
+ * Options for gettting blocks
+ * - sortOrder: 1 for ascending order, -1 for descending order
+ * - ignoreGenesisBlockIsNotFound: no error without the genesis block 
+ * - constrainedSize: stops counting just before the specified size is exceeded
+ */
+export type getBlockOptions = {
+    sortOrder?: number,
+    ignoreGenesisBlockIsNotFound?: boolean,
+    constrainedSize?: number
+}
+
+/**
  * General options for getting transactions 
- * - tenant: set tenant ID. If not, the value of default_tenant_id is used
+ * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
  * - sortOrder: 1 for ascending order, -1  for descending order
  * - constrainedSize: stops counting just before the specified size is exceeded
  */
 export type getTransactionOptions = {
+    excludeNonpropergate?: boolean,
     sortOrder?: number,
     constrainedSize?: number
 }
 
 /**
  * Options for getSearchByOid 
- * - tenant: set tenant ID. If not, the value of default_tenant_id is used
  * - targetIsBlock: limited to blocked transaction data
  * - constrainedSize: stops counting just before the specified size is exceeded
  */
@@ -64,25 +75,25 @@ export type getTransactionOrBlockOptions = {
 
 /**
  * Options for getTransactionHeight
- * - tenant: set tenant ID. If not, the value of default_tenant_id is used
- * - skipblocked: count only pooling transaction data 
- * - skippooling: count only blocked transaction data
+ * - excludeBlocked: count only pooling transaction data 
+ * - excludePooling: count only blocked transaction data
+ * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
  */
 export type getTransactionHeightOptions = {
-    skipblocked?: boolean,
-    skippooling?: boolean
+    excludeBlocked?: boolean,
+    excludePooling?: boolean,
+    excludeNonpropergate?: boolean
 }
 
 /**
  * Options for getJson 
  * - key:  set a key
  * - value: set a value of the key 
- * - tenant: set tenant ID. If not, the value of default_tenant_id is used
- * - searchblock: search whole blocks instead of transactions
- * - skipblocked: search only pooling transaction data 
- * - skippooling: search only blocked transaction data
+ * - searchBlocks: search whole blocks instead of transactions
+ * - excludeBlocked: search only pooling transaction data 
+ * - excludePooling: search only blocked transaction data
+ * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
  * - ignoreGenesisBlockIsNotFound: no error without the genesis block 
- * - newonly: only get transactions with type "new" 
  * - sortOrder: 1 for ascending order, -1  for descending order
  * - matcherType: "strict" for strict maching of key/value
  * - whole: search whole data instead of user data
@@ -91,11 +102,11 @@ export type getTransactionHeightOptions = {
 export type getJsonOptions = {
     key: string,
     value: any,
-    searchblock?: boolean,
-    skipblocked?: boolean,
-    skippooling?: boolean,
+    searchBlocks?: boolean,
+    excludeBlocked?: boolean,
+    excludePooling?: boolean,
+    excludeNonpropergate?: boolean,
     ignoreGenesisBlockIsNotFound?: boolean,
-    newonly?: boolean,
     sortOrder?: number,
     matcherType?: string,
     whole?: boolean,
@@ -104,6 +115,9 @@ export type getJsonOptions = {
 
 /**
  * Options for postJson
+ * - type: set transaction type. "new", "update", and "delete" are special words to make a transaction chain
+ * - prev_id: can set previous oid when type is "update" or "delete"
+ * - data: set user data in JSON format
  * - compatDateTime: use human readable date format instead of unix timestamp
  */
 export type postJsonOptions = {
