@@ -46,7 +46,7 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
     }
     // register
     travelingIds[packet.trackingId] = {
-        finished: packet.finished,
+        state: "underway",
         stored: packet.stored,
         timeoutMs: packet.timeoutMs,
         type: packet.type,
@@ -126,7 +126,7 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
         }
         // generate new tracking ID and register
         travelingIds[trackingId] = {
-            finished: false,
+            state: "preparation",
             stored: false,
             timeoutMs: timeoutMs,
             type: type,
@@ -150,23 +150,23 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     };
     switch (trackingId) {
         case "declareErrorSample":
-            travelingIds[trackingId].finished = true;
+            travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
             return ca3Error("declareCreation", "Timeout", "Time out occured on " + trackingId);
         case "packErrorSample":
-            travelingIds[trackingId].finished = true;
+            travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
             return ca3Error("packTxsToANewBlockObject", "Timeout", "Time out occured on " + trackingId);
         case "signErrorSample":
-            travelingIds[trackingId].finished = true;
+            travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
             return ca3Error("signTheBlockObject", "Timeout", "Time out occured on " + trackingId);
         case "sendErrorSample":
-            travelingIds[trackingId].finished = true;
+            travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
             return ca3Error("sendTheBlockObjectToANode", "Timeout", "Time out occured on " + trackingId);
         default:
-            travelingIds[trackingId].finished = true;
+            travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].stored = true;
             travelingIds[trackingId].block = ret.blks.get("blk0");
 

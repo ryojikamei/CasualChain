@@ -158,7 +158,7 @@ describe("Test of CA3 functions", () => {
         beforeEach(() => {
             packet = {
                 trackingId: randomUUID(),
-                finished: false,
+                state: "preparation",
                 stored: false,
                 timeoutMs: 100,
                 type: "data",
@@ -208,7 +208,7 @@ describe("Test of CA3 functions", () => {
         beforeAll(() => {
             packet = {
                 trackingId: randomUUID(),
-                finished: false,
+                state: "underway",
                 stored: false,
                 timeoutMs: 10000,
                 type: "data",
@@ -312,7 +312,7 @@ describe("Test of CA3 functions", () => {
         beforeAll(async () => {
             const packet: CA3.Ca3TravelingIdFormat2 = {
                 trackingId: trackingId,
-                finished: false,
+                state: "underway",
                 stored: false,
                 timeoutMs: Number.MAX_SAFE_INTEGER,
                 type: "data",

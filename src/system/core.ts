@@ -520,7 +520,7 @@ export class SystemModule {
      * Note that it guesses all node are testing if local node mode is set with testing.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the object of blockFormat if it's success, and gError if it's failure.
      */
-    public async postGenesisBlock(core: ccSystemType, options?: postGenesisBlockOptions): Promise<gResult<blockFormat, gError>> {
+    public async postGenesisBlock(core: ccSystemType, options?: postGenesisBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:postGenesisBlock");
 
@@ -608,15 +608,18 @@ export class SystemModule {
             }
         }
 
-        // Create genesis block in the block
+        // Create and post genesis block in the block
         const txArr: objTx[] = [];
         const blockOptions: createBlockOptions = { type: "genesis" };
-        let bObj: objBlock;
+        let bObj: objBlock | undefined;
         if (core.b !== undefined) {
             const ret3 = await core.b.lib.createBlock(core.b, txArr, this.common_parsel, blockOptions);
             if (ret3.isFailure()) {
                 core.serializationLocks.postGenesisBlock = false;
                 return ret3;
+            }
+            if (ret3.value === undefined) {
+                LOG("Notice", 0, "Genesis block creation and posting are skipped.");
             }
             bObj = ret3.value;
         } else {
@@ -625,7 +628,7 @@ export class SystemModule {
         }
 
         core.serializationLocks.postGenesisBlock = false;
-        return this.sOK<blockFormat>(bObj);
+        return this.sOK<blockFormat | undefined>(bObj);
     }
     /**
      * Request from a sibling, the original invoker, to make this node getting the count of transactions in the pool.

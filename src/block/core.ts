@@ -94,7 +94,7 @@ export class BlockModule {
      * @param commonId - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the created block with blockFormat if it's success, and gError if it's failure.
      */
-    public async createBlock(core: ccBlockType, txArr: objTx[], __t: string, blockOptions?: createBlockOptions, commonId?: string): Promise<gResult<blockFormat, gError>> {
+    public async createBlock(core: ccBlockType, txArr: objTx[], __t: string, blockOptions?: createBlockOptions, commonId?: string): Promise<gResult<blockFormat | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "BlockModule:createBlock");
         if (blockOptions === undefined) {
@@ -121,6 +121,7 @@ export class BlockModule {
             trackingId = randomUUID(); // Critical at collision
             if (core.algorithm.travelingIds[trackingId] === undefined) break;
         }
+        let errDetail: string = "unknown reason";
         do {
             const currentTimeMs = new Date().valueOf();
             const lifeTimeMs = lifeTime * 1000;
@@ -137,6 +138,7 @@ export class BlockModule {
                         }
                     } else {
                         LOG("Debug", 0, "BlockModule:createBlock:proceedCreator:" + JSON.stringify(ret1));
+                        if (ret1.value.origin.detail !== undefined) { errDetail = ret1.value.origin.detail; }
                     }
                 }
             }
@@ -148,8 +150,13 @@ export class BlockModule {
             return this.bOK<blockFormat>(block);
         } else {
             core.algorithm.stopCreator(core, trackingId);
-            LOG("Notice", -1, "BlockModule:create a block with CA3 failed");
-            return this.bError("createBlock", "proceedCreator", "create a block with CA3 failed");
+            if (errDetail === "Already started") { // It's a common event.
+                LOG("Notice", -1, "BlockModule:create a block with CA3 skipped: " + errDetail);
+                return this.bOK<undefined>(undefined);
+            } else {
+                LOG("Error", -1, "BlockModule:create a block with CA3 failed: " + errDetail);
+                return this.bError("createBlock", "proceedCreator", "create a block with CA3 failed:" + errDetail);
+            }
         }
     }
 
