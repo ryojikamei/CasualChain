@@ -312,7 +312,7 @@ describe("Test of InModule", () => {
         test("Success1", () => {
             const tObj: Ca3TravelingIdFormat2 = {
                 trackingId: randomUUID(),
-                finished: false,
+                state: "underway",
                 stored: false,
                 timeoutMs: 10000,
                 type: "data",
@@ -327,7 +327,7 @@ describe("Test of InModule", () => {
         test("Success2", () => {
             const tObj: Ca3TravelingIdFormat2 = {
                 trackingId: randomUUID(),
-                finished: false,
+                state: "underway",
                 stored: false,
                 timeoutMs: 10000,
                 type: "data",

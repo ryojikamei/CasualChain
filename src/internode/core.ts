@@ -758,10 +758,10 @@ export class InModule {
         const targetHost: string = target.host + ":" + target.rpc_port;
         let client: systemrpc_grpc.gSystemRpcClient;
 
-        if (this.connections[targetHost] !== undefined) {
-            LOG("Debug", 0, "InModule:createRpcConnection:reuse");
-            client = this.connections[targetHost];
-        } else {
+        //if (this.connections[targetHost] !== undefined) {
+        //    LOG("Debug", 0, "InModule:createRpcConnection:reuse");
+        //    client = this.connections[targetHost];
+        //} else {
             if (clientInstance === undefined) {
                 let creds: grpc.ChannelCredentials;
                 creds = grpc.credentials.createInsecure();
@@ -774,7 +774,7 @@ export class InModule {
                 client = clientInstance;
             }
             this.connections[targetHost] = client;
-        }
+        //}
 
         return this.iOK(client);
     }

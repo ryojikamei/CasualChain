@@ -126,16 +126,28 @@ export class KeyringModule {
         const private_args: string[] = ['genpkey', '-algorithm', 'ed25519', '-out', keypath + core.conf.sign_key_file];
         const private_ret = await execa(bin, private_args, { shell: false });
         if (private_ret.exitCode !== 0) {
-            LOG("Warning", private_ret.exitCode, private_ret.stderr);
-            return this.kError("generateKeyPair", "private_ret:" + private_ret.exitCode.toString(), private_ret.stderr);
+            let code = 0;
+            if (private_ret.exitCode === undefined) {
+                code = -100;
+            } else {
+                code = private_ret.exitCode
+            }
+            LOG("Warning", code, private_ret.stderr);
+            return this.kError("generateKeyPair", "private_ret:" + code.toString(), private_ret.stderr);
         }
 
         const public_args: string[] = ['pkey', '-in', keypath + core.conf.sign_key_file, '-pubout', '-out',
         keypath + core.conf.verify_key_file];
         const public_ret = await execa(bin, public_args, { shell: false });
         if (public_ret.exitCode !== 0) {
-            LOG("Warning", public_ret.exitCode, public_ret.stderr);
-            return this.kError("generateKeyPair", "public_ret:" + public_ret.exitCode.toString(), public_ret.stderr);
+            let code = 0;
+            if (public_ret.exitCode === undefined) {
+                code = -100;
+            } else {
+                code = public_ret.exitCode
+            }
+            LOG("Warning", code, public_ret.stderr);
+            return this.kError("generateKeyPair", "public_ret:" + code.toString(), public_ret.stderr);
         }
 
         return this.kOK<void>(undefined);

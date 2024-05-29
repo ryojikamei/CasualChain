@@ -66,12 +66,15 @@ export type Ca3TravelingFormat = {
     trackingId: string,
     block: Ca3BlockFormat
 }
+
+
+export type travelingState = "preparation" | "underway" | "arrived"
 /**
  * General tracing format
  */
 export type Ca3TravelingIdFormat = {
     [trackingId: string]: {
-        finished: boolean,
+        state: travelingState,
         stored: boolean,
         timeoutMs: number,
         type: string,
@@ -85,7 +88,7 @@ export type Ca3TravelingIdFormat = {
  */
 export type Ca3TravelingIdFormat2 = {
     trackingId: string,
-    finished: boolean,
+    state: travelingState,
     stored: boolean,
     timeoutMs: number,
     type: string,
@@ -158,7 +161,7 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
         if (travelingId === trackingId) continue; // self
         for (const oid of oids) {
             if (travelingIds[travelingId].txOids.includes(oid)) {
-                return ca3Error("declareCreation", "checkDeclaration", "Already started");
+                return ca3Error("declareCreation", "checkDeclaration", "Already started"); // NOTE: This string is referenced in the upper layers
             }
         }
 
@@ -182,8 +185,14 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
     LOG("Debug", 0, "CA3:declareCreation:result:" + JSON.stringify(rets));
     for (const ret of rets) {
         if (ret.status === 0) {
-            if (Number(ret.data) < 0) {// Already started
-                return ca3Error("declareCreation", "sendRpcAll", "Already started");
+            try {
+                const ret10 = Number(ret.data)
+                LOG("Debug", 0, "CA3:declareCreation:result2:" + ret10)
+                if (ret10 < 0) {// Already started
+                    return ca3Error("declareCreation", "sendRpcAll", "Already started"); // NOTE: This string is referenced in the upper layers
+                }
+            } catch (error) {
+                
             }
         } else {
              // Something error => immediately exclude it
@@ -220,7 +229,9 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
                 let idList: string[] = [];
                 for (const traveling of travelings) {
                     if (travelingIds[traveling].type !== "data") { continue };
-                    idList = idList.concat(travelingIds[traveling].txOids);
+                    if (travelingIds[traveling].state !== "preparation") {
+                        idList = idList.concat(travelingIds[traveling].txOids);
+                    }
                 }
                 for (const id of idList) {
                     if (packet.txOids.includes(id)) {
@@ -236,7 +247,7 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
             case "parcel_close":
                 for (const traveling of travelings) {
                     if (travelingIds[traveling].type !== packet.type) { continue };
-                    if (travelingIds[traveling].tenant === packet.tenant) {
+                    if ((travelingIds[traveling].state !== "preparation") && (travelingIds[traveling].tenant === packet.tenant)) {
                         LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Cancelled due to collision of " + packet.type +  " block creation");
                         return ca3OK<number>(-102);
                     }
@@ -248,7 +259,7 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
         }
         // register
         travelingIds[packet.trackingId] = {
-            finished: packet.finished,
+            state: "underway",
             stored: packet.stored,
             timeoutMs: packet.timeoutMs,
             type: packet.type,
@@ -468,7 +479,7 @@ async function sendTheBlockObjectToANode(core: ccBlockType, bObj: Ca3BlockFormat
         LOG("Debug", 0, "CA3:sendTheBlockObjectToANode:stored:" + trackingId);
         ret2.block = travelingIds[trackingId].block;
     } else {
-        if (travelingIds[trackingId].finished === true) {
+        if (travelingIds[trackingId].state === "arrived") {
             LOG("Debug", 0, "CA3:sendTheBlockObjectToANode:finishedWithFail:" + trackingId);
         }
     }
@@ -694,7 +705,7 @@ export async function verifyABlock(core: ccBlockType, bObj: Ca3BlockFormat, trac
 
     // needs special attention
     if (trackingId !== undefined) {
-        travelingIds[trackingId].finished = true;
+        travelingIds[trackingId].state = "arrived";
         if (ret1.value.status === 0) {
             travelingIds[trackingId].block = bObj;
         } else {
@@ -835,7 +846,7 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
         }
         // generate new tracking ID and register
         travelingIds[trackingId] = {
-            finished: false,
+            state: "preparation",
             stored: false,
             timeoutMs: timeoutMs,
             type: type,
@@ -893,16 +904,17 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     // suppression request => have the parameter adjusted according to the result
     const ret2 = await declareCreation(core, trackingId);
     if (ret2.isFailure()) {
-        travelingIds[trackingId].finished = true;
+        travelingIds[trackingId].state = "arrived";
         travelingIds[trackingId].block = undefined;
         return ret2;
     }
+    travelingIds[trackingId].state = "underway";
     if ((core.i !== undefined) && (ret2.value.i !== undefined)) core.i.conf = ret2.value.i.conf;
 
     // block creation
     const ret3 = packTxsToANewBlockObject(core, pObj, data, trackingId, __t, blockOptions);
     if (ret3.isFailure()) {
-        travelingIds[trackingId].finished = true;
+        travelingIds[trackingId].state = "arrived";
         travelingIds[trackingId].block = undefined;
         return ret3;
     }
@@ -913,7 +925,7 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     // signed by this node
     const ret4 = await signTheBlockObject(core, ret1.block, trackingId);
     if (ret4.isFailure()) {
-        travelingIds[trackingId].finished = true;
+        travelingIds[trackingId].state = "arrived";
         travelingIds[trackingId].block = undefined;
         return ret4;
     }
@@ -928,7 +940,7 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     // => if it is OK, it is returned
     const ret5 = await sendTheBlockObjectToANode(core, ret1.block, trackingId);
     if (ret5.isFailure()) {
-        travelingIds[trackingId].finished = true;
+        travelingIds[trackingId].state = "arrived";
         travelingIds[trackingId].block = undefined;
         return ret5;
     }

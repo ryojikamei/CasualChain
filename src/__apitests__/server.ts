@@ -130,6 +130,7 @@ export async function importTestData(collection: string, dumpfile: string, keepd
     if (ret.stdout.length !== 0) console.log(ret.stdout);
     if (ret.stderr.length !== 0) console.error(ret.stderr);
 
+    if (ret.exitCode === undefined) return -100;
     return ret.exitCode;
 }
 
@@ -145,6 +146,7 @@ export async function exportTestData(collection: string, dumpfile: string): Prom
     if (ret.stdout.length !== 0) console.log(ret.stdout);
     if (ret.stderr.length !== 0) console.error(ret.stderr);
 
+    if (ret.exitCode === undefined) return -100;
     return ret.exitCode;
 }
 
