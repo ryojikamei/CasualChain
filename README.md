@@ -25,7 +25,7 @@ There are three different ways:
 
 1. Building from the code (Current recommendation)
 2. Using npm
-3. Downloading SEA (In preparation)
+3. Using docker (Much easy but demo version only)
 
 In any case, a Linux system with MongoDB version 4.4 or higher can be installed is required.
 CasualChain also uses OpenSSL commands directly. This is usually already installed.
@@ -55,6 +55,14 @@ $ npm install
 $ npm run build
 ```
 
+### Run a demo
+
+```
+$ npm run demo
+```
+Demo can be stopped with Ctrl-C.
+APIs are listed in the overview pdf file.
+
 ## When using npm
 
 Registered in npm, but not a library, so not a very smart way to do it.
@@ -80,11 +88,7 @@ $ ln -s systemrpc_pb.cjs  grpc/systemrpc_pb.js
 $ npm install
 ```
 
-### When downloading SEA (In preparation)
-
-This way is under preparation
-
-## Run a demo
+### Run a demo
 
 ```
 $ npm run demo
@@ -92,6 +96,23 @@ $ npm run demo
 Demo can be stopped with Ctrl-C.
 APIs are listed in the overview pdf file.
 
+
+## When using docker
+
+Currently only a demo version is available. It cannot be used for full-scale evaluation.
+See https://hub.docker.com/repository/docker/ryojikamei/casualchain/general
+to seek the recent image.
+```
+$ sudo docker image pull ryojikamei/casualchain:demo_<timestamp>
+$ sudo docker container run -p 8001:8001 -p 9001:9001 ryojikamei/casualchain:demo_<timestamp>
+```
+Demo can be stopped like:
+```
+$ sudo docker container list
+CONTAINER ID   IMAGE                                        COMMAND                   CREATED              STATUS              PORTS                                                                                                      NAMES
+490e3caef3d8   ryojikamei/casualchain:demo_20240529084025   "docker-entrypoint.s…"   About a minute ago   Up About a minute   0.0.0.0:8001->8001/tcp, :::8001->8001/tcp, 8002/tcp, 0.0.0.0:9001->9001/tcp, :::9001->9001/tcp, 9002/tcp   quizzical_lederberg
+$ sudo docker container stop quizzical_lederberg
+```
 
 # Run for a evaluation
 
