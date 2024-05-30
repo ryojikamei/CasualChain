@@ -142,7 +142,7 @@ export class BlockModule {
                     }
                 }
             }
-        } while (core.algorithm.travelingIds[trackingId].finished === false);
+        } while (core.algorithm.travelingIds[trackingId].state !== "arrived");
         if (core.algorithm.travelingIds[trackingId].stored === true) {
             const block = clone(core.algorithm.travelingIds[trackingId].block);
             core.algorithm.stopCreator(core, trackingId);
