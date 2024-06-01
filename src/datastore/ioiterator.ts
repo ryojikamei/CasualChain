@@ -33,7 +33,7 @@ export class cachedIoIterator<T extends object> {
             this.array = array;
         }
         this.pos = 0;
-        this.max = array.length - 1;
+        this.max = this.array.length - 1;
     }
 
     /**

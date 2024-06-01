@@ -58,6 +58,43 @@ describe("Test of ListerV3AdminApi", () => {
         })
     })
 
+    describe("Method shutdown()", () => {
+        test("Success", async () => {
+            const ret = await lib.shutdown(acore);
+            expect(ret.type).toBe("success");
+        })
+    })
+
+    describe("API /sys/deliverpooling", () => {
+        test("Success in posting", async () => {
+            acore.s = score;
+            const res = await request(api).post("/sys/deliverpooling").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to post", async () => {
+            acore.s = undefined;
+            const res = await request(api).post("/sys/deliverpooling").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
+    describe("API /sys/blocking", () => {
+        test("Success in posting", async () => {
+            acore.s = score;
+            const res = await request(api).post("/sys/blocking").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to post", async () => {
+            acore.s = undefined;
+            const res = await request(api).post("/sys/blocking").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
     describe("API /sys/initbc", () => {
         test("Success in posting", async () => {
             acore.s = score;

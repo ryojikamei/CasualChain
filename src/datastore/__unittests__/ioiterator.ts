@@ -15,6 +15,7 @@ import { BackendDbSubModule } from "../mongodb";
 import { dsConfigType } from "../../config";
 import { MongoClient, FindCursor, WithId, Document } from "mongodb";
 import { installResult, installSamples } from "../../__testdata__/installer";
+import { DEFAULT_PARSEL_IDENTIFIER } from "../../system";
 
 let dbLib: BackendDbSubModule = new BackendDbSubModule();
 
@@ -50,24 +51,28 @@ const dbServerOpts = {
 describe("Test of CachedIoIterator()", () => {
     let ds: dataSet;
     let iterTx: cachedIoIterator<objTx>;
+    let iterTxS: cachedIoIterator<objTx>;
     let iterBlk: cachedIoIterator<objBlock>;
+    let iterBlkS: cachedIoIterator<objBlock>;
     let arrTxs: objTx[];
     let arrBlks: objBlock[];
     beforeEach(async () => {
-        ds = await generateSamples();
+        ds = await generateSamples(DEFAULT_PARSEL_IDENTIFIER);
         arrTxs = [];
         for (const entry of ds.txs.entries()) {
             arrTxs.push(entry[1]);
         }
         iterTx = new cachedIoIterator(arrTxs);
+        iterTxS = new cachedIoIterator(arrTxs, DEFAULT_PARSEL_IDENTIFIER, 0);
         arrBlks = [];
         for (const entry of ds.blks.entries()) {
             arrBlks.push(entry[1]);
         }
         iterBlk = new cachedIoIterator(arrBlks);
+        iterBlkS = new cachedIoIterator(arrBlks, DEFAULT_PARSEL_IDENTIFIER, 0);
     });
     describe("Method next()", () => {
-        test("Success", async() => {
+        test("Success1", async() => {
             const next1 = await iterTx.next();
             expect(next1.value).toEqual(ds.txs.get("tx1"));
             expect(next1.done).toBe(false);
@@ -99,6 +104,22 @@ describe("Test of CachedIoIterator()", () => {
             expect(next10.value).toEqual(undefined);
             expect(next10.done).toBe(true);
         });
+        test("Success2", async() => {
+            const next11 = await iterTxS.next();
+            expect(next11.value).toEqual(undefined);
+            expect(next11.done).toBe(true);
+        });
+        test("Success3", async() => {
+            const next21 = await iterBlkS.next();
+            expect(next21.value).toEqual(ds.blks.get("blk0"));
+            expect(next21.done).toBe(false);
+            const next22 = await iterBlkS.next();
+            expect(next22.value).toEqual(ds.blks.get("blk0B"));
+            expect(next22.done).toBe(false);
+            const next23 = await iterBlkS.next();
+            expect(next23.value).toEqual(undefined);
+            expect(next23.done).toBe(true);
+        });
     });
     describe("Method toArray()", () => {
         test("Success", async() => {
@@ -121,6 +142,7 @@ describe("Test of DirectIoIterator()", () => {
     let server: MongoMemoryServer;
     let client: MongoClient;
     let iterBlk: directIoIterator<objBlock>;
+    let iterBlk2: directIoIterator<objBlock>;
     let cur: FindCursor<WithId<Document>> | undefined;
     let installed: installResult | undefined;
     beforeAll(async () => {
@@ -139,12 +161,13 @@ describe("Test of DirectIoIterator()", () => {
         if (installed === undefined) throw new Error("FAIL");
         cur = client.db().collection("block_node1").find({});
         iterBlk = new directIoIterator<objBlock>(cur);
+        iterBlk2 = new directIoIterator<objBlock>(cur, 0);
     });
     afterEach(async () => {
         cur?.close();
     });
     describe("Method next()", () => {
-        test("Success", async() => {
+        test("Success1", async() => {
             const next1 = await iterBlk.next();
             let blk1 = next1.value;
             blk1._id = blk1._id.toHexString();
@@ -159,6 +182,17 @@ describe("Test of DirectIoIterator()", () => {
             expect(next3.value).toEqual(undefined);
             expect(next3.done).toBe(true);
         });
+        test("Success2", async() => {
+            const next10 = await iterBlk2.next();
+            let blk1 = next10.value;
+            blk1._id = blk1._id.toHexString();
+            expect(blk1).toEqual(installed?.block_node1[0]);
+            expect(next10.done).toBe(false);
+            const next11 = await iterBlk2.next();
+            let blk2 = next11.value;
+            expect(blk2).toEqual(undefined);
+            expect(next11.done).toBe(true);
+        })
     });
     describe("Method toArray()", () => {
         test("Success", async() => {

@@ -227,7 +227,9 @@ export class ListnerV3UserApi {
         this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-pooling");
             if (acore.m !== undefined) {
+                this.runcounter++;
                 acore.m.lib.getAllPool(acore.m, req.body).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/pooling"));
                     }

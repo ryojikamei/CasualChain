@@ -145,7 +145,9 @@ export class ListnerV3AdminApi {
         this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-deliverpooling");
             if (acore.s !== undefined) {
+                this.runcounter++;
                 acore.s.lib.postDeliveryPool(acore.s).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/deliverpooling"));
                     }
@@ -161,7 +163,9 @@ export class ListnerV3AdminApi {
         this.api.post("/sys/blocking", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:sys-blocking");
             if (acore.s !== undefined) {
+                this.runcounter++;
                 acore.s.lib.postAppendBlocks(acore.s).then((data) => {
+                    this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/blocking"));
                     }
@@ -278,11 +282,11 @@ export class ListnerV3AdminApi {
             if (currentrun === 0) {
                 return this.adminOK<void>(undefined);
             } else {
-                LOG("Notice", 0, "UserApi:some APIs are still running.");
+                LOG("Notice", 0, "AdminApi:some APIs are still running.");
                 retry--;
             }
             if (retry === 0) {
-                LOG("Warning", 0, "UserApi:gave up all APIs to terminate.");
+                LOG("Warning", 0, "AdminApi:gave up all APIs to terminate.");
             }
         }
 

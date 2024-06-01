@@ -67,7 +67,12 @@ export type Ca3TravelingFormat = {
     block: Ca3BlockFormat
 }
 
-
+/**
+ * The state of the packet being traveled
+ * preparation: Still only registered
+ * underway: Processing in progress
+ * arrived: Either way, the process is finished
+ */
 export type travelingState = "preparation" | "underway" | "arrived"
 /**
  * General tracing format
@@ -590,7 +595,8 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
     const ret2 = await signTheBlockObject(core, tObj.block, tObj.trackingId);
     if (ret2.isFailure()) return ret2;
     if ((ret2.value.status !== 0) || (ret2.value.block === undefined)) {
-        LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that the signature was failed");
+        //LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that the signature was failed");
+        LOG("Warning", ret2.value.status, "Unknwon status:" + (2000 + ret2.value.status).toString());
         return ca3OK<number>(2000 + ret2.value.status);
     }
 
@@ -625,7 +631,7 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
     } else {
         storeBlock = true;
     }
-    if (storeBlock === true) { // It's a final destination
+    if (storeBlock === true) { // It's the final destination
         // Save the block on this node
         if (core.s !== undefined) {
             const ret5 = await core.s.lib.requestToAddBlock(core.s, tObj.block, true, tObj.trackingId);

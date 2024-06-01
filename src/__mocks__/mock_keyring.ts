@@ -32,6 +32,8 @@ export class KeyringModuleMock {
                     return kOK(undefined);
                 },
                 async signByPrivateKey(core: ccKeyringType, target: object, trackingId: string): Promise<gResult<string, gError>> {
+                    if (trackingId === "failSample1") return kError("signByPrivateKey", "sign_key_hex", "The private key is invalid");
+                    if (trackingId === "failSample2") return kError("signByPrivateKey", "sign:", "sample error");
                     return kOK(randomString64());
                 },
                 async verifyByPublicKey(core: ccKeyringType, signature: string, target: object, nodename: string, trackingId?: string): Promise<gResult<boolean, gError>> {

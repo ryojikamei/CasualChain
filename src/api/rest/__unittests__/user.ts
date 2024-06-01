@@ -58,6 +58,13 @@ describe("Test of ListerV3UserApi", () => {
         })
     })
 
+    describe("Method shutdown()", () => {
+        test("Success", async () => {
+            const ret = await lib.shutdown(acore);
+            expect(ret.type).toBe("success");
+        })
+    })
+
     describe("API /get/byjson", () => {
         test("Success in getting", async () => {
             acore.m = mcore;
@@ -132,6 +139,21 @@ describe("Test of ListerV3UserApi", () => {
         test("Failed to get", async () => {
             acore.m = undefined;
             const res = await request(api).get("/get/blocked").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
+    describe("API /get/pooling", () => {
+        test("Success in getting", async () => {
+            acore.m = mcore;
+            const res = await request(api).get("/get/pooling").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to get", async () => {
+            acore.m = undefined;
+            const res = await request(api).get("/get/pooling").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
             expect(res.status).toBe(503);
             expect(res.body).toBeDefined();
         })
