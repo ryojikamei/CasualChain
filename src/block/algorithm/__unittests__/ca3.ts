@@ -45,6 +45,7 @@ describe("Test of CA3 functions", () => {
     let block0_0: CA3.Ca3BlockFormat;
     let block0_1: CA3.Ca3BlockFormat;
     let block2: CA3.Ca3BlockFormat;
+    let block2b: CA3.Ca3BlockFormat;
     let tx3: objTx;
     beforeAll(async () => {
         kconf = {
@@ -132,6 +133,29 @@ describe("Test of CA3 functions", () => {
         block2.signcounter--;
         block2.signedby["localhost"] =  ret3.value;
 
+        // block2b
+        const oidVal2b = { _id: randomOid().byStr() };
+        const hObj2b = {
+            tenant: default_tenant_id,
+            version: 1,
+            height: 1,
+            size: 1,
+            data: [tx3],
+            type: "new",
+            settime: "2023/10/12 15:47:15",
+            timestamp: "1697093235478",
+            signedby: {},
+            signcounter: 100,
+            prev_hash: hashVal0
+        }
+        const hashVal2b: string = createHash('sha256').update(JSON.stringify(hObj2b)).digest('hex');
+        const hashObj2b = { hash: hashVal2b };
+        block2b = {...oidVal2b, ...hObj2b, ...hashObj2b};
+        const ret3b = await kcore.lib.signByPrivateKey(kcore, block2b, randomUUID());
+        if (ret3b.isFailure()) { throw new Error("beforeAll failed in creation of block2"); };
+        block2b.signcounter--;
+        block2b.signedby["localhost"] =  ret3b.value;
+
         const lib = new BlockModule();
         const ret4 = new SystemModuleMock().init();
         if (ret4.isFailure()) { throw new Error("beforeAll failed in init of SystemModule"); };
@@ -201,6 +225,27 @@ describe("Test of CA3 functions", () => {
             }
         })
 
+        test("succeed when genesis/parcel have started already", async () => {
+            const genesis: CA3.Ca3TravelingIdFormat2 = {
+                trackingId: randomUUID(),
+                state: "preparation",
+                stored: false,
+                timeoutMs: 100,
+                type: "genesis",
+                tenant: randomUUID(),
+                txOids: [],
+                block: undefined
+            }
+            await CA3.requestToDeclareBlockCreation(core, genesis);
+            let packetClone = clone(genesis);
+            packetClone.trackingId = randomUUID();
+            const ret = await CA3.requestToDeclareBlockCreation(core, packetClone);
+            if (ret.isSuccess()) {
+                expect(ret.value).toBe(-102);
+            } else {
+                throw new Error("FAIL");
+            }
+        })
     })
 
     describe("Function verifyABlock", () => {
@@ -374,11 +419,11 @@ describe("Test of CA3 functions", () => {
         })
 
         // Pending: need to make sendRpc mock to fail
-        /*test("succeed in stopping procedure in resending", async () => {
-            if (core.conf.ca3 !== undefined) core.conf.ca3.minSignNodes = 100;
+        /* test("succeed in stopping procedure in resending", async () => {
+            if (core.conf.ca3 !== undefined) core.conf.ca3.minSignNodes = 1000;
             const tObj: CA3.Ca3TravelingFormat = {
                 trackingId: trackingId,
-                block: block0_1
+                block: block0_0
             }
             const ret = await CA3.requestToSignAndResendOrStore(core, tObj);
             if (core.conf.ca3 !== undefined) core.conf.ca3.minSignNodes = 1;

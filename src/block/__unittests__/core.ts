@@ -92,6 +92,27 @@ describe("Test of BlockModule", () => {
                 throw new Error("FAIL");
             }
         })
+
+        test("Failure1", async () => {
+            const ret1 = await core.lib.createBlock(core, data, "TimeoutSample");
+            if (ret1.isSuccess()) { throw new Error("FAIL") };
+            expect(ret1.type).toBe("failure");
+            expect(ret1.value.origin.detail).toBe("create a block with CA3 failed:unknown reason");
+        })
+
+        test("Failure2", async () => {
+            const ret1 = await core.lib.createBlock(core, data, "GeneralErrorSample");
+            if (ret1.isSuccess()) { throw new Error("FAIL") };
+            expect(ret1.type).toBe("failure");
+            expect(ret1.value.origin.detail).not.toBe("create a block with CA3 failed:unknown reason");
+        })
+
+        test("Success2", async () => {
+            const ret1 = await core.lib.createBlock(core, data, "AlreadyStartSample");
+            if (ret1.isFailure()) { throw new Error("FAIL") };
+            expect(ret1.type).toBe("success");
+            expect(ret1.value).toBe(undefined);
+        })
     })
 
     describe("Method verifyBlock() with CA3", () => {

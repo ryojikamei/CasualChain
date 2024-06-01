@@ -62,14 +62,16 @@ export class InModuleMock {
                 getBlockCallback() {},
                 examineBlockDifferenceCallback() {},
                 examinePoolDifferenceCallback() {},
-                async sendRpcAll(core: ccInType, sObj: systemrpc.ccSystemRpcFormat.AsObject): Promise<gResult<rpcReturnFormat[], unknown>> {
-                    const ret = await this.sendRpc("", sObj);
+                async sendRpcAll(core: ccInType, payload: systemrpc.ccSystemRpcFormat.AsObject, timeoutMs?: number,
+                    clientInstance?: any): Promise<gResult<rpcReturnFormat[], unknown>> {
+                    const ret = await this.sendRpc(core, "", payload, timeoutMs, clientInstance);
                     if (ret.isSuccess()) return iOK([ret.value]);
                     return iError("Error");
                 },
-                async sendRpc(targetHost: string, payload: systemrpc.ccSystemRpcFormat.AsObject): Promise<gResult<rpcReturnFormat, gError>>  {
+                async sendRpc(core: ccInType, target: any, payload: systemrpc.ccSystemRpcFormat.AsObject, 
+                    timeoutMs?: number, clientInstance?: any, retry?: number): Promise<gResult<rpcReturnFormat, gError>>  {
                     let ret: rpcReturnFormat = {
-                        targetHost: targetHost,
+                        targetHost: "",
                         request: payload.request,
                         status: 0,
                         data: undefined
@@ -85,18 +87,22 @@ export class InModuleMock {
                     if (payload.request === "ExaminePoolDifference") {
                         return iOK(ret);
                     }
-                    //if (payload.request === "SignAndResendOrStore") {
-                    //    const obj: Ca3TravelingFormat = JSON.parse(payload.dataasstring);
-                    //    ret.data = JSON.stringify(obj.block);
-                    //    return iOK(ret);
-                    //}  
-                    //if (payload.version > 0) { // success return
-                    //    ret.data = ""
+                    if (payload.request === "SignAndResendOrStore") {
+                        if ((timeoutMs === undefined) || (timeoutMs > 0)) {
+                            const obj = JSON.parse(payload.dataasstring);
+                            ret.data = JSON.stringify(obj.block);
+                            return iOK(ret);
+
+                        } else {
+                            return iError("sendRpc", "createRpcConnection", "")
+                        }
+                    }
+                    // default
+                    if ((timeoutMs === undefined) || (timeoutMs > 0)) {
                         return iOK(ret);
-                    //} else { // fail return
-                    //    ret.status = -1;
-                    //    return iError("Error func", undefined, undefined);
-                    //}
+                    } else {
+                        return iError("sendRpc", "rpcReturnFormat", "")
+                    }
                 }
             },
 

@@ -139,7 +139,7 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
 }
 
 export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | undefined, 
-    data: any, trackingId: string, blockOptions?: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
+    data: any, trackingId: string, __t: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
 
     /* block sample */
     const ret = await generateSamples();
@@ -148,28 +148,23 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
         status: 0,
         detail: ""
     };
-    switch (trackingId) {
-        case "declareErrorSample":
+    switch (__t) {
+        case "TimeoutSample":
             travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
             return ca3Error("declareCreation", "Timeout", "Time out occured on " + trackingId);
-        case "packErrorSample":
+        case "GeneralErrorSample":
             travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
-            return ca3Error("packTxsToANewBlockObject", "Timeout", "Time out occured on " + trackingId);
-        case "signErrorSample":
+            return ca3Error("packTxsToANewBlockObject", "createBlock", "Creating data block must requires previous block information");
+        case "AlreadyStartSample":
             travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].block = undefined;
-            return ca3Error("signTheBlockObject", "Timeout", "Time out occured on " + trackingId);
-        case "sendErrorSample":
-            travelingIds[trackingId].state = "arrived";
-            travelingIds[trackingId].block = undefined;
-            return ca3Error("sendTheBlockObjectToANode", "Timeout", "Time out occured on " + trackingId);
+            return ca3Error("declareCreation", "sendRpcAll", "Already started");
         default:
             travelingIds[trackingId].state = "arrived";
             travelingIds[trackingId].stored = true;
             travelingIds[trackingId].block = ret.blks.get("blk0");
-
             return ca3OK<Ca3ReturnFormat>(ret1);
     }
 }

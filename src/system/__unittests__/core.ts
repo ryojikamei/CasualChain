@@ -109,6 +109,24 @@ describe("Test of SystemModule", () => {
             const ret = slib.registerAutoTasks(score);
             expect(ret.type).toBe("success");
         });
+        test("Failure", () => {
+            score.e = undefined;
+            const ret = slib.registerAutoTasks(score);
+            expect(ret.type).toBe("failure");
+        });
+    });
+
+    describe("Method unregisterAutoTasks()", () => {
+        test("Success", () => {
+            score.e = ecore;
+            const ret = slib.unregisterAutoTasks(score);
+            expect(ret.type).toBe("success");
+        });
+        test("Failure", () => {
+            score.e = undefined;
+            const ret = slib.unregisterAutoTasks(score);
+            expect(ret.type).toBe("failure");
+        });
     });
 
     describe("Method postDeliveryPool()", () => {
@@ -213,6 +231,12 @@ describe("Test of SystemModule", () => {
         test("Failure4", async () => {
             score.m = mcoreFail;
             score.b = bcore;
+            const ret4 = await slib.postAppendBlocks(score);
+            expect(ret4.type).toBe("failure");
+        });
+        test("Failure5", async () => {
+            score.m = mcore;
+            score.b = bcoreFail;
             const ret4 = await slib.postAppendBlocks(score);
             expect(ret4.type).toBe("failure");
         });
