@@ -78,7 +78,8 @@ export class ApiModule {
             status: status,
             log: log,
             m: undefined,
-            s: undefined
+            s: undefined,
+            c: undefined
         }
 
         return this.aOK<ccApiType>(core);

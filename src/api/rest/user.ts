@@ -15,62 +15,6 @@ import { ccApiType } from "../index.js";
 
 /**
  * Provide User APIs.
- * It provides following REST-like APIs:
- * 
- * - "/get/byjson": searches and gets data by JSON format, type GET.
- *   IN: sets the search condition by a key/value pair in JSON format in body.
- *   OUT: on success, returns response code 200 and transaction data in an array of JSON
- *        format, that is narrow down by the search condition.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see getSearchByJson() in main module for understanding the essentials of processing.
- * 
- * - "/get/byoid/:oid(\\w{24})": searches and gets data that has the oid, type GET.
- *   IN: set a 24-character oid at the end of url. The body will be ignored.
- *   OUT: on success, returns response code 200 and single transaction data in JSON format,
- *        that have the specified oid. On fail, returns response code 503 with no 
- *        data.
- *   FYI: see getSearchByOid() in main module for understanding the essentials of processing.
- * 
- * - "/get/alltxs": gets all transaction data, type GET.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and transaction data in an array of JSON
- *        format. On fail, returns response code 503 with error detail.
- *   FYI: see getAll() in main module for understanding the essentials of processing.
- * 
- * - "/get/blocked": gets all already-blockchained data, type GET.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and transaction data in an array of JSON
- *        format. This API returns data in the blockchain structure. That is, the array
- *        may contains multiple or single blocks, and a block may contain multiple or 
- *        single transactions in 'data' section. The very first block is called the genesis
- *        block and contains no data. On fail, returns response code 503 with no 
- *        data.
- *   FYI: see getAllBlock() in main module for understanding the essentials of processing.
- * 
- * - "/get/pooling": gets all waiting data to blockchained, type GET.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and transaction data in an array of JSON
- *        format. On fail, returns response code 503 with error detail.
- *   FYI: see getAllPool() in main module for understanding the essentials of processing.
- *
- * - "/get/history/:oid(\\w{24})": gets the chain to the past of the specified transaction,
- *   type GET.
- *   IN: set a 24-character oid at the end of url. The body will be ignored.
- *   OUT: on success, returns an array of JSON that contains all transactions from the 
- *        specified transaction into the past. Note that future transactions are not
- *        included. On fail, returns response code 503 with error detail.
- *   FYI: see getHistoryByOid() in main module for understanding the essentials of processing.
- * 
- * - "/post/byjson": posts a transaction with JSON format, type POST.
- *   IN: set user data in JSON format, under 'data' key. Also, a transaction must have
- *       'type' key with a value. By default, key 'type' can have a value of one of three
- *       types. That is, 'new', 'update', or 'delete'. Transactions that have no relation
- *       to others have 'new'. An update transaction of a previous transaction is appended
- *       with 'update'. And the transaction whose purpose is to disable a series of 
- *       transactions is 'delete'. For 'update' and 'delete' transactions, an 'prev_id' key
- *       containing the value of oid of the previous transaction is required also.
- *   OUT: on success, returns response code 200 and oid in the body.
- *        On fail, returns response code 503 with error detail.
  */
 export class ListnerV3UserApi {
     /**

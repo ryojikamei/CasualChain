@@ -49,7 +49,8 @@ export class ApiModuleMock {
             status: 0,
             log: new logMock(),
             m: undefined,
-            s: undefined
+            s: undefined,
+            c: undefined
         }
         return this.aOK<ccApiType>(acore);
     }

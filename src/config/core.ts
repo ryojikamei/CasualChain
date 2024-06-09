@@ -3,13 +3,21 @@
  * Released under the MIT license
  * https://opensource.org/licenses/mit-license.php
  */
+import clone from "clone";
 
 import nodeConfig from "config";
 import crypto from "crypto";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { systemConfigType, ccConfigType, logConfigType, logConfigInputType, mainConfigType, dsConfigType, eventConfigType, apiConfigType, inConfigType, blockConfigType, keyringConfigType, keyringConfigInputSchema, inConfigInputSchema, blockConfigInputSchema, systemConfigInputSchema, dsConfigInputSchema, apiConfigInputSchema, eventConfigInputSchema, logConfigInputSchema } from "./zod.js";
+import { systemConfigType, ccConfigType, logConfigType, logConfigInputType, mainConfigType, dsConfigType, eventConfigType, apiConfigType, inConfigType, blockConfigType, keyringConfigType, keyringConfigInputSchema, inConfigInputSchema, blockConfigInputSchema, systemConfigInputSchema, dsConfigInputSchema, apiConfigInputSchema, eventConfigInputSchema, logConfigInputSchema, wholeConfigType } from "./zod.js";
+import { getConfigurationOptions } from "./index.js";
+import { moduleCondition } from "../index.js";
+
+/**
+ * Global variable to set module condition
+ */
+let coreCondition: moduleCondition = "unloaded";
 
 /**
  * ConfigModule: read configuration file and provide a tree of configuration.
@@ -35,11 +43,15 @@ export class ConfigModule {
         return new gFailure(new gError("config", func, pos, message));
     }
 
+    public getCondition() {
+        return coreCondition;
+    }
+
     /**
-     * Initialization of ConfigModule that reads all items in the configuration file.
-     * @returns returns with gResult type that contains ccConfigType if it's success, and gError if it's failure.
+     * Reads all items in the configuration file.
+     * @returns returns with gResult type that contains wholeConfigType if it's success, and gError if it's failure.
      */
-    public async init(): Promise<gResult<ccConfigType, gError>> {
+    public async loadConfig(): Promise<gResult<wholeConfigType, gError>> {
         let li: logConfigInputType;
         try {
             console.log("Reading configuration from " + nodeConfig.util.getEnv("NODE_CONFIG_DIR") + "/" + nodeConfig.util.getEnv("NODE_CONFIG_ENV"));
@@ -296,7 +308,7 @@ export class ConfigModule {
             return this.cError("init", "event", detail);
         }
 
-        const core: ccConfigType = {
+        const wholeConfig: wholeConfigType = {
             l: l, // logConfigType
             s: s, // systemConfigType
             m: m, // mainConfigType
@@ -308,7 +320,140 @@ export class ConfigModule {
             e: e  // eventConfigType
         }
 
+        return this.cOK<wholeConfigType>(wholeConfig);
+    }
+
+    /**
+     * Initialization of ConfigModule
+     * @returns returns with gResult type that contains ccConfigType if it's success, and gError if it's failure.
+     */
+    public async init(): Promise<gResult<ccConfigType, gError>> {
+
+        coreCondition = "loading";
+        const ret = await this.loadConfig();
+        if (ret.isFailure()) return ret;
+        const core = {...ret.value, ...{ lib: new ConfigModule() }};
+        coreCondition = "normal";
+
         return this.cOK<ccConfigType>(core);
+    }
+
+    /**
+     * Reload settings from the configuration files
+     * @param core - set ccConfigType instance
+     * @returns  returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async reloadConfiguration(): Promise<gResult<void, gError>> {
+
+        coreCondition = "reloadNeeded";
+        return this.cOK<void>(undefined);
+    }
+
+    /**
+     * Get all or specific settings
+     * @param core - set ccConfigType instance
+     * @param modName - can set module name to narrow down
+     * @param showPasswords - can set true when you check passwords
+     * @returns returns with gResult, that is wrapped by a Promise, that contains the target object if it's success, and gError if it's failure.
+     */
+    public getConfiguration(core: ccConfigType, modName?: string, options?: getConfigurationOptions): gResult<object, gError> {
+
+        if (modName === undefined) modName = "";
+        let showPasswords: boolean = false;
+        if (options?.showPasswords !== undefined) showPasswords = options.showPasswords;
+
+        let conf = clone(core);
+
+        if (showPasswords === false) {
+            conf.a.rest.adminapi_password = "********";
+            conf.a.rest.userapi_password = "********";
+            conf.d.mongo_password = "********";
+        }
+
+        modName = modName.toLowerCase();
+        switch (modName) {
+            case "":
+                return this.cOK(conf);
+            case "a":
+            case "api":
+                return this.cOK(conf.a);
+            case "b":
+            case "block":
+                return this.cOK(conf.b);
+            case "c":
+            case "config":
+                return this.cOK({});
+            case "d":
+            case "datastore":
+            case "ds":
+                return this.cOK(conf.d);
+            case "e":
+            case "event":
+                return this.cOK(conf.e);
+            case "i":
+            case "internode":
+            case "in":
+                return this.cOK(conf.i);
+            case "k":
+            case "keyring":
+                return this.cOK(conf.k);
+            case "l":
+            case "logger":
+                return this.cOK(conf.l);
+            case "m":
+            case "main":
+                return this.cOK(conf.m);
+            case "s":
+            case "system":
+                return this.cOK(conf.s);
+            default:
+                return this.cError("getConfiguration", "modName", "Unknown module name:" + modName);
+        }
+    }
+
+    /**
+     * Set specific settings
+     * @param core - set ccConfigType instance
+     * @param key - set the property name to set value
+     * @param value - set the value for the property
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public setConfiguration(core: ccConfigType, key: string, value: string): gResult<void, gError> {
+
+        const props = key.split(".");
+        let curr: any = core;
+        let index;
+        for (index = 0; index < props.length - 1; index++) {
+            if (curr.hasOwnProperty(props[index]) === false) {
+                return this.cError("setConfiguration", "hasOwnProperty", "Unknown property name: core." + key);
+            }
+            curr = curr[props[index]];
+        }
+
+        switch (typeof(curr[props[props.length - 1]])) {
+            case "string":
+                curr[props[props.length - 1]] = String(value);
+                return this.cOK(undefined);
+            case "number":
+                const val = Number(value);
+                if (Number.isSafeInteger(val) === false) return this.cError("setConfiguration", "setNumber", "It's not a valid number");
+                curr[props[props.length - 1]] = val;
+                return this.cOK(undefined);
+            case "boolean":
+                if (value.toLowerCase() === "true") {
+                    curr[props[props.length - 1]] = true;
+                } else {
+                    curr[props[props.length - 1]] = false;
+                }
+                return this.cOK(undefined);
+            case "undefined":
+                curr[props[props.length - 1]] = undefined;
+                return this.cOK(undefined);
+            default:
+                return this.cError("setConfiguration", "setUnsupported", "unsupported type");
+        }
     }
 
     /**

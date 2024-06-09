@@ -5,11 +5,9 @@
  */
 
 import { z } from "zod";
+import { ConfigModule } from "./core";
 
-/**
- * The master configuration type
- */
-export type ccConfigType = {
+export type wholeConfigType = {
     l: logConfigType,
     s: systemConfigType,
     m: mainConfigType,
@@ -21,6 +19,12 @@ export type ccConfigType = {
     e: eventConfigType
 }
 
+/**
+ * The master configuration type
+ */
+export type ccConfigType = wholeConfigType & {
+    lib: ConfigModule
+}
 /**
  * The configuration properties for LogModule
  */

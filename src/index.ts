@@ -32,3 +32,5 @@ export type ccType = {
     k: ccKeyringType, // Keyring object
     e: ccEventType // Event object
 }
+
+export type moduleCondition = "unloaded" | "loading" | "normal" | "reloadNeeded"

@@ -4,6 +4,8 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
+import { setInterval } from "timers/promises";
+
 import { gResult, gSuccess, gFailure, gError } from "./utils.js";
 
 import { ccType } from "./index.js";
@@ -16,7 +18,12 @@ import { ApiModule, ccApiType } from "./api/index.js";
 import { InModule, ccInType } from "./internode/index.js";
 import { BlockModule, ccBlockType } from "./block/index.js";
 import { KeyringModule, ccKeyringType } from "./keyring/index.js";
-import { EventModule, internalEventFormat, ccEventType } from "./event/index.js";
+import { EventModule, ccEventType } from "./event/index.js";
+
+/**
+ * Global variable to save core
+ */
+let core: ccType;
 
 /**
  * The master class of CasualChain
@@ -161,7 +168,7 @@ export class CC {
         }
         const a: ccApiType = ret10.value;
 
-        const core: ccType = {
+        core = {
             lib: new CC(),
             c: c, // ccConfigType
             l: l, // ccLogType
@@ -186,6 +193,7 @@ export class CC {
         // Add pathes from Api
         core.a.m = core.m;
         core.a.s = core.s;
+        core.a.c = core.c;
         // Add pathes from Internode
         core.i.b = core.b;
         core.i.k = core.k;
@@ -269,12 +277,40 @@ export class CC {
     }
 
     /**
+     * The toplevel system event loop.
+     * @param core 
+     */
+    public async systemLoop(): Promise<void> {
+        const LOG = core.l.lib.LogFunc(core.l);
+        LOG("Notice", 0, "SystemLoop started");
+
+        for await (const _ of setInterval(1000)) {
+
+            // Watchdog
+            // ConfigModule
+            if (core.c.lib.getCondition() === "reloadNeeded") {
+                const clib: ConfigModule = new ConfigModule();
+                const ret1 = await clib.init();
+                if (ret1.isSuccess()) {
+                    LOG("Warning", 0, "watchdog: ConfigModule restarted");
+                    core.c = ret1.value
+                    // reconnect
+                    core.a.c = core.c;
+                    core.e.w = core;        
+                } else {
+                    LOG("Warning", 0, "watchdog: ConfigModule restart failed:" + ret1.value);
+                }
+            }
+        }
+    }
+
+    /**
      * The shutdown process
      * @param core - set ccType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async shutdown(core: ccType): Promise<gResult<void, gError>> {
+    public async shutdown(): Promise<gResult<void, gError>> {
         const LOG = core.l.lib.LogFunc(core.l);
 
         LOG("Notice", 0, "Close the api");
