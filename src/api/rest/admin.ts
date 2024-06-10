@@ -188,7 +188,7 @@ export class ListnerV3AdminApi {
             LOG("Info", 0, "Api:sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                const ret = acore.c.lib.getConfiguration(acore.c, undefined, req.body);
+                const ret = acore.c.lib.getConfiguration(undefined, req.body);
                 this.runcounter--;
                 if (ret.isFailure()) {
                     return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
@@ -205,7 +205,7 @@ export class ListnerV3AdminApi {
             LOG("Info", 0, "Api:sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                const ret = acore.c.lib.getConfiguration(acore.c, req.params.module, req.body);
+                const ret = acore.c.lib.getConfiguration(req.params.module, req.body);
                 this.runcounter--;
                 if (ret.isFailure()) {
                     return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
@@ -223,7 +223,7 @@ export class ListnerV3AdminApi {
             if (acore.c !== undefined) {
                 this.runcounter++;
                 const [key, value] = Object.entries(req.body)[0];
-                const ret = acore.c.lib.setConfiguration(acore.c, key, String(value));
+                const ret = acore.c.lib.setConfiguration(key, String(value));
                 this.runcounter--;
                 if (ret.isFailure()) {
                     return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/editconf"));
@@ -258,13 +258,9 @@ export class ListnerV3AdminApi {
             LOG("Info", 0, "Api:sys-applyconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                acore.c.lib.reloadConfiguration().then((data) => {
-                    this.runcounter--;
-                    if (data.isFailure()) {
-                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/applyconf"));
-                    }
-                    return res.status(200).json(data.value);
-                })
+                acore.c.lib.applyConfiguration();
+                this.runcounter--;
+                return res.status(200).json(undefined);
             } else {
                 LOG("Warning", 1, "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "reloadConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }

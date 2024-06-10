@@ -18,6 +18,7 @@ import { ccLogType } from "../logger";
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
 import { DEFAULT_PARSEL_IDENTIFIER } from "../system/index.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * The tag string for the transaction of public keys
@@ -48,6 +49,25 @@ export class KeyringModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * Stub values for features not supported in the open source version
      */
     protected common_parsel: string
@@ -65,6 +85,7 @@ export class KeyringModule {
      */
     public async init(conf: keyringConfigType, log: ccLogType): Promise<gResult<ccKeyringType, gError>> {
 
+        this.coreCondition = "loading";
         let core: ccKeyringType = {
             lib: new KeyringModule(),
             conf: conf,
@@ -107,6 +128,26 @@ export class KeyringModule {
             core.cache[0].verify_key_hex = pubKeyHexStr;
         }
 
+        return this.kOK<ccKeyringType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccKeyringType instance
+     * @param log - set ccLogType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains ccKeyringType if it's success, and gError if it's failure.
+     */
+    public async restart(core: ccKeyringType, log: ccLogType): Promise<gResult<ccKeyringType, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "KeyringModule:restart");
+
+        const ret1 = await this.init(core.conf, log);
+        if (ret1.isFailure()) { return ret1 };
+        const newCore: ccKeyringType = ret1.value;
+
+        const ret2 = await this.postSelfPublicKeys(core);
+        if (ret2.isFailure()) { return ret2 };
+        
         return this.kOK<ccKeyringType>(core);
     }
 
@@ -198,6 +239,8 @@ export class KeyringModule {
         } else {
             return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
         }
+
+        this.coreCondition = "active";
         return this.kOK<void>(undefined);
     }
 

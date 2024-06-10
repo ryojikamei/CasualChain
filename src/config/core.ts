@@ -11,13 +11,8 @@ import crypto from "crypto";
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { systemConfigType, ccConfigType, logConfigType, logConfigInputType, mainConfigType, dsConfigType, eventConfigType, apiConfigType, inConfigType, blockConfigType, keyringConfigType, keyringConfigInputSchema, inConfigInputSchema, blockConfigInputSchema, systemConfigInputSchema, dsConfigInputSchema, apiConfigInputSchema, eventConfigInputSchema, logConfigInputSchema, wholeConfigType } from "./zod.js";
-import { getConfigurationOptions } from "./index.js";
+import { getConfigurationOptions, configCache } from "./index.js";
 import { moduleCondition } from "../index.js";
-
-/**
- * Global variable to set module condition
- */
-let coreCondition: moduleCondition = "unloaded";
 
 /**
  * ConfigModule: read configuration file and provide a tree of configuration.
@@ -43,8 +38,36 @@ export class ConfigModule {
         return new gFailure(new gError("config", func, pos, message));
     }
 
-    public getCondition() {
-        return coreCondition;
+    /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
+     * Inter-class variable to save updated configuration
+     */
+    protected confCache: configCache | undefined
+    /**
+     * Return data of the module
+     * @returns 
+     */
+    public getData(): gResult<configCache, gError> {
+        if (this.confCache === undefined) { return this.cError("getData", "confCache", "unknown condition"); };
+        return this.cOK(this.confCache);
     }
 
     /**
@@ -320,6 +343,7 @@ export class ConfigModule {
             e: e  // eventConfigType
         }
 
+        this.confCache = { conf: wholeConfig, modlist: [""] };
         return this.cOK<wholeConfigType>(wholeConfig);
     }
 
@@ -329,13 +353,22 @@ export class ConfigModule {
      */
     public async init(): Promise<gResult<ccConfigType, gError>> {
 
-        coreCondition = "loading";
+        this.coreCondition = "loading";
         const ret = await this.loadConfig();
         if (ret.isFailure()) return ret;
         const core = {...ret.value, ...{ lib: new ConfigModule() }};
-        coreCondition = "normal";
+        this.coreCondition = "active";
 
         return this.cOK<ccConfigType>(core);
+    }
+
+    public async restart(): Promise<gResult<ccConfigType, gError>> {
+
+        const ret = await this.init();
+        if (ret.isFailure()) return ret;
+        const newCore = ret.value;
+        
+        return this.cOK(newCore);
     }
 
     /**
@@ -346,7 +379,7 @@ export class ConfigModule {
      */
     public async reloadConfiguration(): Promise<gResult<void, gError>> {
 
-        coreCondition = "reloadNeeded";
+        this.coreCondition = "reloadNeeded";
         return this.cOK<void>(undefined);
     }
 
@@ -357,13 +390,14 @@ export class ConfigModule {
      * @param showPasswords - can set true when you check passwords
      * @returns returns with gResult, that is wrapped by a Promise, that contains the target object if it's success, and gError if it's failure.
      */
-    public getConfiguration(core: ccConfigType, modName?: string, options?: getConfigurationOptions): gResult<object, gError> {
+    public getConfiguration(modName?: string, options?: getConfigurationOptions): gResult<object, gError> {
 
         if (modName === undefined) modName = "";
         let showPasswords: boolean = false;
         if (options?.showPasswords !== undefined) showPasswords = options.showPasswords;
 
-        let conf = clone(core);
+        if (this.confCache === undefined) { return this.cError("getConfiguration", "confCache", "unknown condition"); };
+        let conf = clone(this.confCache.conf);
 
         if (showPasswords === false) {
             conf.a.rest.adminapi_password = "********";
@@ -420,10 +454,12 @@ export class ConfigModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public setConfiguration(core: ccConfigType, key: string, value: string): gResult<void, gError> {
+    public setConfiguration(key: string, value: string): gResult<void, gError> {
+
+        if (this.confCache === undefined) { return this.cError("setConfiguration", "confCache", "unknown condition"); };
 
         const props = key.split(".");
-        let curr: any = core;
+        let curr: any = this.confCache.conf;
         let index;
         for (index = 0; index < props.length - 1; index++) {
             if (curr.hasOwnProperty(props[index]) === false) {
@@ -435,11 +471,13 @@ export class ConfigModule {
         switch (typeof(curr[props[props.length - 1]])) {
             case "string":
                 curr[props[props.length - 1]] = String(value);
+                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
                 return this.cOK(undefined);
             case "number":
                 const val = Number(value);
                 if (Number.isSafeInteger(val) === false) return this.cError("setConfiguration", "setNumber", "It's not a valid number");
                 curr[props[props.length - 1]] = val;
+                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
                 return this.cOK(undefined);
             case "boolean":
                 if (value.toLowerCase() === "true") {
@@ -447,13 +485,19 @@ export class ConfigModule {
                 } else {
                     curr[props[props.length - 1]] = false;
                 }
-                return this.cOK(undefined);
-            case "undefined":
-                curr[props[props.length - 1]] = undefined;
+                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
                 return this.cOK(undefined);
             default:
                 return this.cError("setConfiguration", "setUnsupported", "unsupported type");
         }
+    }
+
+    public applyConfiguration(): gResult<void, unknown> {
+
+        if (this.confCache === undefined) { return this.cError("applyConfiguration", "confCache", "unknown condition"); };
+        if (this.confCache.modlist.length > 0) { this.coreCondition = "pulldataNeeded" };
+
+        return this.cOK(undefined);
     }
 
     /**

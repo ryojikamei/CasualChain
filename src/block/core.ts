@@ -18,6 +18,7 @@ import { ccKeyringType } from "../keyring/index.js";
 import { ccMainType } from "../main/index.js";
 import { randomUUID } from "crypto";
 import { Ca3ReturnFormat } from "./algorithm/ca3.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * The BlockModule, to create blocks with a certain algorithm
@@ -43,6 +44,25 @@ export class BlockModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * Initialize the BlockModule.
      * @param conf - set blockConfigType instance
      * @param log - set ccLogType instance
@@ -57,6 +77,7 @@ export class BlockModule {
         internodeInstance?: ccInType, keyringInstance?: ccKeyringType, mainInstance?: 
         ccMainType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
 
+        this.coreCondition = "loading"
         let core: ccBlockType = {
             lib: new BlockModule(),
             algorithm: undefined,
@@ -79,9 +100,38 @@ export class BlockModule {
             core.algorithm = await import(algorithmFile);
         } catch (error: any) {
             return this.bError("init", "importAlgorithm", error.toString());
-        }   
+        }
 
+        this.coreCondition = "active";
         return this.bOK<ccBlockType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccBlockType instance
+     * @param log - set ccLogType instance
+     * @param i - set ccInType instance
+     * @param k - set ccKeyringType instance
+     * @param m - set ccMainType instance
+     * @param s - set ccSystemType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
+     */
+    public async restart(core: ccBlockType, log: ccLogType, i: ccInType, k: ccKeyringType,
+        m: ccMainType, s: ccSystemType ): Promise<gResult<ccBlockType, gError>> {
+        const LOG = log.lib.LogFunc(log);
+        LOG("Info", 0, "BlockModule:restart");
+
+        this.coreCondition = "unloaded";
+        const ret1 = await this.init(core.conf, log);
+        if (ret1.isFailure()) return ret1;
+        const newCore: ccBlockType = ret1.value;
+        // reconnect
+        newCore.i = i;
+        newCore.k = k;
+        newCore.m = m;
+        newCore.s = s;
+
+        return this.bOK(newCore);
     }
 
 

@@ -33,4 +33,4 @@ export type ccType = {
     e: ccEventType // Event object
 }
 
-export type moduleCondition = "unloaded" | "loading" | "normal" | "reloadNeeded"
+export type moduleCondition = "unloaded" | "loading" | "initialized" | "active" | "reloadNeeded" | "pulldataNeeded"

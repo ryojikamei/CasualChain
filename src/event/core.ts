@@ -11,6 +11,7 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { eventConfigType } from "../config";
 import { ccLogType } from "../logger";
 import { internalEventFormat, ccEventType } from ".";
+import { ccType, moduleCondition } from "../index.js";
 
 
 /**
@@ -36,6 +37,25 @@ export class EventModule {
         return new gFailure(new gError("event", func, pos, message));
     }
 
+    /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
     protected eventQueue: { internal: internalEventFormat[] }
 
     protected runcounter: number
@@ -55,6 +75,7 @@ export class EventModule {
      */
     public init(conf: eventConfigType, log: ccLogType, timerRunOnce?: boolean): gResult<ccEventType, unknown> {
 
+        this.coreCondition = "loading";
         let core: ccEventType = {
             lib: new EventModule(),
             eventLoopIsActive: false,
@@ -70,7 +91,32 @@ export class EventModule {
         // asynchronus
         this.eventLoop(core, timerRunOnce);
 
+        this.coreCondition = "initialized";
         return this.eOK<ccEventType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccEventType instance
+     * @param log - set ccLogType instance
+     * @param w - set ccType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains ccEventType if it's success, and gError if it's failure.
+     */
+    public async restart(core: ccEventType, log: ccLogType, w: ccType): Promise<gResult<ccEventType, gError>> {
+        const LOG = log.lib.LogFunc(log);
+        LOG("Info", 0, "EventModule:restart");
+
+        this.coreCondition = "unloaded";
+        core.w?.s.lib.unregisterAutoTasks(core.w.s);
+        const ret1 = this.init(core.conf, log);
+        if (ret1.isFailure()) { return this.eError("restart", "init", "unknown error") };
+        const newCore : ccEventType= ret1.value;
+        // reconnect
+        newCore.w = w;
+
+        core.w?.s.lib.registerAutoTasks(core.w.s);
+        this.coreCondition = "active";
+        return this.eOK(newCore);
     }
 
     /**
