@@ -37,3 +37,8 @@ export type logOptions = {
     skipfile?: boolean
 }
 
+/**
+ * The log level of CasualChain
+ */
+export type logLevel = "Debug" | "Info" | "Notice" | "Warning" | "Error"
+

@@ -21,6 +21,7 @@ import { ccMainType } from '../main/index';
 import { randomOid } from '../utils.js';
 import { ccEventType, internalEventFormat } from '../event/index.js';
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * The result of single block diagnostics
@@ -121,6 +122,25 @@ export class SystemModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * Stub values for features not supported in the open source version
      */
     protected master_key: string
@@ -146,6 +166,7 @@ export class SystemModule {
         inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
 
+        this.coreCondition = "loading";
         const core: ccSystemType = {
             lib: new SystemModule(),
             conf: conf,
@@ -165,7 +186,41 @@ export class SystemModule {
             e: eventInstance ?? undefined
         }
 
+        this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.sOK<ccSystemType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccMainType instance
+     * @param log - set ccLogType instance
+     * @param dsInstance - can inject ccDsType instance
+     * @param inInstance - can inject ccInType instance
+     * @param blockInstance - can inject ccBlockType instance
+     * @param mainInstance - can inject ccMainkType instance
+     * @param eventInstance - can inject ccEventType instance
+     * @returns returns with gResult type that contains ccSystemType if it's success, and unknown if it's failure.
+     * So there is no need to be concerned about the failure status.
+     */
+    public restart(core: ccSystemType, log: ccLogType, dsInstance?: ccDsType, 
+        inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
+        eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "MainModule:restart");
+
+        this.coreCondition = "unloaded";
+        const ret1 = this.init(core.conf, log);
+        if (ret1.isFailure()) { return this.sError("restart", "init", "unknown error") };
+        const newCore: ccSystemType = ret1.value;
+        // reconnect
+        newCore.d = dsInstance;
+        newCore.i = inInstance;
+        newCore.b = blockInstance;
+        newCore.m = mainInstance;
+        newCore.e = eventInstance;
+
+        return this.sOK<ccSystemType>(newCore);
     }
 
     /**
@@ -587,9 +642,9 @@ export class SystemModule {
                 return this.sError("postGenesisBlock", "sendRpcAll", "The internode module is down");
             }
         } else { // check if force resetting can be done
-            LOG("Caution", 0, "Checking whether force reset the chain can be done");
+            LOG("Notice", 0, "Checking whether force reset the chain can be done");
             if ((core.conf.node_mode === "testing") || (core.conf.node_mode === "testing+init")) {
-                LOG("Caution", 0, "Node mode is OK since testing");
+                LOG("Notice", 0, "Node mode is OK since testing");
             } else {
                 LOG("Error", -1, "It cannot be reset since the node mode is not testing");
                 core.serializationLocks.postGenesisBlock = false;
@@ -1191,7 +1246,7 @@ export class SystemModule {
                         }
                     }
                     if (bRes.block === undefined) {
-                        LOG("Caution", 1302, "The block that has oid " + bRes.oid + " cannot be repaired because it does not exist on any other node.");
+                        LOG("Notice", 1302, "The block that has oid " + bRes.oid + " cannot be repaired because it does not exist on any other node.");
                     }
                 }
             }

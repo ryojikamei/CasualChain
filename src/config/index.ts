@@ -22,3 +22,14 @@ export import Ca3Property = zod.Ca3Property;
 export import blockConfigType = zod.blockConfigType;
 export import keyringConfigType = zod.keyringConfigType;
 export import eventConfigType = zod.eventConfigType;
+export import wholeConfigType = zod.wholeConfigType;
+
+export type getConfigurationOptions = {
+    showPasswords?: boolean
+}
+
+export type configCache = {
+    conf: wholeConfigType,
+    recentChanges: string[],
+    fromFileChanges: string[]
+}

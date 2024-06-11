@@ -25,6 +25,7 @@ import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, exa
 import { ccBlockType } from "../block/index.js";
 import { Ca3TravelingFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3.js";
 import { ccKeyringType } from "../keyring/index.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * An internal class of InModule that list the inter-node APIs
@@ -71,6 +72,25 @@ export class InModule {
         return new gFailure(new gError("in", func, pos, message));
     }
 
+    /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
     protected log: ccLogType
     protected score: ccSystemType | undefined
     protected bcore: ccBlockType | undefined
@@ -107,6 +127,7 @@ export class InModule {
     public async init(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, 
         blockInstance: ccBlockType, keyringInstance: ccKeyringType): Promise<gResult<ccInType, unknown>> {
 
+        this.coreCondition = "loading";
         let core: ccInType = {
             lib: new InModule(log, systemInstance, blockInstance),
             conf: conf,
@@ -122,7 +143,39 @@ export class InModule {
         this.score = core.s;
         this.bcore = core.b;
         
+        this.coreCondition = "initialized";
+        core.lib.coreCondition = this.coreCondition;
         return this.iOK(core);
+    }
+
+    /**
+     * Restart this module
+     * @param conf - set inConfigType instance
+     * @param log - set ccLogType instance
+     * @param systemInstance - set ccSystemType instance
+     * @param blockInstance - set ccBlockType instance
+     * @param keyringInstance - set ccKeyringType instance
+     * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and unknown if it's failure.
+     * So there is no need to be concerned about the failure status.
+     */
+    public async restart(core: ccInType, log: ccLogType, systemInstance: ccSystemType, 
+        blockInstance: ccBlockType, keyringInstance: ccKeyringType): Promise<gResult<ccInType, unknown>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:restart");
+
+        this.coreCondition = "unloaded";
+        const ret1 = await this.stopServer(core);
+        if (ret1.isFailure()) return ret1;
+
+        const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance);
+        if (ret2.isFailure()) { return this.iError("restart", "init", "unknown error") };
+        const newCore: ccInType = ret2.value;
+        // reconnect is done in init
+
+        const ret3 = await this.startServer(core);
+        if (ret3.isFailure()) return ret3;
+
+        return this.iOK(newCore);
     }
 
     /**
@@ -158,6 +211,7 @@ export class InModule {
         } catch (error: any) {
             return this.iError("startServer", undefined, error.toString());
         }
+        this.coreCondition = "active";
         return this.iOK<void>(undefined);
     }
 

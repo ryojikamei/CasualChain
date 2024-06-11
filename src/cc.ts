@@ -4,6 +4,8 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
+import { setInterval } from "timers/promises";
+
 import { gResult, gSuccess, gFailure, gError } from "./utils.js";
 
 import { ccType } from "./index.js";
@@ -16,7 +18,12 @@ import { ApiModule, ccApiType } from "./api/index.js";
 import { InModule, ccInType } from "./internode/index.js";
 import { BlockModule, ccBlockType } from "./block/index.js";
 import { KeyringModule, ccKeyringType } from "./keyring/index.js";
-import { EventModule, internalEventFormat, ccEventType } from "./event/index.js";
+import { EventModule, ccEventType } from "./event/index.js";
+
+/**
+ * Global variable to save core
+ */
+let core: ccType;
 
 /**
  * The master class of CasualChain
@@ -79,7 +86,7 @@ export class CC {
         if (ret3.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 3, "[FAIL]\n" + ret3.value);
+            LOG("Error", 3, "[FAIL]\n" + ret3.value);
             process.exit(3);
         }
         const s: ccSystemType = ret3.value;
@@ -90,7 +97,7 @@ export class CC {
         if (ret4.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 4, "[FAIL]\n" + ret4.value);
+            LOG("Error", 4, "[FAIL]\n" + ret4.value);
             process.exit(4);
         }
         const m: ccMainType = ret4.value;
@@ -101,7 +108,7 @@ export class CC {
         if (ret5.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 5, "[FAIL]\n" + ret5.value);
+            LOG("Error", 5, "[FAIL]\n" + ret5.value);
             process.exit(5);
         }
         const d: ccDsType = ret5.value;
@@ -112,7 +119,7 @@ export class CC {
         if (ret6.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 6, "[FAIL]\n" + ret6.value);
+            LOG("Error", 6, "[FAIL]\n" + ret6.value);
             process.exit(6);
         }
         const k: ccKeyringType = ret6.value;
@@ -123,7 +130,7 @@ export class CC {
         if (ret7.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 7, "[FAIL]\n" + ret7.value);
+            LOG("Error", 7, "[FAIL]\n" + ret7.value);
             process.exit(7);
         }
         const b: ccBlockType = ret7.value;
@@ -134,7 +141,7 @@ export class CC {
         if (ret8.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 8, "[FAIL]\n" + ret8.value);
+            LOG("Error", 8, "[FAIL]\n" + ret8.value);
             process.exit(8);
         }
         const i: ccInType = ret8.value;
@@ -145,7 +152,7 @@ export class CC {
         if (ret9.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 9, "[FAIL]\n" + ret9.value);
+            LOG("Error", 9, "[FAIL]\n" + ret9.value);
             process.exit(9);
         }
         const e: ccEventType = ret9.value;
@@ -156,12 +163,12 @@ export class CC {
         if (ret10.isSuccess()) {
             LOG("Notice", 0, "[ OK ]");
         } else {
-            LOG("Err", 10, "[FAIL]\n" + ret10.value);
+            LOG("Error", 10, "[FAIL]\n" + ret10.value);
             process.exit(10);
         }
         const a: ccApiType = ret10.value;
 
-        const core: ccType = {
+        core = {
             lib: new CC(),
             c: c, // ccConfigType
             l: l, // ccLogType
@@ -186,6 +193,7 @@ export class CC {
         // Add pathes from Api
         core.a.m = core.m;
         core.a.s = core.s;
+        core.a.c = core.c;
         // Add pathes from Internode
         core.i.b = core.b;
         core.i.k = core.k;
@@ -269,12 +277,265 @@ export class CC {
     }
 
     /**
+     * The toplevel system event loop.
+     */
+    public async systemLoop(): Promise<void> {
+        const LOG = core.l.lib.LogFunc(core.l);
+        LOG("Notice", 0, "SystemLoop started");
+
+        for await (const _core of setInterval(1000, core)) {
+
+            // Watchdog
+            // ConfigModule
+            if (core.c.lib.getCondition() === "reloadNeeded") {
+                const ret = core.c.lib.getData();
+                if (ret.isFailure()) {
+                    LOG("Warning", 0, "systemLoop: Unknown condition")
+                } else {
+                    for (const mod of ret.value.fromFileChanges) {
+                        switch (mod) {
+                            case "a":
+                                LOG("Warning", 0, "systemLoop:configA:" + JSON.stringify(core.a.conf))
+                                core.a.lib.setCondition("reloadNeeded");
+                                break;
+                            case "b":
+                                core.b.lib.setCondition("reloadNeeded");
+                                break;
+                            case "d":
+                                core.d.lib.setCondition("reloadNeeded");
+                                break;
+                            case "e":
+                                core.e.lib.setCondition("reloadNeeded");
+                                break;
+                            case "i":
+                                core.i.lib.setCondition("reloadNeeded");
+                                break;
+                            case "k":
+                                core.k.lib.setCondition("reloadNeeded");
+                                break;
+                            case "l":
+                                core.l.lib.setCondition("reloadNeeded");
+                                break;
+                            case "m":
+                                core.m.lib.setCondition("reloadNeeded");
+                                break;
+                            case "s":
+                                core.s.lib.setCondition("reloadNeeded");
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
+                const retC = await core.c.lib.restart();
+                if (retC.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: ConfigModule restarted");
+                    core.c = retC.value;
+                    // reconnect
+                    core.a.c = core.c;
+                    core.e.w = core;
+                    core.a.conf = core.c.a;
+                    core.b.conf = core.c.b;
+                    core.d.conf = core.c.d;
+                    core.e.conf = core.c.e;
+                    core.i.conf = core.c.i;
+                    core.k.conf = core.c.k;
+                    core.l.conf = core.c.l;
+                    core.m.conf = core.c.m;
+                    core.s.conf = core.c.s;
+                } else {
+                    LOG("Warning", 0, "systemLoop: ConfigModule restart failed:" + retC.value);
+                }
+                LOG("Warning", 0, "systemLoop:configA2:" + JSON.stringify(core.a.conf))
+                LOG("Warning", 0, "systemLoop:configA3:" + JSON.stringify(core.c.a))
+            }
+            if (core.c.lib.getCondition() === "pulldataNeeded") {
+                const ret = core.c.lib.getData();
+                if (ret.isFailure()) {
+                    LOG("Warning", 0, "systemLoop: Unknown condition")
+                } else {
+                    core.c = {...ret.value.conf, ...{ lib: core.c.lib } };
+                    for (const mod of ret.value.recentChanges) {
+                        switch (mod) {
+                            case "a":
+                                core.a.lib.setCondition("reloadNeeded");
+                                break;
+                            case "b":
+                                core.b.lib.setCondition("reloadNeeded");
+                                break;
+                            case "d":
+                                core.d.lib.setCondition("reloadNeeded");
+                                break;
+                            case "e":
+                                core.e.lib.setCondition("reloadNeeded");
+                                break;
+                            case "i":
+                                core.i.lib.setCondition("reloadNeeded");
+                                break;
+                            case "k":
+                                core.k.lib.setCondition("reloadNeeded");
+                                break;
+                            case "l":
+                                core.l.lib.setCondition("reloadNeeded");
+                                break;
+                            case "m":
+                                core.m.lib.setCondition("reloadNeeded");
+                                break;
+                            case "s":
+                                core.s.lib.setCondition("reloadNeeded");
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    ret.value.recentChanges = [""];
+                    core.c.lib.setData(ret.value);
+                }
+                core.c.lib.setCondition("active");
+            }
+            // ApiModule
+            if (core.a.lib.getCondition() === "reloadNeeded") {
+                const retA = await core.a.lib.restart(core.a, core.l, core.m, core.s, core.c);
+                if (retA.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: ApiModule restarted");
+                    core.a = retA.value;
+                    // reconnect
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: ApiModule restart failed:" + retA.value);
+                }
+            }
+            // BlockModule
+            if (core.b.lib.getCondition() === "reloadNeeded") {
+                const retB = await core.b.lib.restart(core.b, core.l, core.i, core.k, core.m, core.s);
+                if (retB.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: BlockModule restarted");
+                    core.b = retB.value;
+                    // reconnect
+                    core.s.b = core.b;
+                    core.i.b = core.b;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: BlockModule restart failed:" + retB.value);
+                }
+            }
+            // DsModule
+            if (core.d.lib.getCondition() === "reloadNeeded") {
+                const retD = await core.d.lib.restart(core.d, core.l);
+                if (retD.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: DsModule restarted");
+                    core.d = retD.value;
+                    // reconnect
+                    core.s.d = core.d;
+                    core.m.d = core.d;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: DsModule restart failed:" + retD.value);
+                }
+            }
+            // EventModule
+            if (core.e.lib.getCondition() === "reloadNeeded") {
+                const retE = await core.e.lib.restart(core.e, core.l, core);
+                if (retE.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: EventModule restarted");
+                    core.e = retE.value;
+                    // reconnect
+                    core.s.e = core.e;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: EventModule restart failed:" + retE.value);
+                }
+            }
+            // InModule
+            if (core.i.lib.getCondition() === "reloadNeeded") {
+                const retI = await core.i.lib.restart(core.i, core.l, core.s, core.b, core.k);
+                if (retI.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: InModule restarted");
+                    core.i = retI.value;
+                    // reconnect
+                    core.s.i = core.i;
+                    core.b.i = core.i;
+                    core.k.i = core.i;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: InModule restart failed:" + retI.value);
+                }
+            }
+            // KeyringModule
+            if (core.k.lib.getCondition() === "reloadNeeded") {
+                const retK = await core.k.lib.restart(core.k, core.l);
+                if (retK.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: KeyringModule restarted");
+                    core.k = retK.value;
+                    // reconnect
+                    core.i.k = core.k;
+                    core.b.k = core.k;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: KeyringModule restart failed:" + retK.value);
+                }
+            }
+            // LogModule
+            if (core.l.lib.getCondition() === "reloadNeeded") {
+                const retL = core.l.lib.restart(core.l);
+                if (retL.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: LogModule restarted");
+                    core.l = retL.value;
+                    // reconnect
+                    core.a.log = core.l;
+                    core.b.log = core.l;
+                    core.d.log = core.l;
+                    core.e.log = core.l;
+                    core.i.log = core.l;
+                    core.k.log = core.l;
+                    core.m.log = core.l;
+                    core.s.log = core.l;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: LogModule restart failed:" + retL.value);
+                }
+            }
+            // MainModule
+            if (core.m.lib.getCondition() === "reloadNeeded") {
+                const retM = core.m.lib.restart(core.m, core.l, core.d, core.s);
+                if (retM.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: MainModule restarted");
+                    core.m = retM.value;
+                    // reconnect
+                    core.s.m = core.m;
+                    core.a.m = core.m;
+                    core.b.m = core.m;
+                    core.k.m = core.m;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: MainModule restart failed:" + retM.value);
+                }
+            }
+            // SystemModule
+            if (core.s.lib.getCondition() === "reloadNeeded") {
+                const retS = core.s.lib.restart(core.s, core.l, core.d, core.i, core.b, core.m, core.e);
+                if (retS.isSuccess()) {
+                    LOG("Notice", 0, "systemLoop: MainModule restarted");
+                    core.s = retS.value;
+                    // reconnect
+                    core.m.s = core.s;
+                    core.a.s = core.s;
+                    core.b.s = core.s;
+                    core.k.s = core.s;
+                    core.e.w = core;
+                } else {
+                    LOG("Warning", 0, "systemLoop: SystemModule restart failed:" + retS.value);
+                }
+            }
+        }
+    }
+
+    /**
      * The shutdown process
-     * @param core - set ccType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async shutdown(core: ccType): Promise<gResult<void, gError>> {
+    public async shutdown(): Promise<gResult<void, gError>> {
         const LOG = core.l.lib.LogFunc(core.l);
 
         LOG("Notice", 0, "Close the api");

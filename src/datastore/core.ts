@@ -9,6 +9,7 @@ import { objTx, objBlock, ccDsType, poolResultObject, blockResultObject, blockCu
 import { ccLogType } from "../logger/index.js";
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { getBlockResult } from "../system/index.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * The datastore module, input and output data to/from the datastore
@@ -34,6 +35,25 @@ export class DsModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * Initialize the datastore module.
      * @param conf - set dsConfigType instance
      * @param log - set ccLogType instance
@@ -42,6 +62,7 @@ export class DsModule {
      */
     public async init(conf: dsConfigType, log: ccLogType, IoSubModule?: any): Promise<gResult<ccDsType, gError>> {
 
+        this.coreCondition = "loading";
         let core: ccDsType = {
             lib: new DsModule(),
             conf: conf,
@@ -72,7 +93,27 @@ export class DsModule {
         } else {
             return this.dError("init", "initIoSubModule", "The io sub module is down");
         }
+        this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.dOK<ccDsType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccDsType instance
+     * @param log - set ccLogType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains ccDsType if it's success, and gError if it's failure.
+     */
+    public async restart(core: ccDsType, log: ccLogType): Promise<gResult<ccDsType, gError>> {
+        const LOG = log.lib.LogFunc(log);
+        LOG("Info", 0, "DsModule:restart");
+
+        this.coreCondition = "unloaded";
+        const ret1 = await this.init(core.conf, log);
+        if (ret1.isFailure()) return ret1;
+        const newCore: ccDsType = ret1.value;
+        
+        return this.dOK<ccDsType>(newCore);
     }
 
     /**

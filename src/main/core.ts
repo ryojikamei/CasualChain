@@ -9,10 +9,11 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { ccLogType } from "../logger/index.js";
 import { mainConfigType } from "../config/index.js";
 import { ccMainType, getTransactionOptions, getTransactionHeightOptions, getAllBlockOptions, getTransactionOrBlockOptions, getJsonOptions, postJsonOptions, getBlockOptions } from "./index.js";
-import { objTx, objBlock, getPoolCursorOptions, getBlockCursorOptions, poolIoIterator, blockIoIterator } from "../datastore/index.js";
+import { objTx, objBlock, getPoolCursorOptions, getBlockCursorOptions, poolIoIterator, blockIoIterator, ccDsType } from "../datastore/index.js";
 import { randomOid } from "../utils.js";
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
-import { DEFAULT_PARSEL_IDENTIFIER } from "../system/index.js";
+import { DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * Options for terminal processing for cursor
@@ -54,6 +55,25 @@ export class MainModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * Stub values for features not supported in the open source version
      */
     protected common_parsel: string
@@ -70,6 +90,7 @@ export class MainModule {
      */
     public init(conf: mainConfigType, log: ccLogType): gResult<ccMainType, unknown> {
 
+        this.coreCondition = "loading";
         const core: ccMainType = {
             lib: new MainModule(),
             conf: conf,
@@ -78,7 +99,33 @@ export class MainModule {
             s: undefined
         }
 
+        this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.mOK<ccMainType>(core);
+    }
+
+    /**
+     * Restart this module
+     * @param core - set ccMainType instance
+     * @param log - set ccLogType instance
+     * @param d - set ccDsType instance
+     * @param s - set ccSystemType instance
+     * @returns returns with gResult type that contains ccMainType if it's success, and unknown if it's failure.
+     * So there is no need to be concerned about the failure status.
+     */
+    public restart(core: ccMainType, log: ccLogType, d: ccDsType, s: ccSystemType): gResult<ccMainType, unknown> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "MainModule:restart");
+
+        this.coreCondition = "unloaded";
+        const ret1 = this.init(core.conf, log);
+        if (ret1.isFailure()) { return this.mError("restart", "init", "unknown error") };
+        const newCore: ccMainType = ret1.value;
+        // reconnect
+        newCore.d = d;
+        newCore.s = s;
+
+        return this.mOK<ccMainType>(newCore);
     }
 
     /**

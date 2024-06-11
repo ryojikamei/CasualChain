@@ -4,7 +4,7 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { apiConfigType } from "../config/index.js"
+import { apiConfigType, ccConfigType } from "../config/index.js"
 import { ccLogType } from "../logger/index.js"
 import { ccMainType } from "../main/index.js"
 import { ccSystemType } from "../system/index.js"
@@ -21,5 +21,6 @@ export type ccApiType = {
     status: number,
     log: ccLogType,
     m: ccMainType | undefined,
-    s: ccSystemType | undefined
+    s: ccSystemType | undefined,
+    c: ccConfigType | undefined
 }

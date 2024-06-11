@@ -8,9 +8,10 @@ import { Logger } from "winston";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { ccLogType, logOptions } from "./index.js";
+import { ccLogType, logLevel, logOptions } from "./index.js";
 import { logConfigType } from "../config/index.js";
 import { winston_init } from "./winston.js";
+import { moduleCondition } from "../index.js";
 
 /**
  * Core of logging functions
@@ -36,6 +37,25 @@ export class LogModule {
     }
 
     /**
+     * Inter-class variable to set module condition
+     */
+    protected coreCondition: moduleCondition = "unloaded";
+    /**
+     * Return current condition of the module
+     * @returns returns a word that represent the condition of the module
+     */
+    public getCondition(): moduleCondition {
+        return this.coreCondition;
+    }
+    /**
+     * Overwrite the condition of the module
+     * @param condition - set a word that represent the condition of the module
+     */
+    public setCondition(condition: moduleCondition): void {
+        this.coreCondition = condition;
+    }
+
+    /**
      * The propery for winston logger
      */
     protected winston: Logger | undefined;
@@ -49,6 +69,7 @@ export class LogModule {
     public init(conf: logConfigType, logger?: Logger): gResult<ccLogType, gError> {
         let status: number = 0;
 
+        this.coreCondition = "loading";
         /* System log except console output uses winston */
         if (logger !== undefined) {
             this.winston = logger;
@@ -79,9 +100,22 @@ export class LogModule {
         core.lib.winston = this.winston;
 
         const LOG = this.LogFunc(core)
-        LOG("DEBUG", 0, "A message for checking the logger condition", {skipconsole : true});
-
+        LOG("Debug", 0, "A message for checking the logger condition", {skipconsole : true});
+        this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.lOK<ccLogType>(core);
+    }
+
+    public restart(core: ccLogType): gResult<ccLogType, gError> {
+        const LOG = this.LogFunc(core);
+        LOG("Info", 0, "LogModule:restart");
+
+        const ret1 = this.init(core.conf);
+        if (ret1.isFailure()) return ret1;
+        const newCore: ccLogType = ret1.value;
+        // reconnect is not needed
+        
+        return this.lOK<ccLogType>(newCore);
     }
 
     /**
@@ -90,7 +124,7 @@ export class LogModule {
      * @returns return the unnamed function that writes the log
      */
     public LogFunc(core: ccLogType) {
-        return function(type: string, status: number, message: string, options?: logOptions) {
+        return function(type: logLevel, status: number, message: string, options?: logOptions) {
             let opts: logOptions = {
                 lf: undefined,
                 skipconsole: undefined,
@@ -101,42 +135,20 @@ export class LogModule {
             if (opts.skipconsole === undefined) opts.skipconsole = false;
             if (opts.skipfile === undefined) opts.skipfile = false;
             let level: number;
-            switch (type.toLowerCase()) {
-                case "emergency":
-                case "emerg":
-                case "0":
+            switch (type) {
+                case "Error":
                     level = 3;
                     break;
-                case "alert":
-                case "1":
-                    level = 3;
-                    break;
-                case "critical":
-                case "crit":
-                case "2":
-                    level = 3;
-                    break;
-                case "error":
-                case "err":
-                case "3":
-                    level = 3;
-                    break;
-                case "warning":
-                case "warn":
-                case "4":
+                case "Warning":
                     level = 4;
                     break;
-                case "notice":
-                case "5":
+                case "Notice":
                     level = 5;
                     break;
-                case "infomational":
-                case "info":
-                case "6":
+                case "Info":
                     level = 6;
                     break;
-                case "debug":
-                case "7":
+                case "Debug":
                     level = 7;
                     break;
                 default: // An invalid string goes to normal

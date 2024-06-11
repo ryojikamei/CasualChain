@@ -37,7 +37,7 @@ const core = ret.value;
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
     console.log("");
     console.log("Signal " + signal.toString() + " received. Shutting down...");
-    const ret = await core.lib.shutdown(core);
+    const ret = await core.lib.shutdown();
     if (ret.isFailure()) {
         console.log("WARNING: Shutdown process is aborted:");
         console.log(JSON.stringify(ret.value));
@@ -48,3 +48,5 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 process.on("SIGINT", (signal) => {shutdown(signal)});
 process.on("SIGTERM", (signal) => {shutdown(signal)});
 process.on("SIGQUIT", (signal) => {shutdown(signal)});
+
+await core.lib.systemLoop();

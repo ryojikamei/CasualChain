@@ -8,6 +8,7 @@ import express from "express";
 import basicAuth from "express-basic-auth";
 
 import { setInterval } from "timers/promises";
+import { Server } from "http";
 
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
@@ -15,54 +16,6 @@ import { ccApiType } from "../index.js";
 
 /**
  * Provide Administration APIs.
- * It provides following REST-like APIs:
- * 
- * - "/sys/deliverpooling": delivers pooling transactions to remote nodes, type POST.
- *   By default, it is kicked by cron periodically, so programmers do not need to care 
- *   about. However, it can be kick manually when transactions should delivered immediately.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and 0 as return code.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see postDeliveryPool() in system module for understanding the essentials of
- *        processing.
- * 
- * - "/sys/blocking": gather transactions and add a block to the blockchain, type POST.
- *   By default, it is kicked by cron periodically, so programmers do not need to care 
- *   about. However, it can be kick manually when transactions should crete a block 
- *   immediately. Note that 'delivered' state transactions are used to create a block
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and 0 as return code.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see postAppendBlocks() in system module for understanding the core of processing.
- * 
- * - "/sys/initbc": creates the genesis block and delivers it to remote nodes, type POST.
- *   The initialize of the blockchain. It must be run only once when there are no blocks in 
- *   the data store. The execution will be interrupted when some blocks exists.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and 0 as return code.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see postGenesisBlock() in system module for understanding the essentials of
- *        processing.
- * 
- * - "/sys/syncblocked": checks blockchain on remote nodes and syncs with the major node 
- *   status, type POST.
- *   It recovers the local blockchain by checking remote ones. It makes the local 
- *   blockchain syncing with the MAJOR node status, and then local transactions that have 
- *   not been in major blockchain are pushed back to the pooling state.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and 0 as return code.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see postScanAndFixBlock() in system module for understanding the core of 
- *        processing.
- * 
- * - "/sys/syncpooling": checks transactions both in pooling and blocked and removes 
- *   duplications from pooling, and then checks pooling state on remote nodes and get 
- *   lacking transactions, type POST.
- *   IN: no options are needed.
- *   OUT: on success, returns response code 200 and 0 as return code.
- *        On fail, returns response code 503 with error detail.
- *   FYI: see postScanAndFixPool() in system module for understanding the core of 
- *        processing.
  */
 export class ListnerV3AdminApi {
     /**
@@ -107,6 +60,21 @@ export class ListnerV3AdminApi {
     protected api: express.Express;
 
     /**
+     * Holding server
+     */
+    protected server: Server | undefined;
+
+    /**
+     * Holding port
+     */
+    protected runningPort: number;
+    /**
+     * Return the port number listening
+     * @returns returns current listening port number
+     */
+    public getPort(): number { return this.runningPort };
+
+    /**
      * Count the number of running APIs
      */
     protected runcounter: number;
@@ -114,6 +82,7 @@ export class ListnerV3AdminApi {
     constructor() {
         this.api = express();
         this.runcounter = 0;
+        this.runningPort = -1;
     }
 
     /**
@@ -231,6 +200,90 @@ export class ListnerV3AdminApi {
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncpooling"));
             }
         });
+
+        this.api.get("/sys/getconf", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-getconf");
+            if (acore.c !== undefined) {
+                this.runcounter++;
+                const ret = acore.c.lib.getConfiguration(undefined, req.body);
+                this.runcounter--;
+                if (ret.isFailure()) {
+                    return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
+                }
+                return res.status(200).json(ret.value);
+            } else {
+                LOG("Warning", 1, "Config Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
+            }
+        })
+
+        this.api.get("/sys/getconf/:module", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-getconf");
+            if (acore.c !== undefined) {
+                this.runcounter++;
+                const ret = acore.c.lib.getConfiguration(req.params.module, req.body);
+                this.runcounter--;
+                if (ret.isFailure()) {
+                    return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
+                }
+                return res.status(200).json(ret.value);
+            } else {
+                LOG("Warning", 1, "Config Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
+            }
+        })
+
+        this.api.post("/sys/editconf", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-setconf");
+            if (acore.c !== undefined) {
+                this.runcounter++;
+                const [key, value] = Object.entries(req.body)[0];
+                const ret = acore.c.lib.setConfiguration(key, String(value));
+                this.runcounter--;
+                if (ret.isFailure()) {
+                    return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/editconf"));
+                }
+                return res.status(200).json(ret.value);
+            } else {
+                LOG("Warning", 1, "Config Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "setConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/editconf"));
+            }
+        })
+
+        this.api.post("/sys/resetconf", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-resetconf");
+            if (acore.c !== undefined) {
+                this.runcounter++;
+                acore.c.lib.reloadConfiguration().then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/resetconf"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "Config Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "reloadConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
+            }
+        })
+
+        this.api.post("/sys/applyconf", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-applyconf");
+            if (acore.c !== undefined) {
+                this.runcounter++;
+                acore.c.lib.applyConfiguration();
+                this.runcounter--;
+                return res.status(200).json(undefined);
+            } else {
+                LOG("Warning", 1, "Config Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "reloadConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
+            }
+        })
         
         return this.adminOK<express.Express>(this.api);
     }
@@ -239,14 +292,14 @@ export class ListnerV3AdminApi {
      * Listen the port to accept calls of REST-like APIs
      * @param acore - set ccApiType
      * @param api - set express.Express that can be get in the initialization process
-     * @returns - returns no useful return value
+     * @returns - returns the port number listening
      */
     public async listen(acore: ccApiType, api: express.Express): Promise<void> {
         const LOG = acore.log.lib.LogFunc(acore.log);
-        api.listen(acore.conf.rest.adminapi_port, () => {
+        this.server = api.listen(acore.conf.rest.adminapi_port, () => {
+            this.runningPort = acore.conf.rest.adminapi_port;
             LOG("Info", 0, "AdminApi:Listen");
         })
-    
     }
 
     /**
@@ -276,11 +329,23 @@ export class ListnerV3AdminApi {
         this.api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncpooling"));
         });
+        this.api.get("/sys/getconf", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
+        });
+        this.api.get("/sys/getconf/:prop", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
+        });
+        this.api.post("/sys/editonf", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/editconf"));
+        });
+        this.api.post("/sys/resetconf", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
+        });
 
         let retry: number = 60;
         for await (const currentrun of setInterval(1000, this.runcounter, undefined)) {
             if (currentrun === 0) {
-                return this.adminOK<void>(undefined);
+                break;
             } else {
                 LOG("Notice", 0, "AdminApi:some APIs are still running.");
                 retry--;
@@ -289,7 +354,8 @@ export class ListnerV3AdminApi {
                 LOG("Warning", 0, "AdminApi:gave up all APIs to terminate.");
             }
         }
-
+        
+        this.server?.close(() => { this.runningPort = -1; });
         return this.adminOK<void>(undefined);
     }
 

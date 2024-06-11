@@ -60,32 +60,32 @@ describe("Test of LogModule()", () => {
         });
         test("Success1", () => {
             const LOG = l.lib.LogFunc(l);
-            LOG("3", 3, "", { lf: false });
-            LOG("3", 3, "Test1");
+            LOG("Error", 3, "", { lf: false });
+            LOG("Error", 3, "Test1");
             expect(l.msg.last_status).toBe(3);
         });
         test("Success2", () => {
             const LOG = l.lib.LogFunc(l);
-            LOG("4", 4, "", { lf: false });
-            LOG("4", 4, "Test2");
+            LOG("Warning", 4, "", { lf: false });
+            LOG("Warning", 4, "Test2");
             expect(l.msg.last_status).toBe(4);
         });
         test("Success3", () => {
             const LOG = l.lib.LogFunc(l);
-            LOG("5", 5, "", { lf: false });
-            LOG("5", 5, "Test3");
+            LOG("Notice", 5, "", { lf: false });
+            LOG("Notice", 5, "Test3");
             expect(l.msg.last_status).toBe(5);
         });
         test("Success4", () => {
             const LOG = l.lib.LogFunc(l);
-            LOG("6", 6, "", { lf: false });
-            LOG("6", 6, "Test4");
+            LOG("Info", 6, "", { lf: false });
+            LOG("Info", 6, "Test4");
             expect(l.msg.last_status).toBe(6);
         });
         test("Success5", () => {
             const LOG = l.lib.LogFunc(l);
-            LOG("7", 7, "", { lf: false });
-            LOG("7", 7, "Test5");
+            LOG("Debug", 7, "", { lf: false });
+            LOG("Debug", 7, "Test5");
             expect(l.msg.last_status).toBe(7);
         });
     });
