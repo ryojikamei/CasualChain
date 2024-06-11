@@ -244,6 +244,7 @@ The following propagates transaction data that exists only on this node to other
 curl -X POST --basic --user admin:admin-password http://localhost:8002/sys/deliverpooling
 ```
 
+---
 ### /sys/blocking
 
 #### Summary
@@ -262,6 +263,7 @@ The following stores pooled transactions that have already been propagated to ot
 curl -X POST --basic --user admin:admin-password http://localhost:8002/sys/blocking
 ```
 
+---
 ### /sys/syncblocked
 
 #### Summary
@@ -308,3 +310,5 @@ If you only want to perform inspections, add the scanonly option.
 ```
 curl -X POST --basic --user admin:admin-password -H'Content-Type: application/JSON; charset=UTF-8' -d '{ "scanonly": true }' http://localhost:8002/sys/syncpooling
 ```
+
+---
