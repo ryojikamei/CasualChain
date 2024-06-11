@@ -100,6 +100,7 @@ export class MainModule {
         }
 
         this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.mOK<ccMainType>(core);
     }
 

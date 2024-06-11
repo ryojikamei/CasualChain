@@ -144,6 +144,7 @@ export class InModule {
         this.bcore = core.b;
         
         this.coreCondition = "initialized";
+        core.lib.coreCondition = this.coreCondition;
         return this.iOK(core);
     }
 

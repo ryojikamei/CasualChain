@@ -30,5 +30,6 @@ export type getConfigurationOptions = {
 
 export type configCache = {
     conf: wholeConfigType,
-    modlist: string[]
+    recentChanges: string[],
+    fromFileChanges: string[]
 }

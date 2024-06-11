@@ -94,6 +94,7 @@ export class DsModule {
             return this.dError("init", "initIoSubModule", "The io sub module is down");
         }
         this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.dOK<ccDsType>(core);
     }
 

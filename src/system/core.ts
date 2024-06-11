@@ -187,6 +187,7 @@ export class SystemModule {
         }
 
         this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.sOK<ccSystemType>(core);
     }
 

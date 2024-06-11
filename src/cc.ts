@@ -283,21 +283,71 @@ export class CC {
         const LOG = core.l.lib.LogFunc(core.l);
         LOG("Notice", 0, "SystemLoop started");
 
-        for await (const _ of setInterval(1000)) {
+        for await (const _core of setInterval(1000, core)) {
 
             // Watchdog
             // ConfigModule
             if (core.c.lib.getCondition() === "reloadNeeded") {
+                const ret = core.c.lib.getData();
+                if (ret.isFailure()) {
+                    LOG("Warning", 0, "systemLoop: Unknown condition")
+                } else {
+                    for (const mod of ret.value.fromFileChanges) {
+                        switch (mod) {
+                            case "a":
+                                LOG("Warning", 0, "systemLoop:configA:" + JSON.stringify(core.a.conf))
+                                core.a.lib.setCondition("reloadNeeded");
+                                break;
+                            case "b":
+                                core.b.lib.setCondition("reloadNeeded");
+                                break;
+                            case "d":
+                                core.d.lib.setCondition("reloadNeeded");
+                                break;
+                            case "e":
+                                core.e.lib.setCondition("reloadNeeded");
+                                break;
+                            case "i":
+                                core.i.lib.setCondition("reloadNeeded");
+                                break;
+                            case "k":
+                                core.k.lib.setCondition("reloadNeeded");
+                                break;
+                            case "l":
+                                core.l.lib.setCondition("reloadNeeded");
+                                break;
+                            case "m":
+                                core.m.lib.setCondition("reloadNeeded");
+                                break;
+                            case "s":
+                                core.s.lib.setCondition("reloadNeeded");
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                }
                 const retC = await core.c.lib.restart();
                 if (retC.isSuccess()) {
                     LOG("Notice", 0, "systemLoop: ConfigModule restarted");
                     core.c = retC.value;
                     // reconnect
                     core.a.c = core.c;
-                    core.e.w = core;        
+                    core.e.w = core;
+                    core.a.conf = core.c.a;
+                    core.b.conf = core.c.b;
+                    core.d.conf = core.c.d;
+                    core.e.conf = core.c.e;
+                    core.i.conf = core.c.i;
+                    core.k.conf = core.c.k;
+                    core.l.conf = core.c.l;
+                    core.m.conf = core.c.m;
+                    core.s.conf = core.c.s;
                 } else {
                     LOG("Warning", 0, "systemLoop: ConfigModule restart failed:" + retC.value);
                 }
+                LOG("Warning", 0, "systemLoop:configA2:" + JSON.stringify(core.a.conf))
+                LOG("Warning", 0, "systemLoop:configA3:" + JSON.stringify(core.c.a))
             }
             if (core.c.lib.getCondition() === "pulldataNeeded") {
                 const ret = core.c.lib.getData();
@@ -305,7 +355,7 @@ export class CC {
                     LOG("Warning", 0, "systemLoop: Unknown condition")
                 } else {
                     core.c = {...ret.value.conf, ...{ lib: core.c.lib } };
-                    for (const mod of ret.value.modlist) {
+                    for (const mod of ret.value.recentChanges) {
                         switch (mod) {
                             case "a":
                                 core.a.lib.setCondition("reloadNeeded");
@@ -338,7 +388,10 @@ export class CC {
                                 break;
                         }
                     }
+                    ret.value.recentChanges = [""];
+                    core.c.lib.setData(ret.value);
                 }
+                core.c.lib.setCondition("active");
             }
             // ApiModule
             if (core.a.lib.getCondition() === "reloadNeeded") {

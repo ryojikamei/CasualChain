@@ -8,6 +8,7 @@ import express from "express";
 import basicAuth from "express-basic-auth";
 
 import { setInterval } from "timers/promises";
+import { Server } from "http";
 
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
@@ -59,6 +60,21 @@ export class ListnerV3AdminApi {
     protected api: express.Express;
 
     /**
+     * Holding server
+     */
+    protected server: Server | undefined;
+
+    /**
+     * Holding port
+     */
+    protected runningPort: number;
+    /**
+     * Return the port number listening
+     * @returns returns current listening port number
+     */
+    public getPort(): number { return this.runningPort };
+
+    /**
      * Count the number of running APIs
      */
     protected runcounter: number;
@@ -66,6 +82,7 @@ export class ListnerV3AdminApi {
     constructor() {
         this.api = express();
         this.runcounter = 0;
+        this.runningPort = -1;
     }
 
     /**
@@ -275,14 +292,14 @@ export class ListnerV3AdminApi {
      * Listen the port to accept calls of REST-like APIs
      * @param acore - set ccApiType
      * @param api - set express.Express that can be get in the initialization process
-     * @returns - returns no useful return value
+     * @returns - returns the port number listening
      */
     public async listen(acore: ccApiType, api: express.Express): Promise<void> {
         const LOG = acore.log.lib.LogFunc(acore.log);
-        api.listen(acore.conf.rest.adminapi_port, () => {
+        this.server = api.listen(acore.conf.rest.adminapi_port, () => {
+            this.runningPort = acore.conf.rest.adminapi_port;
             LOG("Info", 0, "AdminApi:Listen");
         })
-    
     }
 
     /**
@@ -328,7 +345,7 @@ export class ListnerV3AdminApi {
         let retry: number = 60;
         for await (const currentrun of setInterval(1000, this.runcounter, undefined)) {
             if (currentrun === 0) {
-                return this.adminOK<void>(undefined);
+                break;
             } else {
                 LOG("Notice", 0, "AdminApi:some APIs are still running.");
                 retry--;
@@ -337,7 +354,8 @@ export class ListnerV3AdminApi {
                 LOG("Warning", 0, "AdminApi:gave up all APIs to terminate.");
             }
         }
-
+        
+        this.server?.close(() => { this.runningPort = -1; });
         return this.adminOK<void>(undefined);
     }
 

@@ -128,6 +128,8 @@ export class KeyringModule {
             core.cache[0].verify_key_hex = pubKeyHexStr;
         }
 
+        this.coreCondition = "initialized"
+        core.lib.coreCondition = this.coreCondition;
         return this.kOK<ccKeyringType>(core);
     }
 

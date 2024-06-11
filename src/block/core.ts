@@ -103,6 +103,7 @@ export class BlockModule {
         }
 
         this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.bOK<ccBlockType>(core);
     }
 

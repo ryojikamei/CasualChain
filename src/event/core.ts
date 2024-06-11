@@ -92,6 +92,7 @@ export class EventModule {
         this.eventLoop(core, timerRunOnce);
 
         this.coreCondition = "initialized";
+        core.lib.coreCondition = this.coreCondition;
         return this.eOK<ccEventType>(core);
     }
 
@@ -116,6 +117,7 @@ export class EventModule {
 
         core.w?.s.lib.registerAutoTasks(core.w.s);
         this.coreCondition = "active";
+        newCore.lib.coreCondition = this.coreCondition;
         return this.eOK(newCore);
     }
 

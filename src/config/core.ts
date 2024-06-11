@@ -69,6 +69,11 @@ export class ConfigModule {
         if (this.confCache === undefined) { return this.cError("getData", "confCache", "unknown condition"); };
         return this.cOK(this.confCache);
     }
+    /**
+     * Overwrite data of the module
+     * @param data 
+     */
+    public setData(data: configCache): void { this.confCache = data; }
 
     /**
      * Reads all items in the configuration file.
@@ -343,7 +348,7 @@ export class ConfigModule {
             e: e  // eventConfigType
         }
 
-        this.confCache = { conf: wholeConfig, modlist: [""] };
+        this.confCache = { conf: wholeConfig, recentChanges: [], fromFileChanges: [] };
         return this.cOK<wholeConfigType>(wholeConfig);
     }
 
@@ -358,6 +363,9 @@ export class ConfigModule {
         if (ret.isFailure()) return ret;
         const core = {...ret.value, ...{ lib: new ConfigModule() }};
         this.coreCondition = "active";
+
+        core.lib.confCache = this.confCache;
+        core.lib.coreCondition = this.coreCondition;
 
         return this.cOK<ccConfigType>(core);
     }
@@ -379,7 +387,9 @@ export class ConfigModule {
      */
     public async reloadConfiguration(): Promise<gResult<void, gError>> {
 
-        this.coreCondition = "reloadNeeded";
+        if (this.confCache === undefined) { return this.cError("reloadConfiguration", "confCache", "unknown condition"); };
+
+        if (this.confCache.fromFileChanges.length > 0 ) this.coreCondition = "reloadNeeded";
         return this.cOK<void>(undefined);
     }
 
@@ -471,13 +481,13 @@ export class ConfigModule {
         switch (typeof(curr[props[props.length - 1]])) {
             case "string":
                 curr[props[props.length - 1]] = String(value);
-                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
+                if (this.confCache.recentChanges.includes(props[0]) === false) { this.confCache.recentChanges.push(props[0]); };
                 return this.cOK(undefined);
             case "number":
                 const val = Number(value);
                 if (Number.isSafeInteger(val) === false) return this.cError("setConfiguration", "setNumber", "It's not a valid number");
                 curr[props[props.length - 1]] = val;
-                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
+                if (this.confCache.recentChanges.includes(props[0]) === false) { this.confCache.recentChanges.push(props[0]); };
                 return this.cOK(undefined);
             case "boolean":
                 if (value.toLowerCase() === "true") {
@@ -485,7 +495,7 @@ export class ConfigModule {
                 } else {
                     curr[props[props.length - 1]] = false;
                 }
-                if (this.confCache.modlist.includes(props[0]) === false) { this.confCache.modlist.push(props[0]); };
+                if (this.confCache.recentChanges.includes(props[0]) === false) { this.confCache.recentChanges.push(props[0]); };
                 return this.cOK(undefined);
             default:
                 return this.cError("setConfiguration", "setUnsupported", "unsupported type");
@@ -495,7 +505,11 @@ export class ConfigModule {
     public applyConfiguration(): gResult<void, unknown> {
 
         if (this.confCache === undefined) { return this.cError("applyConfiguration", "confCache", "unknown condition"); };
-        if (this.confCache.modlist.length > 0) { this.coreCondition = "pulldataNeeded" };
+
+        if (this.confCache.recentChanges.length > 0) {
+            this.confCache.fromFileChanges = Array.from(new Set([...this.confCache.fromFileChanges, ...this.confCache.recentChanges]));
+            this.coreCondition = "pulldataNeeded";
+        }
 
         return this.cOK(undefined);
     }

@@ -102,6 +102,7 @@ export class LogModule {
         const LOG = this.LogFunc(core)
         LOG("Debug", 0, "A message for checking the logger condition", {skipconsole : true});
         this.coreCondition = "active";
+        core.lib.coreCondition = this.coreCondition;
         return this.lOK<ccLogType>(core);
     }
 
