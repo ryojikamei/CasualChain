@@ -121,7 +121,7 @@ export class ApiModule {
      * @param c - set ccConfigType instance
      * @returns returns with gResult type that contains ccApiType if it's success, and gError if it's failure.
      */
-    public async restart(core: ccApiType, log: ccLogType, m: ccMainType, s: ccSystemType, c: ccConfigType): Promise<gResult<ccApiType, gError>> {
+    public async restart(core: ccApiType, log: ccLogType, m: ccMainType, s: ccSystemType, c: ccConfigType, _: any): Promise<gResult<ccApiType, gError>> {
         const LOG = log.lib.LogFunc(log);
         LOG("Info", 0, "ApiModule:restart");
 

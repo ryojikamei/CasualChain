@@ -395,7 +395,7 @@ export class CC {
             }
             // ApiModule
             if (core.a.lib.getCondition() === "reloadNeeded") {
-                const retA = await core.a.lib.restart(core.a, core.l, core.m, core.s, core.c);
+                const retA = await core.a.lib.restart(core.a, core.l, core.m, core.s, core.c, core.k);
                 if (retA.isSuccess()) {
                     LOG("Notice", 0, "systemLoop: ApiModule restarted");
                     core.a = retA.value;
