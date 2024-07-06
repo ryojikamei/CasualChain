@@ -4,7 +4,7 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { runAxios, responseType } from "../axios";
+import { runAxios, responseType } from "../axios.js";
 
 // Due to functional limitations, only normal systems are tested.
 

@@ -13,7 +13,7 @@ import { objTx } from "../../datastore/index.js"
 import { createBlockOptions, ccBlockType } from "../index.js"
 import { rpcReturnFormat } from "../../internode/index.js"
 
-import * as systemrpc from '../../../grpc/systemrpc_pb.js';
+import * as systemrpc from '../../../grpc_v1/systemrpc_pb.js';
 import { randomOid } from "../../utils.js"
 import { nodeProperty } from "../../config/index.js"
 import { DEFAULT_PARSEL_IDENTIFIER } from "../../system/index.js";

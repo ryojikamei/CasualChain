@@ -7,7 +7,7 @@
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
 import { digestDataFormat, rpcReturnFormat, ccInType } from "../internode";
-import * as systemrpc from "../../grpc/systemrpc_pb"
+import * as systemrpc from "../../grpc_v1/systemrpc_pb"
 import { randomString64 } from "../utils";
 import { SystemModuleMock } from "./mock_system";
 import { KeyringModuleMock } from "./mock_keyring";

@@ -11,7 +11,8 @@ import { ccSystemType } from "./system/index.js"
 import { ccMainType } from "./main/index.js"
 import { ccDsType } from "./datastore/index.js"
 import { ccApiType } from "./api/index.js"
-import { ccInType } from "./internode/index.js"
+//import { ccInType } from "./internode/index.js"
+import { ccInTypeV2 } from "./internode/v2_index.js"
 import { ccBlockType } from "./block/index.js"
 import { ccKeyringType } from "./keyring/index.js"
 import { ccEventType } from "./event/index.js"
@@ -27,7 +28,7 @@ export type ccType = {
     m: ccMainType, // Main object
     d: ccDsType, // DataStore object
     a: ccApiType, // API object
-    i: ccInType, // Internode object
+    i: ccInTypeV2 // Internode object
     b: ccBlockType, // Block object
     k: ccKeyringType, // Keyring object
     e: ccEventType // Event object

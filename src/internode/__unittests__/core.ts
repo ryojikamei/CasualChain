@@ -6,7 +6,7 @@
 
 import { setInterval } from "timers/promises";
 import { randomString24, gResult, gError, gSuccess, gFailure, randomOid } from "../../utils.js";
-import systemrpc from '../../../grpc/systemrpc_pb.js';
+import systemrpc from '../../../grpc_v1/systemrpc_pb.js';
 //const { ccSystemRpcFormat, Param, ReturnCode, ReturnValues } = systemrpc;
 
 import { rpcReturnFormat, ccInType, InModule } from "../index.js";

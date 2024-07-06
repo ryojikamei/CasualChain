@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+service interconnect {
+    rpc ccGeneralIc (stream icGeneralPacket) returns (stream icGeneralPacket);
+    rpc ccCtrlLine (ctrlRequest) returns (ctrlResponse);
+}
+
+enum payload_type {
+    REQUEST = 0;
+    RESULT_SUCCESS = 1;
+    RESULT_FAILURE = 2;
+}
+
+message icPacketPayload {
+    payload_type payload_type = 1;
+    optional string g_error_as_string = 2;
+    optional string request = 3;
+    optional string data_as_string = 4;
+}
+
+// For trusted connections, w/o hash chain
+message icGeneralPacket {
+    int32 version = 1;
+    string packet_id = 2;
+    string sender = 3;
+    string receiver = 4;
+    icPacketPayload payload = 5;
+    string prev_id = 6;
+}
+
+message ctrlRequest {
+    int32 version = 1;
+    string sender = 2;
+    string receiver = 3;
+    string request = 4;
+    string params = 5;
+}
+
+message ctrlResponse {
+    int32 returnCode = 1;
+    string result = 2;
+}

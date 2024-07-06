@@ -8,10 +8,11 @@ import { keyringConfigType } from "../config"
 import { ccLogType } from "../logger"
 import { ccSystemType } from "../system"
 import { ccMainType } from "../main"
+//import { ccInType } from "../internode"
+import { ccInTypeV2 } from "../internode/v2_index"
 
 import * as core from "./core.js"
 export import KeyringModule = core.KeyringModule
-import { ccInType } from "../internode"
 
 /**
  * Caching keys and certificates
@@ -39,5 +40,5 @@ export type ccKeyringType = {
     cache: cachedKeyFiles[],
     s: ccSystemType | undefined,
     m: ccMainType | undefined,
-    i: ccInType | undefined
+    i: ccInTypeV2 | undefined
 }
