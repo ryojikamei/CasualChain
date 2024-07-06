@@ -5,7 +5,7 @@
  */
 
 import { logConfigType } from "../config";
-import { LogModule } from "../logger";
+import { LogModule } from "../logger/index.js";
 
 
 export class logMock {

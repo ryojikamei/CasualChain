@@ -9,13 +9,15 @@ import { randomUUID, randomInt } from 'crypto';
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import * as systemrpc from '../../grpc/systemrpc_pb.js';
+import * as systemrpc from '../../grpc_v1/systemrpc_pb.js';
 
 import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes } from "./index.js";
 import { systemConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { objTx, objBlock, poolResultObject, blockResultObject, ccDsType } from "../datastore/index.js";
-import { rpcReturnFormat, heightDataFormat, digestDataFormat, ccInType } from '../internode/index.js';
+//import { rpcReturnFormat, heightDataFormat, digestDataFormat, ccInType } from '../internode/index.js';
+import { rpcReturnFormat, heightDataFormat, digestDataFormat } from '../internode/index.js';
+import { ccInTypeV2 } from "../internode/v2_index.js";
 import { blockFormat, createBlockOptions, ccBlockType } from '../block/index.js';
 import { ccMainType } from '../main/index';
 import { randomOid } from '../utils.js';
@@ -163,7 +165,7 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     public init(conf: systemConfigType, log: ccLogType, dsInstance?: ccDsType, 
-        inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
+        inInstance?: ccInTypeV2, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
 
         this.coreCondition = "loading";
@@ -204,7 +206,7 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     public restart(core: ccSystemType, log: ccLogType, dsInstance?: ccDsType, 
-        inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
+        inInstance?: ccInTypeV2, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:restart");

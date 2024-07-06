@@ -10,7 +10,7 @@ import { ccSystemType } from "../system"
 import { ccBlockType } from "../block"
 import { ccKeyringType } from "../keyring"
 
-import systemrpc_grpc from "../../grpc/systemrpc_grpc_pb.js";
+import systemrpc_grpc from "../../grpc_v1/systemrpc_grpc_pb.js";
 
 import * as core from "./core.js"
 export import InModule = core.InModule

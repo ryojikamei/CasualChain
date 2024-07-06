@@ -4,8 +4,8 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { runAxios, responseType } from "../axios";
-import { generateData } from "../../__testdata__/generator";
+import { runAxios, responseType } from "../axios.js";
+import { generateData } from "../../__testdata__/generator.js";
 
 export const name = "_post_byjson";
 

@@ -8,12 +8,12 @@ import { execa } from "execa"
 import { randomUUID, createHash } from "crypto";
 
 import { keyringConfigType } from "../config";
-import { KeyringModule } from "../keyring";
+import { KeyringModule } from "../keyring/index.js";
 import * as CA3 from "../block/algorithm/ca3";
 import { objBlock, objTx } from "../datastore";
-import { randomOid } from "../utils";
+import { randomOid } from "../utils.js";
 
-import { logMock } from "../__mocks__/mock_logger";
+import { logMock } from "../__mocks__/mock_logger.js";
 
 export type dataSet = {
     txs: Map<string, objTx>,

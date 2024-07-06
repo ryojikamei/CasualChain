@@ -4,7 +4,7 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import systemrpc from '../../grpc/systemrpc_pb.js';
+import systemrpc from '../../grpc_v1/systemrpc_pb.js';
 
 
 export class gSystemRpcClientMock {

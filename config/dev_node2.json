@@ -34,7 +34,7 @@
             {
                 "allow_outgoing": true,
                 "nodename": "dev_node1",
-                "host": "localhost",
+                "host": "127.0.0.1",
                 "rpc_port": 7000
             }
         ]

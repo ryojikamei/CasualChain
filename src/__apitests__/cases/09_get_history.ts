@@ -3,7 +3,7 @@
  * Released under the MIT license
  * https://opensource.org/licenses/mit-license.php
  */
-import { runAxios, responseType } from "../axios";
+import { runAxios, responseType } from "../axios.js";
 
 export const name = "_get_history";
 

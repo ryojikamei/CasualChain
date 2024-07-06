@@ -13,8 +13,8 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import * as grpc from "@grpc/grpc-js";
 //import { addReflection } from "grpc-server-reflection";
-import systemrpc from '../../grpc/systemrpc_pb.js';
-import systemrpc_grpc from "../../grpc/systemrpc_grpc_pb.js";
+import systemrpc from '../../grpc_v1/systemrpc_pb.js';
+import systemrpc_grpc from "../../grpc_v1/systemrpc_grpc_pb.js";
 const { ccSystemRpcFormat, Param, ReturnCode, ReturnValues } = systemrpc;
 const { gSystemRpcClient } = systemrpc_grpc;
 import { ccInType, heightDataFormat, digestDataFormat, rpcConnectionFormat, rpcReturnFormat } from "./index.js";
