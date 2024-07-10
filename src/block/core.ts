@@ -8,7 +8,7 @@ import clone from "clone";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { blockConfigType } from "../config/index.js";
+import { blockConfigType, ccConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { ccBlockType, createBlockOptions, blockFormat } from "./index.js";
 import { objTx } from "../datastore/index.js";
@@ -71,12 +71,13 @@ export class BlockModule {
      * @param internodeInstance - can set ccInType instance
      * @param keyringInstance - can set ccKeyring instance
      * @param mainInstance - can set ccMainType instance
+     * @param configInstance - can set ccConfigType instance
      * @param algorithmFile - can set algorithm file to import
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
      */
     public async init(conf: blockConfigType, log: ccLogType, systemInstance?: ccSystemType, 
         internodeInstance?: ccInTypeV2, keyringInstance?: ccKeyringType, mainInstance?: 
-        ccMainType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
+        ccMainType, configInstance?: ccConfigType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
 
         this.coreCondition = "loading"
         let core: ccBlockType = {
@@ -87,7 +88,8 @@ export class BlockModule {
             i: internodeInstance ?? undefined,
             s: systemInstance ?? undefined,
             k: keyringInstance ?? undefined,
-            m: mainInstance ?? undefined
+            m: mainInstance ?? undefined,
+            c: configInstance ?? undefined
         }
 
         const LOG = core.log.lib.LogFunc(core.log);
@@ -116,10 +118,11 @@ export class BlockModule {
      * @param k - set ccKeyringType instance
      * @param m - set ccMainType instance
      * @param s - set ccSystemType instance
+     * @param c - set ccConfigType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
      */
     public async restart(core: ccBlockType, log: ccLogType, i: ccInTypeV2, k: ccKeyringType,
-        m: ccMainType, s: ccSystemType ): Promise<gResult<ccBlockType, gError>> {
+        m: ccMainType, s: ccSystemType, c: ccConfigType): Promise<gResult<ccBlockType, gError>> {
         const LOG = log.lib.LogFunc(log);
         LOG("Info", 0, "BlockModule:restart");
 
@@ -132,6 +135,7 @@ export class BlockModule {
         newCore.k = k;
         newCore.m = m;
         newCore.s = s;
+        newCore.c = c;
 
         return this.bOK(newCore);
     }

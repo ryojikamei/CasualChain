@@ -11,9 +11,8 @@ import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { objTx } from "../../datastore/index.js"
 import { createBlockOptions, ccBlockType } from "../index.js"
-import { rpcReturnFormat } from "../../internode/index.js"
+import { inAddBlockDataFormat, rpcResultFormat } from "../../internode/v2_index.js";
 
-import * as systemrpc from '../../../grpc_v1/systemrpc_pb.js';
 import { randomOid } from "../../utils.js"
 import { nodeProperty } from "../../config/index.js"
 import { DEFAULT_PARSEL_IDENTIFIER } from "../../system/index.js";
@@ -172,43 +171,61 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
 
     }
 
-    const target: Ca3TravelingIdFormat2 = { ...{trackingId}, ...travelingIds[trackingId] };
-    const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-        version: 3,
-        request: "DeclareBlockCreation",
-        param: undefined,
-        dataasstring: JSON.stringify(target)
-    }
-    let rets: rpcReturnFormat[] = [];
+    const request = "DeclareBlockCreation";
+    const data: Ca3TravelingIdFormat2 = { ...{trackingId}, ...travelingIds[trackingId] };
+    let results: rpcResultFormat[] = [];
 
     if (core.i !== undefined) {
-        const ret = await core.i.lib.sendRpcAll(core.i, sObj);
-        if (ret.isSuccess()) rets = ret.value;
+        const ret = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
+        if (ret.isFailure()) { return ret }
+        results = ret.value;
     } else {
-        throw new Error("The internode module is down");   
+        return ca3Error("declareCreation", "runRpcs", "The internode module is down");
     }
-    LOG("Debug", 0, "CA3:declareCreation:result:" + JSON.stringify(rets));
-    for (const ret of rets) {
-        if (ret.status === 0) {
-            try {
-                const ret10 = Number(ret.data)
-                LOG("Debug", 0, "CA3:declareCreation:result2:" + ret10)
-                if (ret10 < 0) {// Already started
-                    return ca3Error("declareCreation", "sendRpcAll", "Already started"); // NOTE: This string is referenced in the upper layers
-                }
-            } catch (error) {
-                
-            }
+    LOG("Debug", 0, "CA3:declareCreation:results:" + JSON.stringify(results));
+    let errorNodes: string[] = [];
+    for (const result of results) {
+        if (result.result.isFailure()) {
+            LOG("Debug", 0, "CA3:declareCreation:results:error_count_1");
+            errorNodes.push(result.node.nodename);
         } else {
-             // Something error => immediately exclude it
-             for (const node of core.i.conf.nodes) {
-                if (ret.targetHost === node.host) {
-                    node.allow_outgoing = false;
-                    node.abnormal_count = core.conf.ca3.abnormalCountForJudging;
+            const dataAsString = result.result.value.getPayload()?.getDataAsString()
+            if (dataAsString !== undefined) {
+                try {
+                    const data = Number(dataAsString);
+                    LOG("Debug", 0, "CA3:declareCreation:result:" + data)
+                    if (data < 0) {
+                        return ca3Error("declareCreation", "runRpcs", "Already started"); // NOTE: This detail string is referenced in the upper layers
+                    }
+                } catch (error) {
+                    errorNodes.push(result.node.nodename);
+                }
+            } else {
+                LOG("Debug", 0, "CA3:declareCreation:results:error_count_2");
+                errorNodes.push(result.node.nodename);
+            }
+        }
+    }
+
+    // Something error => need attension
+    // ToDo: refactor node configuration structure
+    if (errorNodes.length !== 0) {
+        for (const errorNodeName of errorNodes) {
+            for (const confNode of core.i.conf.nodes) {
+                if (errorNodeName === confNode.nodename) {
+                    let count = 1;
+                    if (confNode.abnormal_count !== undefined) {
+                        count = confNode.abnormal_count + 1;
+                    }
+                    core.c?.lib.setNodeConfiguration(errorNodeName, "abnormal_count", count.toString());
+                    if (count >= core.conf.ca3.abnormalCountForJudging) {
+                        core.c?.lib.setNodeConfiguration(errorNodeName, "allow_outgoing", "false");
+                    }
                 }
             }
         }
     }
+
     return ca3OK<ccBlockType>(core);
 }
 
@@ -519,7 +536,10 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
         return ca3Error("tryToSendToSign", "Timeout", trackingId + " is timeouted");
     }
 
-    const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
+    const request = "SignAndResendOrStore";
+    const data: Ca3TravelingFormat = tObj;
+    let results: rpcResultFormat[] = [];
+    /* const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
         version: 3,
         request: "SignAndResendOrStore",
         param: undefined,
@@ -530,9 +550,10 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
         request: "",
         status: -1,
         data: undefined
-    };
+    }; */
 
     let nodes2 = clone(nodes);
+    let errorNodes: string[] = [];
     while (nodes2.length > 0) {
         const index = Math.floor(Math.random() * nodes2.length);
         let node = nodes2[index];
@@ -540,24 +561,53 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
             nodes2.splice(index, 1);
         } else {
             if (core.i !== undefined) {
-                const ret2 = await core.i.lib.sendRpc(core.i, node, sObj, travelingIds[trackingId].timeoutMs);
-                if (ret2.isFailure()) return ret2;
-                ret1 = ret2.value;
-            }
-            if (ret1.status === 0) {
-                break; // It's normal
-            } else {
-                if (node.abnormal_count !== undefined) {
-                    node.abnormal_count++;
+                const ret = await core.i.lib.runRpcs(core.i, [node], request, JSON.stringify(data));
+                if (ret.isFailure()) {
+                    errorNodes.push(node.nodename);
+                    //return ret;
                 } else {
-                    node.abnormal_count = 1;
+                    results = ret.value;
                 }
-                if (ret1.status === 4) { // timeout
-                    return ca3Error("tryToSendToSign", "sendRpc", "Time out occured on " + trackingId);
+            }
+            if (results[0].result.isFailure()) {
+                errorNodes.push(node.nodename);
+                //return results[0].result;
+            } else {
+                const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
+                if (dataAsString === undefined) {
+                    errorNodes.push(node.nodename);
+                    //return ca3Error("tryToSendToSign", "runRpcs", "tryToSendToSign returns unknown error");
+                }
+                const ret = Number(dataAsString);
+                if (ret === 0) {
+                    break; // It's normal
+                } else {
+                    errorNodes.push(node.nodename);
                 }
             }
         }
     }
+
+    // Something error => need attension
+    // ToDo: refactor node configuration structure
+    if (core.i === undefined) { return ca3Error("tryToSendToSign", "errorNodes", "The internode module is down"); }
+    if (errorNodes.length !== 0) {
+        for (const errorNodeName of errorNodes) {
+            for (const confNode of core.i.conf.nodes) {
+                if (errorNodeName === confNode.nodename) {
+                    let count = 1;
+                    if (confNode.abnormal_count !== undefined) {
+                        count = confNode.abnormal_count + 1;
+                    }
+                    core.c?.lib.setNodeConfiguration(errorNodeName, "abnormal_count", count.toString());
+                    if (count >= core.conf.ca3.abnormalCountForJudging) {
+                        core.c?.lib.setNodeConfiguration(errorNodeName, "allow_outgoing", "false");
+                    }
+                }
+            }
+        }
+    }
+
     if (nodes2.length  > 0) {
         // Unprompted save
         LOG("Info", 0, "CA3:tryToSendToSign:" + trackingId + ":SentSucceeded");
@@ -640,28 +690,28 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
             return ca3Error("requestToSignAndResendOrStore", "requestToAddBlock", "The system module is down");
         }
         if ((core.i !== undefined) && (core.i.conf.nodes.length > 0)) {
-            let failcnt: number = 0; // remote
             // Save the block on all remote node
-            const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-                version: 3,
-                request: "AddBlockCa3",
-                param: { removepool: true },
-                dataasstring: JSON.stringify(tObj)
+            const request = "AddBlockCa3"
+            const data: inAddBlockDataFormat = {
+                traveling: tObj,
+                removeFromPool: true
             }
-            let rets: rpcReturnFormat[] = [];
+            let results: rpcResultFormat[] = [];
             if (core.i !== undefined) {
-                const ret6 = await core.i.lib.sendRpcAll(core.i, sObj);
-                if (ret6.isSuccess()) rets = ret6.value;
+                const ret6 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data))
+                if (ret6.isFailure()) { return ret6; }
+                results = ret6.value;
             } else {
-                return ca3Error("requestToSignAndResendOrStore", "sendRpcAll", "The internode module is down");
+                return ca3Error("requestToSignAndResendOrStore", "runRpcs", "The internode module is down");
             }
     
-            for (const ret of rets) {
-                if (ret.status !== 0) failcnt--;
+            let failcnt: number = 0;
+            for (const ret of results) {
+                if (ret.result.isFailure()) failcnt--;
             }
             return ca3OK<number>(failcnt); // If non-zero, conditional OK
         } else {
-            return ca3Error("requestToSignAndResendOrStore", "sendRpcAll", "The internode module is down");
+            return ca3Error("requestToSignAndResendOrStore", "runRpcs", "The internode module is down");
         }
     }
     return ca3OK<number>(0); // If non-zero, conditional OK

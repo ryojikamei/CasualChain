@@ -16,7 +16,7 @@ import { ccLogType } from "../logger/index.js";
 import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
 import { ccKeyringType } from "../keyring/index.js";
-import { inAddBlockDataFormat, ccInTypeV2, inGetPoolHeightDataFormat, inGetBlockHeightDataFormat, inGetBlockDigestDataFormat, inGetBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat } from "./v2_index.js";
+import { inAddBlockDataFormat, ccInTypeV2, inGetPoolHeightDataFormat, inGetBlockHeightDataFormat, inGetBlockDigestDataFormat, inGetBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, rpcResultFormat } from "./v2_index.js";
 
 // Temp
 import systemrpc from '../../grpc_v1/systemrpc_pb.js';
@@ -44,7 +44,7 @@ export type generalInResults = {
     [requestId: string]: {
         state: number,
         installationtime: number,
-        result?: gResult<ic.icGeneralPacket, gError>
+        result: gResult<ic.icGeneralPacket, gError>
     }
 }
 
@@ -335,48 +335,39 @@ export class InModuleV2 {
     /**
      * Wait until the gRPC server is fully up and running
      * @param core - set ccInType instance
-     * @param retryCount - set retry count of the ping
+     * @param waitSec - set minimum number of seconds to wait for response
      * @param rpcInstance - can set rpcInstance. Mainly for testing
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async waitForRPCisOK(core: ccInTypeV2, retryCount: number, rpcInstance?: any): Promise<gResult<void, gError>> {
+    public async waitForRPCisOK(core: ccInTypeV2, waitSec: number, rpcInstance?: any): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":waitForRPCisOK");
 
-        let rpc;
-        if (rpcInstance === undefined) {
-            rpc = core.lib.sendRpc;
-        } else {
-            rpc = rpcInstance;
-        }
-
-        let sObj: systemrpc.ccSystemRpcFormat.AsObject;
-        sObj = {
-            version: 3,
-            request: "Ping",
-            param: undefined,
-            dataasstring: ""
-        }
-        let nodes = clone(core.conf.nodes);
-        for await (const targets of setInterval(1000, nodes, undefined)) {
-            let retryNodes: nodeProperty[] = [];
-            for (const target of targets) {
+        let leftNodes = clone(core.conf.nodes);
+        for await (const _ of setInterval(1000)) {
+            let pingNodes: nodeProperty[] = []
+            for (const target of leftNodes) {
                 if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
                 if (target.allow_outgoing === false) continue;
-                sObj.param = { tenant: this.master_key };
-                const ret = await rpc(core, target, sObj);
-                if (ret.isFailure()) {
-                    retryNodes.push(target);
-                }
+                pingNodes.push(target);
             }
-            if (retryNodes.length === 0) {
+            if (pingNodes.length === 0) {
+                return this.iError("waitForRPCisOK", "runRpcs", "No nodes are allowed to communicate");
+            }
+
+            const ret = await this.runRpcs(core, pingNodes, "Ping", "Ping", true);
+            if (ret.isFailure()) return ret;
+            leftNodes = [];
+            for (const result of ret.value) {
+                if (result.result.isFailure()) { leftNodes.push(result.node); }
+            }
+            if (leftNodes.length === 0) {
                 return this.iOK<void>(undefined);
-            } else if (retryCount === 0) {
-                return this.iError("waitForRPCisOK", "sendRpc", "Unreachable nodes have been remained yet:" + JSON.stringify(retryNodes));
+            } else if (waitSec <= 0) {
+                return this.iError("waitForRPCisOK", "runRpcs", "Unreachable nodes have been remained yet:" + JSON.stringify(leftNodes));
             } else {
-                retryCount--;
-                nodes = retryNodes;
+                waitSec--;
             }
         }
         return this.iError("waitForRPCisOK", "setInterval", "unknown error occured");
@@ -384,250 +375,86 @@ export class InModuleV2 {
 
     /* Client side functions */
 
-    // Temp: convert format while examination
-
-    /**
-     * Send gRPC call to all nodes except disallowed nodes.
-     * @param core - set ccInType instance
-     * @param payload - set the payload to deliver
-     * @param timeoutMs - can set timeout in milliseconds
-     * @param clientInstance - can set the instance of client, mainly for testing
-     * @returns returns with gResult type that contains rpcReturnFormat[] if it's success, and unknown if it's failure.
-     * The return form of this method is somewhat special: it always returns success, and the result of each RPC is stored in rpcReturnFormat[].
-     */
-    public async sendRpcAll(core: ccInTypeV2, payload: systemrpc.ccSystemRpcFormat.AsObject, timeoutMs?: number,
-        clientInstance?: any): Promise<gResult<rpcReturnFormat[], unknown>> {
+    public async runRpcs(core: ccInTypeV2, targets: nodeProperty[], request: string, dataAsString: string, skipRetry?: boolean): Promise<gResult<rpcResultFormat[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendRpcAll");
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":runRpcs");
 
-        let rets: rpcReturnFormat[] = [];
-        for(const target of core.conf.nodes) {
-            if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
-            if (target.allow_outgoing === true) {
-                const ret = await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance);
-                if (ret.isFailure()) {
-                    const ret2: rpcReturnFormat = JSON.parse(ret.value.message);
-                    rets.push(ret2);
+        const payload = new ic.icPacketPayload();
+        payload.setPayloadType(ic.payload_type.REQUEST);
+        payload.setRequest(request);
+        payload.setDataAsString(dataAsString);
+
+        const results: rpcResultFormat[] = []
+        for (const target of targets) {
+            const ret = await this.setupConnectionWithReceiver(core, target);
+            if (ret.isFailure()) { return ret };
+            const call = this.generalConnections[target.nodename];
+
+            const id = randomUUID();
+            const msg = new ic.icGeneralPacket();
+            msg.setVersion(4);
+            msg.setPacketId(id);
+            msg.setSender(core.conf.self.nodename);
+            msg.setReceiver(target.nodename);
+            msg.setPayload(payload);
+            msg.setPrevId("");
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":runRpcs:msg " + msg.getPacketId() + " from " + msg.getSender() + " to " + msg.getReceiver());
+            
+            results.push({
+                id: id,
+                node: target,
+                result: this.iError("undefined")
+            });
+
+            call.write(msg, () => {
+                this.generalResults[msg.getPacketId()] = {
+                    state: generalInResultsType.yet,
+                    installationtime: new Date().valueOf(),
+                    result: this.iError("undefined")
+                }
+            });
+            call.on("error", async () => {
+                if (skipRetry !== true) {
+                    const ret = await this.setupConnectionWithReceiver(core, target);
+                    if (ret.isFailure()) { return ret };
+                    const call = this.generalConnections[target.nodename];
+
+                    call.write(msg, () => {
+                        this.generalResults[msg.getPacketId()] = {
+                            state: generalInResultsType.yet,
+                            installationtime: new Date().valueOf(),
+                            result: this.iError("undefined")
+                        }
+                    });
+                    call.on("error", () => {
+                        this.generalResults[msg.getPacketId()].state = generalInResultsType.failure;
+                        this.generalResults[msg.getPacketId()].result =
+                            this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
+                    });
                 } else {
-                    rets.push(ret.value);
+                    this.generalResults[msg.getPacketId()].state = generalInResultsType.failure;
+                    this.generalResults[msg.getPacketId()].result =
+                        this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
                 }
+            });
+        }
+
+        // Wait until all results are available.
+        const size = targets.length;
+        for await (const _ of setInterval(500)) {
+            let resolved = 0;
+            for (const result of results) {
+                if (this.generalResults[result.id].state !== generalInResultsType.yet) { resolved++; }
             }
-        }
-        return this.iOK<rpcReturnFormat[]>(rets);
-    }
-
-    /**
-     * Send gRPC call to the specified node.
-     * @param core - set ccInType instance
-     * @param target - set the target with nodeProperty format
-     * @param payload - set the payload to deliver
-     * @param timeoutMs - can set timeout in milliseconds
-     * @param clientInstance - can inject clientInstance
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with rpcReturnFormat if it's success, and gError if it's failure.
-     * Note that the stringified rpcReturnFormat is stored in the error details.
-     */
-    public async sendRpc(core: ccInTypeV2, target: nodeProperty, payload: systemrpc.ccSystemRpcFormat.AsObject, 
-        timeoutMs?: any, clientInstance?: any, retry?: any): Promise<gResult<rpcReturnFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendRpc");
-        LOG("Debug", 0, "In:" + this.conf.self.nodename + ":sendRpc:" + payload.request);
-
-        let skipRetry: boolean = false;
-        const p = new ic.icPacketPayload();
-        p.setPayloadType(ic.payload_type.REQUEST);
-        p.setRequest(payload.request);
-        switch (payload.request) {
-            case "Ping":
-                skipRetry = true;
-                p.setDataAsString("Ping");
-                break;
-            case "AddPool":
-                p.setDataAsString(payload.dataasstring);
-                break;
-            case "AddBlock":
-                p.setDataAsString(payload.dataasstring);
-                break;
-            case "AddBlockCa3":
-                const data1: inAddBlockDataFormat = {
-                    traveling: JSON.parse(payload.dataasstring),
-                    removeFromPool: payload.param?.removepool
-                }
-                p.setDataAsString(JSON.stringify(data1));
-                break;
-            case "GetPoolHeight":
-                const data2: inGetPoolHeightDataFormat = {
-                    tenantId: payload.param?.tenant
-                }
-                p.setDataAsString(JSON.stringify(data2));
-                break;
-            case "GetBlockHeight":
-                const data3: inGetBlockHeightDataFormat = {
-                    tenantId: payload.param?.tenant
-                }
-                p.setDataAsString(JSON.stringify(data3));
-                break;
-            case "GetBlockDigest":
-                const data4: inGetBlockDigestDataFormat = {
-                    tenantId: payload.param?.tenant,
-                    failIfUnhealthy: payload.param?.failifunhealthy
-                }
-                p.setDataAsString(JSON.stringify(data4));
-                break;
-            case "GetBlock":
-                const data5: inGetBlockDataFormat = {
-                    oid: payload.dataasstring,
-                    tenantId: payload.param?.tenant,
-                    returnUndefinedIfFail: payload.param?.returnundefinedifnoexistent
-                }
-                p.setDataAsString(JSON.stringify(data5));
-                break;
-            case "ExamineBlockDifference":
-                const data6: inExamineBlockDiffernceDataFormat = {
-                    list: JSON.parse(payload.dataasstring),
-                    tenantId: payload.param?.tenant
-                }
-                p.setDataAsString(JSON.stringify(data6));
-                break;
-            case "ExaminePoolDifference":
-                const data7: inExaminePoolDiffernceDataFormat = {
-                    list: payload.dataasstring.split(","),
-                    tenantId: payload.param?.tenant
-                }
-                p.setDataAsString(JSON.stringify(data7));
-                break;
-            case "DeclareBlockCreation":
-                p.setDataAsString(payload.dataasstring);
-                break;
-            case "SignAndResendOrStore":
-                p.setDataAsString(payload.dataasstring);
-                break;
-            case "ResetTestNode":
-                p.setDataAsString(payload.dataasstring);
-                break;
-            default:
-                LOG("Warning", 1, "In:" + this.conf.self.nodename + ":sendRpc:IllegalRequest:" + payload.request);
-                return core.lib.iError("sendRpc", "convert", "In:" + this.conf.self.nodename + ":sendRpc:IllegalRequest:" + payload.request);
+            if (resolved === size) { break; }
         }
 
-        const ret1 = await core.lib.sendRequest(core, target, p, skipRetry);
-        if (ret1.isFailure()) { return ret1; }
-
-        const ret2 = await core.lib.receiveResult(core, ret1.value);
-        if (ret2.isFailure()) { return ret2 }
-        if (ret2.value === undefined) { return core.lib.iError("sendRpc", "receiveResult", "payload is empty"); }
-
-        let retCode = -1;
-        let retData = undefined;
-        if (ret2.value.getPayloadType() === ic.payload_type.RESULT_SUCCESS) {
-            retCode = 0;
-            retData = ret2.value.getDataAsString();
-        } else {
-            retCode = -1;
-            retData = ret2.value.getDataAsString();
+        // Insert results
+        for (const result of results) {
+            result.result = this.generalResults[result.id].result;
+            delete this.generalResults[result.id];
         }
-        const ret3: rpcReturnFormat = {
-            targetHost: target.host + ":" + target.rpc_port,
-            request: payload.request,
-            status: retCode,
-            data: retData
-        }
-
-        return core.lib.iOK(ret3);
-    }
-
-    /**
-     * The method to get the result
-     * @param core - set ccInType instance
-     * @param requestId - set the requestId that was returned from sendRequest()
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with ic.icPacketPayload or undefined if it's success, and gError if it's failure.
-     */
-    protected async receiveResult(core: ccInTypeV2, requestId: string): Promise<gResult<ic.icPacketPayload | undefined, gError>> {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":receiveResult");
-
-        if (this.generalResults[requestId] === undefined) {
-            return this.iError("receiveResult", "ReturnBox", "The return box for " + requestId + " has NOT been prepared.");
-        }
-
-        for await (const result of setInterval(100, this.generalResults[requestId])) {
-            if ((result.state !== generalInResultsType.yet) && (result.result !== undefined)) {
-                const ret = result.result;
-                if (ret.isSuccess()) {
-                    delete this.generalResults[requestId];
-                    return this.iOK(ret.value.getPayload())
-                };
-                return ret;
-            }
-        }
-        return this.iError("receiveResult", "EOM", "unknown error");
-    }
-
-    /**
-     * The method to post the request
-     * @param core - set ccInType instance
-     * @param target - set the target node information by nodeProperty format
-     * @param payload - set the data to post by ic.icPacketPayload
-     * @param skipRetry - can set true when retry is unneeded.
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the request Id as string if it's success, and gError if it's failure.
-     */
-    protected async sendRequest(core: ccInTypeV2, target: nodeProperty, payload: ic.icPacketPayload, skipRetry?: boolean): Promise<gResult<string, gError>> {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendRequest");
-
-        let finished: number = generalInResultsType.yet;
-        let result: gResult<string, gError> = this.iError("sendRequest", "unknown", "unknown error");
-
-        const ret = await this.setupConnectionWithReceiver(core, target);
-        if (ret.isFailure()) { return ret };
-        const call = this.generalConnections[target.nodename];
-
-        const msg = new ic.icGeneralPacket();
-        msg.setVersion(4);
-        msg.setPacketId(randomUUID());
-        msg.setSender(core.conf.self.nodename);
-        msg.setReceiver(target.nodename);
-        msg.setPayload(payload);
-        msg.setPrevId("");
-        LOG("Debug", 0, "In:" + this.conf.self.nodename + ":sendRequest:msg " + msg.getPacketId() + " from " + msg.getSender() + " to " + msg.getReceiver());
-
-        call.write(msg, () => { // Overwrite by "error" event when actually the callback is error
-            result = this.iOK(msg.getPacketId());
-            finished = generalInResultsType.success;
-            this.generalResults[msg.getPacketId()] = {
-                state: generalInResultsType.yet,
-                installationtime: new Date().valueOf()
-            }
-        });
-        call.on("error", async () => {
-            if (skipRetry !== true) {
-                LOG("Info", 0, "In:" + this.conf.self.nodename + ":generalRequest:Failed sending a packet to: " + msg.getReceiver() + ", retry.");
-                const ret = await this.setupConnectionWithReceiver(core, target, true);
-                if (ret.isFailure()) { result = ret };
-                const call = this.generalConnections[target.nodename];
-
-                call.write(msg);
-                call.on("error", () => {
-                    LOG("Notice", 0, "In:" + this.conf.self.nodename + ":generalRequest:Failed to retry sending a packet to: " + msg.getReceiver() + ", gave up.");
-                    result = this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
-                    finished = generalInResultsType.failure;
-                    delete this.generalResults[msg.getPacketId()];
-                });
-            } else {
-                LOG("Info", 0, "In:" + this.conf.self.nodename + ":generalRequest:Failed to retry sending a packet to: " + msg.getReceiver());
-                result = this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
-                finished = generalInResultsType.failure;
-                delete this.generalResults[msg.getPacketId()];
-            }
-        })
-
-        for await (const _ of setInterval(100)) {
-            if (finished !== generalInResultsType.yet) {
-                LOG("Debug", 0, "In:" + this.conf.self.nodename + ":sendRequest:result:" + JSON.stringify(result));
-                return result;
-            }
-        }
-
-        return this.iError("sendRequest", "EOM", "unknown error");
+        return this.iOK(results);
     }
 
     /**

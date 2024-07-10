@@ -8,7 +8,7 @@ import { gResult, gSuccess, gError } from "../../utils"
 import { randomUUID } from "crypto"
 import { blockFormat } from ".."
 import { BlockModule } from "../core"
-import { blockConfigType } from "../../config"
+import { blockConfigType, ConfigModule } from "../../config"
 import { ccBlockType } from ".."
 import { logMock } from "../../__mocks__/mock_logger";
 import { SystemModuleMock } from "../../__mocks__/mock_system"
@@ -47,6 +47,7 @@ describe("Test of BlockModule", () => {
     let i: any;
     let k: any;
     let m: any;
+    let c: any;
     beforeAll(async () => {
         const ret1 = new SystemModuleMock().init();
         s = undefined;
@@ -60,18 +61,21 @@ describe("Test of BlockModule", () => {
         m = undefined;
         const ret4 = await (new MainModuleMock().init());
         if (ret4.isSuccess()) m = ret4.value;
+        c = undefined;
+        const ret5 = await (new ConfigModule().init());
+        if (ret5.isSuccess()) c = ret5.value;
     })
 
     describe("Method createBlock() with CA3", () => {
         beforeAll(async () => {
             const lib = new BlockModule();
-            let ret5: gResult<ccBlockType, gError>
-            ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../dist/__mocks__/mock_ca3.js");
-            if (ret5.isFailure()) {
-                ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
+            let ret6: gResult<ccBlockType, gError>
+            ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../dist/__mocks__/mock_ca3.js");
+            if (ret6.isFailure()) {
+                ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
             }
-            if (ret5.isSuccess()) {
-                core = ret5.value;
+            if (ret6.isSuccess()) {
+                core = ret6.value;
             } else {
                 throw new Error("beforeAll failed");
             }
@@ -119,9 +123,9 @@ describe("Test of BlockModule", () => {
         beforeAll(async () => {
             const lib = new BlockModule();
             let ret5: gResult<ccBlockType, gError>
-            ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../dist/__mocks__/mock_ca3.js");
+            ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../dist/__mocks__/mock_ca3.js");
             if (ret5.isFailure()) {
-                ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
+                ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
             }
             if (ret5.isSuccess()) {
                 core = ret5.value;
