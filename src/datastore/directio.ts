@@ -156,9 +156,10 @@ export class DirectIoSubModule {
                 if (qItem._id === oid) {
                     core.queue.splice(index, 1);
                     continue;
+                } else {
+                    index++;
                 }
             }
-            index++;
         }
 
         return this.ioOK<void>(undefined);

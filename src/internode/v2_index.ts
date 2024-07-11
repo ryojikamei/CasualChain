@@ -1,5 +1,9 @@
+import { gResult, gError } from "../utils"
+
+import ic from "../../grpc_v2/interconnect_pb.js"
+
 import { InModuleV2 } from "./v2_core"
-import { inConfigType } from "../config"
+import { inConfigType, nodeProperty } from "../config"
 import { ccLogType } from "../logger"
 import { ccSystemType, examineHashes } from "../system"
 import { ccBlockType } from "../block"
@@ -77,4 +81,10 @@ export type inExamineBlockDiffernceDataFormat = {
 export type inExaminePoolDiffernceDataFormat = {
     list: string[],
     tenantId?: string
+}
+
+export type rpcResultFormat = {
+    id: string,
+    node: nodeProperty,
+    result: gResult<ic.icGeneralPacket, gError>
 }

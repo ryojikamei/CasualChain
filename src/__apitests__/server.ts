@@ -4,7 +4,6 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import clone from "clone";
 import { MongoClient } from "mongodb";
 import { execa } from "execa"
 import nodeConfig from "config"; // read apitest_worker.json
@@ -152,7 +151,23 @@ export async function exportTestData(collection: string, dumpfile: string): Prom
 
 export async function waitForNode() {
     console.log("Waiting for test nodes are ready.");
-    for await (const _ of setInterval(1000)) {
+    for await (const _ of setInterval(500)) {
+        // Kicking data out of pool
+        const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
+        if (ret200.code !== 200) {
+            console.log("1:" + JSON.stringify(ret200));
+            continue;
+        }
+        const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
+        if (ret201.code !== 200) {
+            console.log("2:" + JSON.stringify(ret201));
+            continue;
+        }
+        const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
+        if (ret202.code !== 200) {
+            console.log("3:" + JSON.stringify(ret202));
+            continue;
+        }
         await exportTestData(conf.mongoms.blockcollection.node2, "initial.blocks");
         try {
             const keys = await readFile(process.cwd() + "/src/__testdata__/initial.blocks", "utf-8");
@@ -181,30 +196,31 @@ async function apiTestMain() {
     
     for (const testcase of testcases) {
 
-        // Kicking data out of pool
-        const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
-        if (ret200.code !== 200) {
-            console.log(JSON.stringify(ret200));
-            return -200;
-        }
-        const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
-        if (ret201.code !== 200) {
-            console.log(JSON.stringify(ret201));
-            return -201;
-        }
-        const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
-        if (ret202.code !== 200) {
-            console.log(JSON.stringify(ret202));
-            return -202;
-        }
-        // Initialize block
-        const ret100 = await importTestData("block_node1", "initial.blocks", false);
-        const ret101 = await importTestData("block_node2", "initial.blocks", false);
-        if ((ret100 !== 0) || (ret101 !== 0)) {
-            return -100;
-        }
-
         if (testcase.endsWith(".js")) {
+
+            // Kicking data out of pool
+            const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
+            if (ret200.code !== 200) {
+                console.log(JSON.stringify(ret200));
+                return -200;
+            }
+            const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
+            if (ret201.code !== 200) {
+                console.log(JSON.stringify(ret201));
+                return -201;
+            }
+            const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
+            if (ret202.code !== 200) {
+                console.log(JSON.stringify(ret202));
+                return -202;
+            }
+            // Initialize block
+            const ret100 = await importTestData("block_node1", "initial.blocks", false);
+            const ret101 = await importTestData("block_node2", "initial.blocks", false);
+            if ((ret100 !== 0) || (ret101 !== 0)) {
+                return -100;
+            }
+
             const test = await import(pathcases + testcase);
             process.stdout.write("APITest => " + test.name + ": ");
             const ret = await test.run(conf);

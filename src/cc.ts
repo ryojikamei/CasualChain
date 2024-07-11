@@ -205,6 +205,7 @@ export class CC {
         core.b.k = core.k;
         core.b.m = core.m;
         core.b.s = core.s;
+        core.b.c = core.c;
         // Add pathes from Keyring
         core.k.i = core.i;
         core.k.m = core.m;
@@ -409,7 +410,7 @@ export class CC {
             }
             // BlockModule
             if (core.b.lib.getCondition() === "reloadNeeded") {
-                const retB = await core.b.lib.restart(core.b, core.l, core.i, core.k, core.m, core.s);
+                const retB = await core.b.lib.restart(core.b, core.l, core.i, core.k, core.m, core.s, core.c);
                 if (retB.isSuccess()) {
                     LOG("Notice", 0, "systemLoop: BlockModule restarted");
                     core.b = retB.value;
@@ -544,17 +545,16 @@ export class CC {
         const ret1 = await core.a.lib.deactivateApi(core.a, core.a.log);
         if (ret1.isFailure()) return ret1;
 
-        LOG("Notice", 0, "Block incoming requests from other nodes");
-        //const ret2 = await core.i.lib.stopServer(core.i);
-        const ret2 = await core.i.lib.stop(core.i);
-        if (ret2.isFailure()) return ret2;
+        //LOG("Notice", 0, "Block incoming requests from other nodes");
+        //const ret2 = await core.i.lib.stop(core.i);
+        //if (ret2.isFailure()) return ret2;
 
         LOG("Notice", 0, "Unregister auto tasks");
         const ret3 = core.s.lib.unregisterAutoTasks(core.s);
 
         LOG("Notice", 0, "Flushing caching transactions to blocks");
         if (core.s.conf.node_mode.startsWith("testing") === false) {
-            const ret4 = await core.s.lib.postDeliveryPool(core.s);
+            const ret4 = await core.s.lib.postDeliveryPool(core.s, true);
             if (ret4.isFailure()) return ret4;
             LOG("Notice", 0, "");
             const ret5 = await core.s.lib.postAppendBlocks(core.s);

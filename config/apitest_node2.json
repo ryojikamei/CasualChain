@@ -56,7 +56,7 @@
         "mongo_poolcollection": "pool_node2"
     },
     "event": {
-        "enable_internaltasks": true
+        "enable_internaltasks": false
     },
     "api": {
         "rest": {

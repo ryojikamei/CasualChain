@@ -27,8 +27,6 @@ export async function run(conf: any): Promise<number> {
     const payload2_2 = JSON.stringify({key: "desc", value: "test"})
     const ret2_2: responseType = await runAxios("/get/byjson", "get", conf.bcapi, payload2_2);
     const ret2_3: responseType = await runAxios("/get/byjson", "get", conf.bcapi, payload2_2, 2);
-    console.log(ret2_2.data)
-    console.log(ret2_3.data)
     if (ret2_2.data.length - ret2_3.data.length !== 1) {
         return -3;
     }

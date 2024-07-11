@@ -9,21 +9,19 @@ import { randomUUID, randomInt } from 'crypto';
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import * as systemrpc from '../../grpc_v1/systemrpc_pb.js';
-
 import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes } from "./index.js";
 import { systemConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { objTx, objBlock, poolResultObject, blockResultObject, ccDsType } from "../datastore/index.js";
-//import { rpcReturnFormat, heightDataFormat, digestDataFormat, ccInType } from '../internode/index.js';
-import { rpcReturnFormat, heightDataFormat, digestDataFormat } from '../internode/index.js';
-import { ccInTypeV2 } from "../internode/v2_index.js";
+import { heightDataFormat, digestDataFormat } from '../internode/index.js';
+import { ccInTypeV2, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, rpcResultFormat } from "../internode/v2_index.js";
 import { blockFormat, createBlockOptions, ccBlockType } from '../block/index.js';
 import { ccMainType } from '../main/index';
 import { randomOid } from '../utils.js';
 import { ccEventType, internalEventFormat } from '../event/index.js';
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
 import { moduleCondition } from "../index.js";
+import { setInterval } from "timers/promises";
 
 /**
  * The result of single block diagnostics
@@ -324,14 +322,23 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async postDeliveryPool(core: ccSystemType): Promise<gResult<void, gError>> {
+    public async postDeliveryPool(core: ccSystemType, waitForUnLock?: boolean): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:postDeliveryPool");
 
-        if (core.serializationLocks.postDeliveryPool === true) {
-            return this.sError("postDeliveryPool", "serializationLocks", "This function is running. Wait for a while.");
+        if (waitForUnLock === true) {
+            for await (const _ of setInterval(100)) {
+                if (core.serializationLocks.postDeliveryPool === false) {
+                    core.serializationLocks.postDeliveryPool = true;
+                    break;
+                }
+            }
         } else {
-            core.serializationLocks.postDeliveryPool = true;
+            if (core.serializationLocks.postDeliveryPool === true) {
+                return this.sError("postDeliveryPool", "serializationLocks", "This function is running. Wait for a while.");
+            } else {
+                core.serializationLocks.postDeliveryPool = true;
+            }
         }
         
         if (core.m === undefined) {
@@ -346,29 +353,29 @@ export class SystemModule {
         }
 
         // Send to other node => (Receiver) register data in pool and change flag to true
-        let sObj: systemrpc.ccSystemRpcFormat.AsObject;
-        sObj = {
-            version: 3,
-            request: "AddPool",
-            param: undefined,
-            dataasstring: JSON.stringify(ret1.value)
-        }
-        let rets: rpcReturnFormat[] = [];
+        const request = "AddPool";
+        const data: objTx[] = ret1.value;
+        let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {
-            const ret2 = await core.i.lib.sendRpcAll(core.i, sObj);
-            if (ret2.isSuccess()) rets = ret2.value;
+            const ret2 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
+            if (ret2.isFailure()) return ret2;
+            results = ret2.value;
         } else {
             core.serializationLocks.postDeliveryPool = false;
-            return this.sError("postDeliveryPool", "sendRpcAll", "The internode module is down");
-        }
-
-        let failcnt: number = 0;
-        for (const ret3 of rets) {
-            if (ret3.status !== 0) failcnt--;
+            return this.sError("postDeliveryPool", "runRpcs", "The internode module is down");
         }
 
         // If even one node succeeds, change its own node to true.
-        if ((rets.length + failcnt) > 0) {
+        let success: number = 0;
+        let failure: number = 0;
+        for (const result of results) {
+            if (result.result.isFailure()) {
+                failure++;
+            } else {
+                success++;
+            }
+        }
+        if (success > 0) {
             let oids: string[] = [];
             let tx: any;
             for (tx of ret1.value) {
@@ -376,14 +383,15 @@ export class SystemModule {
             }
             // modify both db and readcache at same time
             if (core.d !== undefined) {
-                const ret4 = core.d.lib.poolModifyReadsFlag(core.d, oids, this.master_key);
+                const ret4 = await core.d.lib.poolModifyReadsFlag(core.d, oids, this.master_key);
+                if (ret4.isFailure()) ret4;
             } else {
                 core.serializationLocks.postDeliveryPool = false;
-                return this.sError("postDeliveryPool", "poolModifyReadsFlag", "The method returns error");
+                return this.sError("postDeliveryPool", "poolModifyReadsFlag", "The datastore module is down");
             }
         } else {
             core.serializationLocks.postDeliveryPool = false;
-            return this.sError("postDeliveryPool", "sendRpcAll", (failcnt * -1).toString() + " errors occurs");
+            return this.sError("postDeliveryPool", "runRpcs", failure.toString() + " errors occurs");
         }
         core.serializationLocks.postDeliveryPool = false;
         return this.sOK<void>(undefined);
@@ -501,7 +509,7 @@ export class SystemModule {
      */
     protected async removeFromPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:removeFromPool");
+        LOG("Info", 0, "SystemModule:removeFromPool:" + JSON.stringify(txArr));
 
         if (core.d === undefined) {
             return this.sError("removeFromPool", "poolDeleteTransactions", "The datastore module is down");
@@ -615,33 +623,37 @@ export class SystemModule {
             }
 
             // Confirmation that there is no data in blocks and pools on default tenant of other nodes
-            const sObj4Block: systemrpc.ccSystemRpcFormat.AsObject = {
-                version: 3,
-                request: "GetBlockHeight",
-                param: { tenant: this.common_parsel },
-                dataasstring: ""
-            }
-            let retsBlock: rpcReturnFormat[] = [];
+            const request = "GetBlockHeight";
+            const data: inGetBlockHeightDataFormat = { tenantId: this.common_parsel };
+            let results: rpcResultFormat[] = [];
             if (core.i !== undefined) {
-                const ret2 = await core.i.lib.sendRpcAll(core.i, sObj4Block);
-                if (ret2.isSuccess()) retsBlock = ret2.value;
-                for (const retBlock of retsBlock) {
-                    if ((retBlock.status !== 0) || (retBlock.data === undefined)) {
+                const ret2 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
+                if (ret2.isFailure()) {
+                    core.serializationLocks.postGenesisBlock = false;
+                    return ret2;
+                }
+                results = ret2.value;
+                for (const result of results) {
+                    if (result.result.isFailure()) {
                         LOG("Warning", -1, "There is a problem getting data from a remote node. No genesis block is created.");
                         core.serializationLocks.postGenesisBlock = false;
-                        return this.sError("postGenesisBlock", "sendRpcAll", "GetBlockHeight is failed");
-                    } else {
-                        const d: heightDataFormat = JSON.parse(retBlock.data);
-                        if (d.height !== 0) {
-                            LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
-                            core.serializationLocks.postGenesisBlock = false;
-                            return this.sError("postGenesisBlock", "sendRpcAll", "GetBlockHeight indicates that there is data on a remote node");
-                        }
+                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight is failed");
+                    }
+                    const dataAsString = result.result.value.getPayload()?.getDataAsString();
+                    if (dataAsString === undefined) {
+                        core.serializationLocks.postGenesisBlock = false;
+                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight returns unknown error");
+                    }
+                    const d: heightDataFormat = JSON.parse(dataAsString);
+                    if (d.height !== 0) {
+                        LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
+                        core.serializationLocks.postGenesisBlock = false;
+                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight indicates that there is data on a remote node");
                     }
                 }
             } else {
                 core.serializationLocks.postGenesisBlock = false;
-                return this.sError("postGenesisBlock", "sendRpcAll", "The internode module is down");
+                return this.sError("postGenesisBlock", "runRpcs", "The internode module is down");
             }
         } else { // check if force resetting can be done
             LOG("Notice", 0, "Checking whether force reset the chain can be done");
@@ -999,38 +1011,43 @@ export class SystemModule {
         }
 
         // get the digest of other nodes
-        const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-            version: 3,
-            request: "GetBlockDigest",
-            param: { tenant: this.master_key, failifunhealthy: true },
-            dataasstring: ""
+        const request = "GetBlockDigest";
+        const data: inGetBlockDigestDataFormat = {
+            failIfUnhealthy: true
         }
-        let rets: rpcReturnFormat[] = [];
+        let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {
-            const ret2 = await core.i.lib.sendRpcAll(core.i, sObj);
-            if (ret2.isSuccess()) rets = ret2.value;
-
-            for (const ret3 of rets) {
-                if ((ret3.data !== undefined) && (ret3.data !== ""))  {
-                    try {
-                        const rLast: digestDataFormat = JSON.parse(ret3.data);
-                        if (rLast.height >= 0) { // reject failed data
-                            healthyNodes.push({host: ret3.targetHost, hash: rLast.hash, height: rLast.height})
-                        }   
-                    } catch (error) {
-                        
+            const ret2 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
+            if (ret2.isFailure()) return ret2;
+            results = ret2.value;
+            for (const result of results) {
+                // Ignore failures
+                if (result.result.isSuccess()) {
+                    const dataAsString = result.result.value.getPayload()?.getDataAsString();
+                    if (dataAsString !== undefined) {
+                        try {
+                            const rLast: digestDataFormat = JSON.parse(dataAsString);
+                            if (rLast.height >= 0) {
+                                healthyNodes.push({
+                                    host: result.result.value.getSender(),
+                                    hash: rLast.hash,
+                                    height: rLast.height
+                                })
+                            }
+                        } catch (error) {
+                        }
                     }
                 }
             }
         } else {
-            return this.sError("obtainHealthyNodes", "sendRpcAll", "The internode module is down");
+            return this.sError("obtainHealthyNodes", "runRpcs", "The internode module is down");
         }
         LOG("Debug", 0, "obtainHealthyNodes:healthyNodes");
         LOG("Debug", 0, JSON.stringify(healthyNodes));
 
         if (((localCondition === 0) && (healthyNodes.length < 2)) || ((localCondition !== 0) && (healthyNodes.length < 1))) {
             LOG("Error", -2, "Unable to obtain other healthy node's information.");
-            return this.sError("obtainHealthyNodes", "sendRpcAll", "Unable to obtain other healthy node's information.");
+            return this.sError("obtainHealthyNodes", "runRpcs", "Unable to obtain other healthy node's information.");
         }
 
         // Determine the majority status. In case of a tie, the one with the higher height is considered the majority.
@@ -1169,33 +1186,45 @@ export class SystemModule {
         // At first, try to get data from majority nodes
         if (core.i !== undefined) {
             for (const oid of oidList) {
-                const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-                    version: 3,
-                    request: "GetBlock",
-                    param: { tenant: this.master_key, returnundefinedifnoexistent: true }, // return 200 with [], not 400
-                    dataasstring: oid
+                let cnt = 0;
+
+                const request = "GetBlock";
+                const data: inGetBlockDataFormat = {
+                    oid: oid,
+                    returnUndefinedIfFail: true
                 }
+                const dataAsString = JSON.stringify(data);
+
                 // send request randomly
                 const host = healthyNodes.majority.hosts[Math.floor(Math.random() * healthyNodes.majority.hosts.length)];
                 for (const node of core.i.conf.nodes) {
-                    if (node.host === host) {
-                        const pRet = core.i.lib.sendRpc(core.i, node, sObj);
+                    if (node.host + ":" + node.rpc_port === host) {
+                        const pRet = core.i.lib.runRpcs(core.i, [node], request, dataAsString);
                         pArr.push(pRet);
+                        break;
                     }
                 }
-            } 
+            }
         } else {
-            return this.sError("getNormalBlocksAsPossible", "sendRpc_ToMajority", "The internode module is down");
+            return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "The internode module is down");
         }
         await Promise.all(pArr).then((rArr) => {
             for (const ret of rArr) {
                 if (ret.isFailure()) {
                     LOG("Warning", 1301, "The process was aborted because data acquisition from some nodes are failed.");
-                    return this.sError("getNormalBlocksAsPossible", "sendRpc_ToMajority", "Data acquisition from some nodes are failed");
+                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                 }
-                if (ret.value.data !== undefined) {
-                    bArr.push(JSON.parse(ret.value.data));
+                const res = ret.value[0].result;
+                if (res.isFailure()) {
+                    LOG("Warning", 1303, "The process was aborted because data acquisition from some nodes are failed.");
+                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                 }
+                const dataAsString = res.value.getPayload()?.getDataAsString();
+                if (dataAsString === undefined) {
+                    LOG("Warning", 1304, "The process was aborted because data acquisition from some nodes are failed.");
+                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                }
+                bArr.push(JSON.parse(dataAsString));
             }
             LOG("Debug", 0, "getNormalBlocksAsPossible:bArr");
             LOG("Debug", 0, JSON.stringify(bArr));
@@ -1227,23 +1256,28 @@ export class SystemModule {
         }
 
         // fill lacking blocks 1 by 1
+        const request = "GetBlock";
+        let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {
             for (const bRes of bArr) {
                 if (bRes.block === undefined) {
-                    const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-                        version: 3,
-                        request: "GetBlock",
-                        param: { returnundefinedifnoexistent: true },
-                        dataasstring: bRes.oid
+                    const data: inGetBlockDataFormat = {
+                        oid: bRes.oid,
+                        returnUndefinedIfFail: true
                     }
                     for (const node of otherNodesList) {
-                        const ret = await core.i.lib.sendRpc(core.i, node, sObj);
-                        if (ret.isFailure()) return ret;
-                        if (ret.value.data !== undefined) {
-                            const bRes2: getBlockResult = JSON.parse(ret.value.data);
-                            if (bRes2.block !== undefined) {
-                                bRes.block = bRes2.block;
-                                break;
+                        const ret = await core.i.lib.runRpcs(core.i, [node], request, JSON.stringify(data))
+                        if (ret.isSuccess()) {
+                            results = ret.value;
+                            if (results[0].result.isSuccess()) {
+                                const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
+                                if (dataAsString !== undefined) {
+                                    const bRes2: getBlockResult = JSON.parse(dataAsString);
+                                    if (bRes2.block !== undefined) {
+                                        bRes.block = bRes2.block;
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
@@ -1253,7 +1287,7 @@ export class SystemModule {
                 }
             }
         } else {
-            return this.sError("getNormalBlocksAsPossible", "sendRpc_1by1", "The internode module is down");
+            return this.sError("getNormalBlocksAsPossible", "runRpcs_1by1", "The internode module is down");
         }
         return this.sOK<getBlockResult[]>(bArr);
     }
@@ -1441,31 +1475,38 @@ export class SystemModule {
         LOG("Debug", 0, JSON.stringify(ret4.value));
 
         // Send to one of the majority nodes and receive the difference
-        const sObj2: systemrpc.ccSystemRpcFormat.AsObject = {
-            version: 3,
-            request: "ExamineBlockDifference",
-            param: { tenant: this.master_key },
-            dataasstring: JSON.stringify(ret4.value)
+        const request = "ExamineBlockDifference";
+        const data: inExamineBlockDiffernceDataFormat = {
+            list: ret4.value
         }
+        let results: rpcResultFormat[] = [];
         let examinedList: examinedHashes = {add: [], del: []};
         if (core.i !== undefined) {
             const host = nodes.majority.hosts[Math.floor(Math.random() * nodes.majority.hosts.length)];
             for (const node of core.i.conf.nodes) {
                 if (node.host + ":" + node.rpc_port === host) {
-                    const ret5 = await core.i.lib.sendRpc(core.i, node, sObj2);
+                    const ret5 = await core.i.lib.runRpcs(core.i, [node], request, JSON.stringify(data))
                     if (ret5.isFailure()) {
                         core.serializationLocks.postScanAndFixBlock = false;
                         return ret5;
                     }
-                    if (ret5.value.data !== undefined) {
-                        examinedList = JSON.parse(ret5.value.data);
+                    results = ret5.value;
+                    if (results[0].result.isFailure()) {
+                        core.serializationLocks.postScanAndFixBlock = false;
+                        return results[0].result;
                     }
+                    const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
+                    if (dataAsString === undefined) {
+                        core.serializationLocks.postScanAndFixBlock = false;
+                        return this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
+                    }
+                    examinedList = JSON.parse(dataAsString);
                     break;
                 }
             }
         } else {
             core.serializationLocks.postScanAndFixBlock = false;
-            return this.sError("postScanAndFixBlock", "sendRpc_ExamineBlockDifference", "The internode module is down");
+            return this.sError("postScanAndFixBlock", "runRpcs_ExamineBlockDifference", "The internode module is down");
         }
         LOG("Debug", 0, "postScanAndFixBlock:examinedList");
         LOG("Debug", 0, JSON.stringify(examinedList));
@@ -1534,7 +1575,7 @@ export class SystemModule {
                 for (txObj of bObj.data) {
                     LOG("Debug", 0, "txObj:" + JSON.stringify(txObj));
                     let pbObj: any;
-                    let index: number = 1; 
+                    let index: number = 0; 
                     for(pbObj of pushBackTxArr) {
                         if (txObj._id.toString() === pbObj._id.toString()) {
                             pushBackTxArr.splice(index,1)
@@ -1822,30 +1863,35 @@ export class SystemModule {
             })
         }
 
-        const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-            version: 3,
-            request: "ExaminePoolDifference",
-            param: { tenant: this.master_key },
-            dataasstring: poolIds.join(",")
+        const request = "ExaminePoolDifference";
+        const data: inExaminePoolDiffernceDataFormat = {
+            list: poolIds
         }
-        let rets: rpcReturnFormat[] = [];
+        let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {
-            const ret4 = await core.i.lib.sendRpcAll(core.i, sObj);
-            if (ret4.isSuccess()) rets = ret4.value;
+            const ret4 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
+            if (ret4.isFailure()) {
+                core.serializationLocks.postScanAndFixPool = false;
+                return ret4;
+            }
+            results = ret4.value;
         } else {
             core.serializationLocks.postScanAndFixPool = false;
-            return this.sError("postScanAndFixPool", "sendRpcAll", "The internode module is down");
+            return this.sError("postScanAndFixPool", "runRpcs", "The internode module is down");
         }
         let lackingTxs: objTx[] = [];
-        for (const ret5 of rets) {
-            if (ret5.status !== 0) {
+        for (const result of results) {
+            if (result.result.isFailure()) {
                 LOG("Error", -2, "error in collecting lacking transactions");
                 core.serializationLocks.postScanAndFixPool = false;
-                return this.sError("postScanAndFixPool", "sendRpcAll", "error in collecting lacking transactions");
-            } else {
-                LOG("Notice", 0, "OK.");
+                return this.sError("postScanAndFixPool", "runRpcs", "error in collecting lacking transactions");
             }
-            if ((ret5.data !== undefined) && (ret5.data !== "[]")) lackingTxs = lackingTxs.concat(JSON.parse(ret5.data));
+            const dataAsString = result.result.value.getPayload()?.getDataAsString();
+            if (dataAsString === undefined) {
+                core.serializationLocks.postScanAndFixBlock = false;
+                return this.sError("postScanAndFixPool", "runRpcs", "postScanAndFixBlock returns unknown error");
+            }
+            lackingTxs = lackingTxs.concat(JSON.parse(dataAsString))
         }
         
         // Eliminate duplicate acquisitions

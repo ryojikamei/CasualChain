@@ -457,6 +457,50 @@ export class ConfigModule {
     }
 
     /**
+     * Temporary measures.
+     * @param nodename 
+     * @param property 
+     * @param value 
+     */
+    public setNodeConfiguration(nodename: string, property: string, value: string): gResult<void, gError> {
+
+        if (this.confCache === undefined) { return this.cError("setConfiguration", "confCache", "unknown condition"); };
+
+        for (const node of this.confCache.conf.i.nodes) {
+            if (node.nodename === nodename) {
+                switch (property) {
+                    case "nodename":
+                        node.nodename = value;
+                        break;
+                    case "rpc_port":
+                        node.rpc_port = Number(value);
+                        break;
+                    case "allow_outgoing":
+                        if (value === "false") { node.allow_outgoing = false; } 
+                        if (value === "true") { node.allow_outgoing = true; }
+                        break;
+                    case "host":
+                        node.host = value;
+                        break;
+                    case "abnormal_count":
+                        node.abnormal_count = Number(value);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        if (this.confCache.recentChanges.length === 0) {
+            // No one editing, apply immediately
+            this.confCache.recentChanges.push("c");
+            this.applyConfiguration();
+        } else {
+            this.confCache.recentChanges.push("c");
+        }
+        return this.cOK(undefined);
+    }
+
+    /**
      * Set specific settings
      * @param core - set ccConfigType instance
      * @param key - set the property name to set value

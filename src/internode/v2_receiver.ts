@@ -10,7 +10,7 @@ import { inAddBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolD
 import { heightDataFormat, digestDataFormat } from ".";
 import { inConfigType } from "../config/zod.js";
 import { ccLogType } from "../logger/index.js";
-import { ccSystemType } from "../system/index.js";
+import { ccSystemType, getBlockResult } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
 
 export class InReceiverSubModule {
@@ -279,7 +279,11 @@ export class InReceiverSubModule {
                 const ret62 = await this.score.lib.requestToGetBlock(this.score, ret61.oid, ret61.returnUndefinedIfFail, ret61.tenantId);
                 if (ret62.isSuccess()) {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    result.setDataAsString(JSON.stringify(ret62.value));
+                    const d62: getBlockResult = {
+                        oid: ret61.oid,
+                        block: ret62.value
+                    }
+                    result.setDataAsString(JSON.stringify(d62));
                 } else {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(ret62.value));

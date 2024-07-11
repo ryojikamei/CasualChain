@@ -5,7 +5,7 @@
         "file_output": true,
         "file_path": "/tmp/cc_demo_node1.log",
         "file_rotation": false,
-        "file_level": "notice"
+        "file_level": "debug"
     },
     "block": {
         "ca3": {

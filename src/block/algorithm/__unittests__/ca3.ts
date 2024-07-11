@@ -165,15 +165,17 @@ describe("Test of CA3 functions", () => {
         if (ret6.isFailure()) { throw new Error("beforeAll failed in init of KeyringModule"); };
         const ret7 = await (new MainModuleMock().init());
         if (ret7.isFailure()) { throw new Error("beforeAll failed in init of MainModule"); };
+        const ret8 = await (new ConfigModule().init());
+        if (ret8.isFailure()) { throw new Error("beforeAll failed in init of ConfigModule"); };
         let algorithmFile: string;
         if (existsSync("./dist/block/algorithm/ca3.js") === true) {
             algorithmFile = "./algorithm/ca3.js";
         } else {
             algorithmFile = "../../../../dist/enterprise/src/block/algorithm/ca3.js";
         }
-        const ret8 = await lib.init(confMock, new logMock(), ret4.value, ret5.value, ret6.value, ret7.value, algorithmFile);
-        if (ret8.isFailure()) { throw new Error("beforeAll failed in init of BlockModule:" + ret8.value); };
-        core = ret8.value;
+        const ret9 = await lib.init(confMock, new logMock(), ret4.value, ret5.value, ret6.value, ret7.value, ret8.value, algorithmFile);
+        if (ret9.isFailure()) { throw new Error("beforeAll failed in init of BlockModule:" + ret9.value); };
+        core = ret9.value;
     })
 
 

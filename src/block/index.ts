@@ -4,7 +4,7 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { blockConfigType } from "../config"
+import { blockConfigType, ccConfigType } from "../config"
 import { ccLogType } from "../logger"
 //import { ccInType } from "../internode"
 import { ccInTypeV2 } from "../internode/v2_index"
@@ -49,7 +49,8 @@ export type ccBlockType = {
     i: ccInTypeV2 | undefined,
     s: ccSystemType | undefined,
     k: ccKeyringType | undefined,
-    m: ccMainType | undefined
+    m: ccMainType | undefined,
+    c: ccConfigType | undefined
 }
 
 /**
