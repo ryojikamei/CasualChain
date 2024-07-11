@@ -21,6 +21,7 @@ import { randomOid } from '../utils.js';
 import { ccEventType, internalEventFormat } from '../event/index.js';
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
 import { moduleCondition } from "../index.js";
+import { setInterval } from "timers/promises";
 
 /**
  * The result of single block diagnostics
@@ -321,14 +322,23 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async postDeliveryPool(core: ccSystemType): Promise<gResult<void, gError>> {
+    public async postDeliveryPool(core: ccSystemType, waitForUnLock?: boolean): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:postDeliveryPool");
 
-        if (core.serializationLocks.postDeliveryPool === true) {
-            return this.sError("postDeliveryPool", "serializationLocks", "This function is running. Wait for a while.");
+        if (waitForUnLock === true) {
+            for await (const _ of setInterval(100)) {
+                if (core.serializationLocks.postDeliveryPool === false) {
+                    core.serializationLocks.postDeliveryPool = true;
+                    break;
+                }
+            }
         } else {
-            core.serializationLocks.postDeliveryPool = true;
+            if (core.serializationLocks.postDeliveryPool === true) {
+                return this.sError("postDeliveryPool", "serializationLocks", "This function is running. Wait for a while.");
+            } else {
+                core.serializationLocks.postDeliveryPool = true;
+            }
         }
         
         if (core.m === undefined) {
@@ -499,7 +509,7 @@ export class SystemModule {
      */
     protected async removeFromPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:removeFromPool");
+        LOG("Info", 0, "SystemModule:removeFromPool:" + JSON.stringify(txArr));
 
         if (core.d === undefined) {
             return this.sError("removeFromPool", "poolDeleteTransactions", "The datastore module is down");
@@ -1003,7 +1013,6 @@ export class SystemModule {
         // get the digest of other nodes
         const request = "GetBlockDigest";
         const data: inGetBlockDigestDataFormat = {
-            tenantId: this.master_key,
             failIfUnhealthy: true
         }
         let results: rpcResultFormat[] = [];
@@ -1182,7 +1191,6 @@ export class SystemModule {
                 const request = "GetBlock";
                 const data: inGetBlockDataFormat = {
                     oid: oid,
-                    tenantId: this.master_key,
                     returnUndefinedIfFail: true
                 }
                 const dataAsString = JSON.stringify(data);
@@ -1469,8 +1477,7 @@ export class SystemModule {
         // Send to one of the majority nodes and receive the difference
         const request = "ExamineBlockDifference";
         const data: inExamineBlockDiffernceDataFormat = {
-            list: ret4.value,
-            tenantId: this.master_key
+            list: ret4.value
         }
         let results: rpcResultFormat[] = [];
         let examinedList: examinedHashes = {add: [], del: []};
@@ -1568,7 +1575,7 @@ export class SystemModule {
                 for (txObj of bObj.data) {
                     LOG("Debug", 0, "txObj:" + JSON.stringify(txObj));
                     let pbObj: any;
-                    let index: number = 1; 
+                    let index: number = 0; 
                     for(pbObj of pushBackTxArr) {
                         if (txObj._id.toString() === pbObj._id.toString()) {
                             pushBackTxArr.splice(index,1)
@@ -1858,8 +1865,7 @@ export class SystemModule {
 
         const request = "ExaminePoolDifference";
         const data: inExaminePoolDiffernceDataFormat = {
-            list: poolIds,
-            tenantId: this.master_key
+            list: poolIds
         }
         let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {

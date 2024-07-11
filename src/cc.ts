@@ -554,7 +554,7 @@ export class CC {
 
         LOG("Notice", 0, "Flushing caching transactions to blocks");
         if (core.s.conf.node_mode.startsWith("testing") === false) {
-            const ret4 = await core.s.lib.postDeliveryPool(core.s);
+            const ret4 = await core.s.lib.postDeliveryPool(core.s, true);
             if (ret4.isFailure()) return ret4;
             LOG("Notice", 0, "");
             const ret5 = await core.s.lib.postAppendBlocks(core.s);

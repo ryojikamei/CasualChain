@@ -539,18 +539,6 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
     const request = "SignAndResendOrStore";
     const data: Ca3TravelingFormat = tObj;
     let results: rpcResultFormat[] = [];
-    /* const sObj: systemrpc.ccSystemRpcFormat.AsObject = {
-        version: 3,
-        request: "SignAndResendOrStore",
-        param: undefined,
-        dataasstring: JSON.stringify(tObj)
-    };
-    let ret1: rpcReturnFormat = {
-        targetHost: "",
-        request: "",
-        status: -1,
-        data: undefined
-    }; */
 
     let nodes2 = clone(nodes);
     let errorNodes: string[] = [];
@@ -564,19 +552,16 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
                 const ret = await core.i.lib.runRpcs(core.i, [node], request, JSON.stringify(data));
                 if (ret.isFailure()) {
                     errorNodes.push(node.nodename);
-                    //return ret;
                 } else {
                     results = ret.value;
                 }
             }
             if (results[0].result.isFailure()) {
                 errorNodes.push(node.nodename);
-                //return results[0].result;
             } else {
                 const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
                 if (dataAsString === undefined) {
                     errorNodes.push(node.nodename);
-                    //return ca3Error("tryToSendToSign", "runRpcs", "tryToSendToSign returns unknown error");
                 }
                 const ret = Number(dataAsString);
                 if (ret === 0) {

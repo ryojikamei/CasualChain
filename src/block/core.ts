@@ -162,6 +162,9 @@ export class BlockModule {
             if (core.m !== undefined) {
                 const ret1 = await core.m.lib.getLastBlock(core.m);
                 if (ret1.isFailure()) return ret1;
+                if (ret1.value === undefined) {
+                    return this.bError("createBlock", "getLastBlock" ,"getLastBlock returns empty block. It cannot proceed.");
+                }
                 pObj = ret1.value;
             } else {
                 return this.bError("createBlock", "getLastBlock" ,"The system module is down");

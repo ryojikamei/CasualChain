@@ -427,14 +427,18 @@ export class InModuleV2 {
                         }
                     });
                     call.on("error", () => {
-                        this.generalResults[msg.getPacketId()].state = generalInResultsType.failure;
-                        this.generalResults[msg.getPacketId()].result =
-                            this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
+                        this.generalResults[msg.getPacketId()] = {
+                            state: generalInResultsType.failure,
+                            installationtime: new Date().valueOf(),
+                            result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver())
+                        }
                     });
                 } else {
-                    this.generalResults[msg.getPacketId()].state = generalInResultsType.failure;
-                    this.generalResults[msg.getPacketId()].result =
-                        this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver());
+                    this.generalResults[msg.getPacketId()] = {
+                        state: generalInResultsType.failure,
+                        installationtime: new Date().valueOf(),
+                        result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver())
+                    }
                 }
             });
         }

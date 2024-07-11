@@ -236,7 +236,7 @@ export class KeyringModule {
             if (ret2.isFailure()) return ret2;
 
             // immediately deliver to other node
-            const ret3 = await core.s.lib.postDeliveryPool(core.s);
+            const ret3 = await core.s.lib.postDeliveryPool(core.s, true);
             if (ret3.isFailure()) return ret3;
         } else {
             return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
