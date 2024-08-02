@@ -82,61 +82,6 @@ export namespace icGeneralPacket {
     }
 }
 
-export class ctrlRequest extends jspb.Message { 
-    getVersion(): number;
-    setVersion(value: number): ctrlRequest;
-    getSender(): string;
-    setSender(value: string): ctrlRequest;
-    getReceiver(): string;
-    setReceiver(value: string): ctrlRequest;
-    getRequest(): string;
-    setRequest(value: string): ctrlRequest;
-    getParams(): string;
-    setParams(value: string): ctrlRequest;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ctrlRequest.AsObject;
-    static toObject(includeInstance: boolean, msg: ctrlRequest): ctrlRequest.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ctrlRequest, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ctrlRequest;
-    static deserializeBinaryFromReader(message: ctrlRequest, reader: jspb.BinaryReader): ctrlRequest;
-}
-
-export namespace ctrlRequest {
-    export type AsObject = {
-        version: number,
-        sender: string,
-        receiver: string,
-        request: string,
-        params: string,
-    }
-}
-
-export class ctrlResponse extends jspb.Message { 
-    getReturncode(): number;
-    setReturncode(value: number): ctrlResponse;
-    getResult(): string;
-    setResult(value: string): ctrlResponse;
-
-    serializeBinary(): Uint8Array;
-    toObject(includeInstance?: boolean): ctrlResponse.AsObject;
-    static toObject(includeInstance: boolean, msg: ctrlResponse): ctrlResponse.AsObject;
-    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
-    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-    static serializeBinaryToWriter(message: ctrlResponse, writer: jspb.BinaryWriter): void;
-    static deserializeBinary(bytes: Uint8Array): ctrlResponse;
-    static deserializeBinaryFromReader(message: ctrlResponse, reader: jspb.BinaryReader): ctrlResponse;
-}
-
-export namespace ctrlResponse {
-    export type AsObject = {
-        returncode: number,
-        result: string,
-    }
-}
-
 export enum payload_type {
     REQUEST = 0,
     RESULT_SUCCESS = 1,
