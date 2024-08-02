@@ -155,17 +155,14 @@ export async function waitForNode() {
         // Kicking data out of pool
         const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
         if (ret200.code !== 200) {
-            console.log("1:" + JSON.stringify(ret200));
             continue;
         }
         const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
         if (ret201.code !== 200) {
-            console.log("2:" + JSON.stringify(ret201));
             continue;
         }
         const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
         if (ret202.code !== 200) {
-            console.log("3:" + JSON.stringify(ret202));
             continue;
         }
         await exportTestData(conf.mongoms.blockcollection.node2, "initial.blocks");

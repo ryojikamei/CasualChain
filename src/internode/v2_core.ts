@@ -3,7 +3,7 @@ import { setInterval } from "timers/promises";
 import { promisify } from "util";
 
 import clone from "clone";
-import { Server, ServerCredentials, ChannelCredentials, handleBidiStreamingCall, handleUnaryCall, ServerDuplexStream, UntypedServiceImplementation, ServerUnaryCall, sendUnaryData, ClientDuplexStream } from "@grpc/grpc-js";
+import { Server, ServerCredentials, ChannelCredentials, handleBidiStreamingCall, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream } from "@grpc/grpc-js";
 
 import ic_grpc from "../../grpc_v2/interconnect_grpc_pb.js";
 import ic from "../../grpc_v2/interconnect_pb.js";
@@ -16,31 +16,31 @@ import { ccLogType } from "../logger/index.js";
 import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
 import { ccKeyringType } from "../keyring/index.js";
-import { inAddBlockDataFormat, ccInTypeV2, inGetPoolHeightDataFormat, inGetBlockHeightDataFormat, inGetBlockDigestDataFormat, inGetBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, rpcResultFormat } from "./v2_index.js";
-
-// Temp
-import systemrpc from '../../grpc_v1/systemrpc_pb.js';
-import { rpcReturnFormat } from ".";
+import { ccInTypeV2, rpcResultFormat } from "./v2_index.js";
 import { InReceiverSubModule } from "./v2_receiver.js";
 
 export class icServer implements ic_grpc.IinterconnectServer {
     constructor(
-        public ccGeneralIc: handleBidiStreamingCall<ic.icGeneralPacket, ic.icGeneralPacket>,
-        public ccCtrlLine: handleUnaryCall<ic.ctrlRequest, ic.ctrlResponse>
+        public ccGeneralIc: handleBidiStreamingCall<ic.icGeneralPacket, ic.icGeneralPacket>
     ) {}
 }
 
-export type generalInConnections = {
-    [nodename: string]: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+export type inConnectionResetLevel = "no" | "call" | "channel" | "check";
+export type inConnection = {
+    channel: ic_grpc.interconnectClient,
+    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+}
+export type inConnections = {
+    [nodename: string]: inConnection
 }
 
 export type clientInstance = {
-    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>,
-    newinstance: boolean
+    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+    newcall: boolean
 }
 
-export const generalInResultsType = { "yet": 0, "success": 1, "failure": 2 } as const;
-export type generalInResults = {
+export const inResultsType = { "yet": 0, "success": 1, "failure": 2 } as const;
+export type inResults = {
     [requestId: string]: {
         state: number,
         installationtime: number,
@@ -87,18 +87,14 @@ export class InModuleV2 {
         this.coreCondition = condition;
     }
 
-    protected generalConnections: generalInConnections;
-    protected generalResults: generalInResults;
+    protected generalConnections: inConnections;
+    protected generalResults: inResults;
 
     protected log: ccLogType;
     protected conf: inConfigType;
     protected receiver: InReceiverSubModule;
 
     protected loopIsActive: boolean;
-    protected ctrlQueue: ic.ctrlRequest[];
-    public setRequest(request: ic.ctrlRequest) {
-        this.ctrlQueue.push(request);
-    }
     /** 
      * Holding server instance
      */
@@ -116,7 +112,6 @@ export class InModuleV2 {
         this.log = log;
         this.coreCondition = "unloaded";
         this.loopIsActive = false;
-        this.ctrlQueue = [];
         this.generalConnections = {};
         this.generalResults = {};
         this.server = new Server();
@@ -193,14 +188,9 @@ export class InModuleV2 {
             const creds: ServerCredentials = ServerCredentials.createInsecure();
             const port = "0.0.0.0:" + core.conf.self.rpc_port;
             this.server.bindAsync(port, creds, async () => {
-                LOG("Notice", 0, "Inter-node  server starts");
-                // both server and loop are ready
-                for await (const _ of setInterval(100)) {
-                    if (this.loopIsActive === true) {
-                        this.coreCondition = "active";
-                        return this.iOK(undefined);
-                    }
-                }
+                LOG("Notice", 0, "Inter-node server is starting");
+                this.coreCondition = "active";
+                return this.iOK(undefined);
             });          
         } catch (error: any) {
             return this.iError("start", "startServer", error.toString());
@@ -260,11 +250,6 @@ export class InModuleV2 {
         this.server = new Server();
 
         // channels
-        const keys =  Object.keys(this.generalConnections);
-        for (const key of keys) {
-            const call = this.generalConnections[key];
-            call.end();
-        }
         this.generalConnections = {};
         return this.iOK<void>(undefined);
     }
@@ -279,14 +264,8 @@ export class InModuleV2 {
     protected generalServerServices(): UntypedServiceImplementation {
         const LOG = this.log.lib.LogFunc(this.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":generalServerServices");
-
-        //const ccCtrlLine: handleUnaryCall<ic.ctrlRequest, ic.ctrlResponse> = (call: ServerUnaryCall<ic.ctrlRequest, ic.ctrlResponse>, callback: sendUnaryData<ic.ctrlResponse>) => {
-        //
-        //};
-        
         return {
-            ccGeneralIc: this.generalServerResponse.bind(this),
-            ccCtrlLine: this.ctrlResponse.bind(this)
+            ccGeneralIc: this.generalServerResponse.bind(this)
         };
     }
 
@@ -317,20 +296,6 @@ export class InModuleV2 {
         });
     }
 
-    /**
-     * Implementation of emergency control line. Necessity is being discussed.
-     * @param call - incoming call data
-     * @param callback - the callback
-     * @returns returns the callback
-     */
-    protected ctrlResponse(call: ServerUnaryCall<ic.ctrlRequest, ic.ctrlResponse>, callback: sendUnaryData<ic.ctrlResponse>): sendUnaryData<ic.ctrlResponse> {
-
-        const ret: sendUnaryData<ic.ctrlResponse> = () => {
-            return null;
-        }
-        return ret;
-    }
-
 
     /**
      * Wait until the gRPC server is fully up and running
@@ -356,7 +321,7 @@ export class InModuleV2 {
                 return this.iError("waitForRPCisOK", "runRpcs", "No nodes are allowed to communicate");
             }
 
-            const ret = await this.runRpcs(core, pingNodes, "Ping", "Ping", true);
+            const ret = await this.runRpcs(core, pingNodes, "Ping", "Ping", waitSec, "check");
             if (ret.isFailure()) return ret;
             leftNodes = [];
             for (const result of ret.value) {
@@ -374,206 +339,261 @@ export class InModuleV2 {
     }
 
     /* Client side functions */
-
-    public async runRpcs(core: ccInTypeV2, targets: nodeProperty[], request: string, dataAsString: string, skipRetry?: boolean): Promise<gResult<rpcResultFormat[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":runRpcs");
-
+    protected makeOnePayload(request: string, dataAsString: string): ic.icPacketPayload {
         const payload = new ic.icPacketPayload();
         payload.setPayloadType(ic.payload_type.REQUEST);
         payload.setRequest(request);
         payload.setDataAsString(dataAsString);
+        return payload;
+    }
+    protected makeOnePacket(core: ccInTypeV2, target: nodeProperty, payload: ic.icPacketPayload): ic.icGeneralPacket {
+        const id = randomUUID();
+        const packet = new ic.icGeneralPacket();
+        packet.setVersion(4);
+        packet.setPacketId(id);
+        packet.setSender(core.conf.self.nodename);
+        packet.setReceiver(target.nodename);
+        packet.setPayload(payload);
+        packet.setPrevId("");
+        return packet;
+    }
+    protected async sendOnePacket(core: ccInTypeV2, packet: ic.icGeneralPacket): Promise<void> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendPacket");
+
+        const call = this.generalConnections[packet.getReceiver()].call;
+        call.write(packet, () => {
+            LOG("Debug", 0, "Make a reply box for id: " + packet.getPacketId());
+            this.generalResults[packet.getPacketId()] = {
+                state: inResultsType.yet,
+                installationtime: new Date().valueOf(),
+                result: this.iError("undefined")
+            }
+        });
+    }
+
+    public async runRpcs(core: ccInTypeV2, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":runRpcs");
+
+        if (maxRetryCount === undefined) { maxRetryCount = 30; }
+        if (resetLevel === undefined) { resetLevel = "no"; }
+
+        // Auto target control is a provisional specification
+        let normalNodes: nodeProperty[] = [];
+        for (const target of targets) {
+            if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
+            if (target.allow_outgoing === false) continue;
+            normalNodes.push(target);
+        }
+        if (normalNodes.length === 0) {
+            return this.iError("runRpcs", "runRpcs", "No nodes are allowed to communicate");
+        }
+
+        const payload = this.makeOnePayload(request, dataAsString);
 
         const results: rpcResultFormat[] = []
-        for (const target of targets) {
-            const ret = await this.setupConnectionWithReceiver(core, target);
+        for (const target of normalNodes) {
+            const ret = await this.getConnection(core, target.nodename, resetLevel);
             if (ret.isFailure()) { return ret };
-            const call = this.generalConnections[target.nodename];
 
-            const id = randomUUID();
-            const msg = new ic.icGeneralPacket();
-            msg.setVersion(4);
-            msg.setPacketId(id);
-            msg.setSender(core.conf.self.nodename);
-            msg.setReceiver(target.nodename);
-            msg.setPayload(payload);
-            msg.setPrevId("");
-            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":runRpcs:msg " + msg.getPacketId() + " from " + msg.getSender() + " to " + msg.getReceiver());
+            const packet = this.makeOnePacket(core, target, payload);
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":runRpcs:msg " + packet.getPacketId() + " from " + packet.getSender() + " to " + packet.getReceiver());
+
+            this.sendOnePacket(core, packet); // async
             
             results.push({
-                id: id,
+                id: packet.getPacketId(),
                 node: target,
                 result: this.iError("undefined")
-            });
-
-            call.write(msg, () => {
-                this.generalResults[msg.getPacketId()] = {
-                    state: generalInResultsType.yet,
-                    installationtime: new Date().valueOf(),
-                    result: this.iError("undefined")
-                }
-            });
-            call.on("error", async () => {
-                if (skipRetry !== true) {
-                    const ret = await this.setupConnectionWithReceiver(core, target);
-                    if (ret.isFailure()) { return ret };
-                    const call = this.generalConnections[target.nodename];
-
-                    call.write(msg, () => {
-                        this.generalResults[msg.getPacketId()] = {
-                            state: generalInResultsType.yet,
-                            installationtime: new Date().valueOf(),
-                            result: this.iError("undefined")
-                        }
-                    });
-                    call.on("error", () => {
-                        this.generalResults[msg.getPacketId()] = {
-                            state: generalInResultsType.failure,
-                            installationtime: new Date().valueOf(),
-                            result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver())
-                        }
-                    });
-                } else {
-                    this.generalResults[msg.getPacketId()] = {
-                        state: generalInResultsType.failure,
-                        installationtime: new Date().valueOf(),
-                        result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + msg.getReceiver())
-                    }
-                }
             });
         }
 
         // Wait until all results are available.
-        const size = targets.length;
+        const size = results.length;
+        let retryNodes: nodeProperty[] = [];
+        let finished: rpcResultFormat[] = [];
         for await (const _ of setInterval(500)) {
-            let resolved = 0;
+            retryNodes = [];
+            finished = [];
             for (const result of results) {
-                if (this.generalResults[result.id].state !== generalInResultsType.yet) { resolved++; }
+                if (this.generalResults[result.id].state === inResultsType.success) {
+                    finished.push(result);
+                }
+                if (this.generalResults[result.id].state === inResultsType.failure) {
+                    retryNodes.push(result.node);
+                }
             }
-            if (resolved === size) { break; }
+            if (retryNodes.length + finished.length === size) { break; }
         }
 
-        // Insert results
-        for (const result of results) {
+        // Retry
+        let restResults: rpcResultFormat[] = [];
+        if ((retryNodes.length !== 0) && (maxRetryCount > 0)) {
+            maxRetryCount--;
+            switch (resetLevel) {
+                case "no":
+                    resetLevel = "call";
+                    break;
+                case "call":
+                case "channel":
+                    resetLevel = "channel";
+                    break;
+                case "check":
+                    resetLevel = "check";
+                    break;
+                default:
+                    resetLevel = "no";
+                    break;
+            }
+            const ret = await this.runRpcs(core, retryNodes, request, dataAsString, maxRetryCount, resetLevel);
+            if (ret.isFailure()) return ret;
+            restResults = ret.value;
+        }
+        const finalResults: rpcResultFormat[] = finished.concat(restResults);
+
+        // Insert results (Convert to external format)
+        for (const result of finalResults) {
             result.result = this.generalResults[result.id].result;
             delete this.generalResults[result.id];
         }
-        return this.iOK(results);
+        return this.iOK(finalResults);
     }
 
+    protected makeNewCallWithListener(core: ccInTypeV2, nodename: string, channel?: ic_grpc.interconnectClient): ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:makeNewCall");
+
+        let newcall: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>;
+        if (channel === undefined) {
+            newcall = this.generalConnections[nodename].channel.ccGeneralIc();
+        } else {
+            newcall = channel.ccGeneralIc();
+        }
+
+        newcall.on("error", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:data error to " + req.getReceiver());
+            this.generalResults[req.getPacketId()] = {
+                state: inResultsType.failure,
+                installationtime: new Date().valueOf(),
+                result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
+            }
+        })
+        newcall.on("data", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:dataArrived from " + req.getSender());
+            /**
+             * The return packet:
+             * 1. isFailure() === true: parsing itself is failed, drop.
+             * 2. isSuccess() === true: parsing successful.
+             * 2.1. ret.value.getPayload()?.getPayloadType() !== ic.payload_type.REQUEST
+             *     This should be the response what it has been requesting
+             * 2.1.1. generalResults[req.getPrevId()] has been prepared
+             *     It need to be saved.
+             * 2.1.2. generalResults[req.getPrevId()] has NOT been prepared
+             *     Drop it. (Do nothing)
+             * 2.2. ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST
+             *     This is request
+             * 2.2.1. ret.value.getPacketId() !== ""
+             *     It needs response.
+             * 2.2.2. ret.value.getPacketId() === ""
+             *     It needs to be terminated with no response. (Do nothing)
+             */
+            this.receiver.generalReceiver(req)
+            .then((ret) => {
+                if (ret.isSuccess()) {
+                    if (ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST) {
+                        if (ret.value.getPacketId() !== "") {
+                            newcall.write(ret.value);
+                            newcall.on("error", () => {
+                                LOG("Notice", 0, "In:" + this.conf.self.nodename + ":getConnection:Failed sending a packet to: " + ret.value.getReceiver());
+                            })
+                        }
+                    } else {
+                        if ((this.generalResults[req.getPrevId()] !== undefined) && (this.generalResults[req.getPrevId()].state === inResultsType.yet)) {
+                            this.generalResults[req.getPrevId()].state = inResultsType.success;
+                            this.generalResults[req.getPrevId()].result = this.iOK(ret.value);
+                        } else {
+                            LOG("Notice", 0, "Dropped a packet that was addressed to me but for which no reply box was provided");
+                            LOG("Debug", 0, "A reply box for id: " + req.getPrevId() + " should have been prepared.");
+                        }
+                    }
+                }
+            })
+        });
+
+        return newcall;
+    }
+    protected makeNewChannelAndCall(core: ccInTypeV2, targetName: string, targetHostPort: string): gResult<void, gError> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:makeNewChannelAndCall");
+
+        try {
+            const creds: ChannelCredentials = ChannelCredentials.createInsecure();
+            const newchannel = new ic_grpc.interconnectClient(targetHostPort, creds);
+            const newcall = this.makeNewCallWithListener(core, targetName, newchannel);
+            this.generalConnections[targetName] = {
+                channel: newchannel,
+                call: newcall
+            }
+            return this.iOK(undefined);
+        } catch (error: any) {
+            return this.iError("makeNewChannelAndCall", "create", error.toString());
+        }
+    }
     /**
      * Connect to the target's server or reuse already-established connection
      * @param core - set ccInType instance
      * @param nodename - set target's nodename
-     * @param reset - force to make a new connection
+     * @param resetLevel - can set "call" or "channel"  to force to reset a connection
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result with clientInstance format if it's success, and gError if it's failure.
      */
-    protected async getConnection(core: ccInTypeV2, nodename: string, reset?: boolean): Promise<gResult<clientInstance, gError>> {
+    protected async getConnection(core: ccInTypeV2, nodename: string, resetLevel?: inConnectionResetLevel): Promise<gResult<clientInstance, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "IcModule:getConnection");
 
-        let found: boolean = false;
+        let found1: boolean = false;
         let target: string = "";
         for (const node of core.conf.nodes) {
             if (nodename === node.nodename) {
-                found = true;
+                found1 = true;
                 if (node.allow_outgoing === true) { 
                     target = node.host + ":" + node.rpc_port;
                 }
                 break;
             }
         }
-        if (found === false) {
+        if (found1 === false) {
             return this.iError("getConnection", "nodeConfiguration", "nodename " + nodename + " is not found in the node list");
         }
         if (target === "") {
             return this.iError("getConnection", "nodeConfiguration", "nodename " + nodename + " is not allowed in the node list");
         }
 
-        let current: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket> | undefined = undefined;
-        const keys = Object.keys(this.generalConnections);
-        for (const key of keys) {
-            if (key === nodename) {
-                current = this.generalConnections[key];
-                break;
-            };
+        // AS-IS first
+        if ((resetLevel === undefined) || (resetLevel === "no")) {
+            if (this.generalConnections[nodename] !== undefined) {
+                return this.iOK({ call: this.generalConnections[nodename].call, newcall: false });
+            }
         }
-        if ((current !== undefined) && (reset !== true)) {
-            return this.iOK({ call: current, newinstance: false });
+        // Recover-call-only second
+        if ((resetLevel === "call") || (resetLevel === "check")) {
+            if (this.generalConnections[nodename] !== undefined) {
+                this.generalConnections[nodename].call.end();
+                this.generalConnections[nodename].call = this.makeNewCallWithListener(core, nodename);
+                return this.iOK({ call: this.generalConnections[nodename].call, newcall: true });
+            }
         }
-        if ((current !== undefined) && (reset === true)) {
-            current.end()
-        }
+        // Otherwise, full creation
         try {
-            const creds: ChannelCredentials = ChannelCredentials.createInsecure();
-            const newclient = new ic_grpc.interconnectClient(target, creds);
-            this.generalConnections[nodename] = newclient.ccGeneralIc();
-            return this.iOK({ call: this.generalConnections[nodename], newinstance: true });
-        } catch (error: any) {
-            return this.iError("getConnection", "interconnectClient", error.toString());
+            this.generalConnections[nodename].call.end();
+        } catch (error) {
+            
+        }
+        const ret = this.makeNewChannelAndCall(core, nodename, target);
+        if (ret.isSuccess()) {
+            return this.iOK({ call: this.generalConnections[nodename].call, newcall: true });
+        } else {
+            return ret;
         }
     }
-
-    /**
-     * The client side's connection method
-     * @param core - set ccInType instance
-     * @param target - set the target with nodeProperty format
-     * @param reset - can set true when it should be a new connection
-     * @returns returns with gResult, that is wrapped by a Promise, that returns nothing if it's success, and gError if it's failure.
-     */
-    protected async setupConnectionWithReceiver(core: ccInTypeV2, target: nodeProperty, reset?: boolean): Promise<gResult<void, gError>> {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":setupConnectionWithReceiver");
-
-        const ret = await this.getConnection(core, target.nodename, reset);
-        if (ret.isFailure()) { return ret };
-        if (ret.value.newinstance === true) {
-            const call = ret.value.call;
-            call.on("data", async (req: ic.icGeneralPacket) => {
-                LOG("Debug", 0, "In:" + this.conf.self.nodename + ":setupConnectionWithReceiver:dataArrived");
-                /**
-                 * 1. isFailure() === true: parsing itself is failed, drop.
-                 * 2. isSuccess() === true: parsing successful.
-                 * 2.1. ret.value.getPayload()?.getPayloadType() !== ic.payload_type.REQUEST
-                 *     This should be the response what it has been requesting
-                 * 2.1.1. generalResults[req.getPrevId()] has been prepared
-                 *     It need to be saved.
-                 * 2.1.2. generalResults[req.getPrevId()] has NOT been prepared
-                 *     Drop it. (Do nothing)
-                 * 2.2. ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST
-                 *     This is request
-                 * 2.2.1. ret.value.getPacketId() !== ""
-                 *     It needs response.
-                 * 2.2.2. ret.value.getPacketId() === ""
-                 *     It needs to be terminated with no response. (Do nothing)
-                 */
-                this.receiver.generalReceiver(req)
-                .then((ret) => {
-                    if (ret.isSuccess()) {
-                        if (ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST) {
-                            if (ret.value.getPacketId() !== "") {
-                                call.write(ret.value);
-                                call.on("error", () => {
-                                    LOG("Notice", 0, "In:" + this.conf.self.nodename + ":setupConnectionWithReceiver:Failed sending a packet to: " + ret.value.getReceiver());
-                                })
-                            }
-                        } else {
-                            if ((core.lib.generalResults[req.getPrevId()] !== undefined) && (core.lib.generalResults[req.getPrevId()].state === generalInResultsType.yet)) {
-                                core.lib.generalResults[req.getPrevId()].state = generalInResultsType.success;
-                                core.lib.generalResults[req.getPrevId()].result = this.iOK(ret.value);
-                            } else {
-                                LOG("Notice", 0, "Dropped a packet that was addressed to me but for which no reply box was provided")
-                            }
-                        }
-                    }
-                })
-            });
-
-            // Save
-            this.generalConnections[target.nodename] = call;
-        }
-
-        return this.iOK(undefined)
-    }
-
 }
