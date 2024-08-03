@@ -16,7 +16,7 @@ import { MainModule, ccMainType } from "./main/index.js";
 import { DsModule, ccDsType } from "./datastore/index.js";
 import { ApiModule, ccApiType } from "./api/index.js";
 //import { InModule, ccInType } from "./internode/index.js";
-import { InModuleV2, ccInTypeV2 } from "./internode/v2_index.js";
+import { InModule, ccInType } from "./internode/index.js";
 import { BlockModule, ccBlockType } from "./block/index.js";
 import { KeyringModule, ccKeyringType } from "./keyring/index.js";
 import { EventModule, ccEventType } from "./event/index.js";
@@ -138,7 +138,7 @@ export class CC {
 
         LOG("Notice", 0, "Initialize InterNode: ", {lf: false});
         //const ilib: InModule = new InModule(l, s, b); // v1
-        const ilib: InModuleV2 = new InModuleV2(c.i, l, s, b, k); // v2
+        const ilib: InModule = new InModule(c.i, l, s, b, k); // v2
         const ret8 = await ilib.init(c.i, l, s, b, k);
         if (ret8.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
@@ -146,7 +146,7 @@ export class CC {
             LOG("Error", 8, "[FAIL]\n" + ret8.value);
             process.exit(8);
         }
-        const i: ccInTypeV2 = ret8.value;
+        const i: ccInType = ret8.value;
 
         LOG("Notice", 0, "Initialize Event: ", {lf: false});
         const elib: EventModule = new EventModule();

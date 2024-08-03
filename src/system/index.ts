@@ -7,8 +7,7 @@
 import { systemConfigType } from "../config/index.js"
 import { ccLogType } from "../logger/index.js"
 import { objTx, ccDsType } from "../datastore/index.js"
-//import { ccInType } from "../internode/index.js"
-import { ccInTypeV2 } from "../internode/v2_index.js"
+import { ccInType } from "../internode/index.js"
 import { blockFormat } from "../block/index.js"
 import { ccMainType } from "../main/index.js"
 
@@ -50,7 +49,7 @@ export type ccSystemType = {
     autoTasks: autoTasks | undefined,
     serializationLocks: serializationLocks,
     d: ccDsType | undefined,
-    i: ccInTypeV2 | undefined,
+    i: ccInType | undefined,
     b: ccBlockType | undefined,
     m: ccMainType | undefined,
     e: ccEventType | undefined

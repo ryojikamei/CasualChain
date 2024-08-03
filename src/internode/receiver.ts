@@ -1,13 +1,12 @@
 import { randomUUID } from "crypto";
 
-import ic from "../../grpc_v2/interconnect_pb.js";
+import ic from "../../grpc/interconnect_pb.js";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { Ca3TravelingFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3";
-import { objTx } from "../datastore";
-import { inAddBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, inGetPoolHeightDataFormat } from "./v2_index";
-import { heightDataFormat, digestDataFormat } from ".";
+import { Ca3TravelingFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3.js";
+import { objTx } from "../datastore/index.js";
+import { inAddBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, inGetPoolHeightDataFormat, inHeightReturnDataFormat, inDigestReturnDataFormat } from "./index.js";
 import { inConfigType } from "../config/zod.js";
 import { ccLogType } from "../logger/index.js";
 import { ccSystemType, getBlockResult } from "../system/index.js";
@@ -45,6 +44,11 @@ export class InReceiverSubModule {
         this.bcore = blockInstance;
     }
 
+    /**
+     * Process received data packets
+     * @param req - set the packet with icGeneralPacket format
+     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with icGeneralPacket format if it's success, and gError if it's failure.
+     */
     public async generalReceiver(req: ic.icGeneralPacket): Promise<gResult<ic.icGeneralPacket, gError>> {
         const LOG = this.log.lib.LogFunc(this.log);
         LOG("Info", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver");
@@ -201,7 +205,7 @@ export class InReceiverSubModule {
                 const ret32 = await this.score.lib.requestToGetPoolHeight(this.score, ret31.tenantId);
                 if (ret32.isSuccess()) {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    const d: heightDataFormat = { height: ret32.value };
+                    const d: inHeightReturnDataFormat = { height: ret32.value };
                     result.setDataAsString(JSON.stringify(d));
                 } else {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
@@ -226,7 +230,7 @@ export class InReceiverSubModule {
                 const ret42 = await this.score.lib.requestToGetBlockHeight(this.score, ret41.tenantId);
                 if (ret42.isSuccess()) {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    const d42: heightDataFormat = { height: ret42.value };
+                    const d42: inHeightReturnDataFormat = { height: ret42.value };
                     result.setDataAsString(JSON.stringify(d42));
                 } else {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
@@ -251,7 +255,7 @@ export class InReceiverSubModule {
                 const ret52 = await this.score.lib.requestToGetLastHash(this.score, ret51.tenantId, ret51.failIfUnhealthy);
                 if (ret52.isSuccess()) {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    const d52: digestDataFormat = {
+                    const d52: inDigestReturnDataFormat = {
                         hash: ret52.value.hash,
                         height: ret52.value.height
                     }

@@ -13,8 +13,7 @@ import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, pos
 import { systemConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { objTx, objBlock, poolResultObject, blockResultObject, ccDsType } from "../datastore/index.js";
-import { heightDataFormat, digestDataFormat } from '../internode/index.js';
-import { ccInTypeV2, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, rpcResultFormat } from "../internode/v2_index.js";
+import { inHeightReturnDataFormat, inDigestReturnDataFormat, ccInType, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, rpcResultFormat } from "../internode/index.js";
 import { blockFormat, createBlockOptions, ccBlockType } from '../block/index.js';
 import { ccMainType } from '../main/index';
 import { randomOid } from '../utils.js';
@@ -163,7 +162,7 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     public init(conf: systemConfigType, log: ccLogType, dsInstance?: ccDsType, 
-        inInstance?: ccInTypeV2, blockInstance?: ccBlockType, mainInstance?: ccMainType,
+        inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
 
         this.coreCondition = "loading";
@@ -204,7 +203,7 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     public restart(core: ccSystemType, log: ccLogType, dsInstance?: ccDsType, 
-        inInstance?: ccInTypeV2, blockInstance?: ccBlockType, mainInstance?: ccMainType,
+        inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:restart");
@@ -644,7 +643,7 @@ export class SystemModule {
                         core.serializationLocks.postGenesisBlock = false;
                         return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight returns unknown error");
                     }
-                    const d: heightDataFormat = JSON.parse(dataAsString);
+                    const d: inHeightReturnDataFormat = JSON.parse(dataAsString);
                     if (d.height !== 0) {
                         LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
                         core.serializationLocks.postGenesisBlock = false;
@@ -1026,7 +1025,7 @@ export class SystemModule {
                     const dataAsString = result.result.value.getPayload()?.getDataAsString();
                     if (dataAsString !== undefined) {
                         try {
-                            const rLast: digestDataFormat = JSON.parse(dataAsString);
+                            const rLast: inDigestReturnDataFormat = JSON.parse(dataAsString);
                             if (rLast.height >= 0) {
                                 healthyNodes.push({
                                     host: result.result.value.getSender(),
@@ -1643,7 +1642,7 @@ export class SystemModule {
      * @param failIfUnhealthy - check the health of the target and fail if it is not healthy 
      * @returns retruns with gResult, that is wrapped by a Promise, that contains digestDataFormat that has both values in one object if it's success, and gError if it's failure.
      */
-    private async getLastHashAndHeight(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<digestDataFormat, gError>> {
+    private async getLastHashAndHeight(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:getLastHashAndHeight");
 
@@ -1664,9 +1663,9 @@ export class SystemModule {
         const ret = await core.m.lib.getLastBlock(core.m, undefined, __t);
         if (ret.isFailure()) return ret;
         if (ret.value !== undefined) {
-            return this.sOK<digestDataFormat>({ hash: ret.value.hash, height: ret.value.height });
+            return this.sOK<inDigestReturnDataFormat>({ hash: ret.value.hash, height: ret.value.height });
         } else {
-            return this.sOK<digestDataFormat>({ hash: "", height: 0 });
+            return this.sOK<inDigestReturnDataFormat>({ hash: "", height: 0 });
         }
     }
     /**
@@ -1746,7 +1745,7 @@ export class SystemModule {
      * @param failIfUnhealthy - fail if this node is not healthy as the result of checking
      * @returns returns with gResult, that is wrapped by a Promise, that contains digestDataFormat if it's success, and gError if it's failure.
      */
-    public async requestToGetLastHash(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<digestDataFormat, gError>> {
+    public async requestToGetLastHash(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToGetLastHash");
 
@@ -1754,7 +1753,7 @@ export class SystemModule {
 
         const ret = await this.getLastHashAndHeight(core, __t, failIfUnhealthy);
         if (ret.isFailure()) return ret;
-        return this.sOK<digestDataFormat>(ret.value);
+        return this.sOK<inDigestReturnDataFormat>(ret.value);
     }
     /**
      * Request from a sibling, to examine the difference of blocks.

@@ -3,7 +3,7 @@
         "console_output": true,
         "console_level": "debug",
         "file_output": true,
-        "file_path": "/home/ryoji/cc_debug_node2.log",
+        "file_path": "/tmp/cc_debug_node2.log",
         "file_rotation": false,
         "file_level": "debug"
     },

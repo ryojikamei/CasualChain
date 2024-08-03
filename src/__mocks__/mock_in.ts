@@ -6,14 +6,16 @@
 
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
-import { digestDataFormat, rpcReturnFormat, ccInType } from "../internode";
-import * as systemrpc from "../../grpc_v1/systemrpc_pb"
+import { ccInType, inDigestReturnDataFormat, rpcResultFormat } from "../internode";
+import { inConnectionResetLevel } from "../internode/index.js";
 import { randomString64 } from "../utils";
 import { SystemModuleMock } from "./mock_system";
 import { KeyringModuleMock } from "./mock_keyring";
 import { BlockModuleMock } from "./mock_block";
 import { LogModule } from "../logger";
-import { inConfigType } from "../config";
+import { inConfigType, nodeProperty } from "../config";
+import { randomUUID } from "crypto";
+import { icGeneralPacket } from "../../grpc/interconnect_pb";
 
 const InConf: inConfigType = {
     "self": {
@@ -54,55 +56,78 @@ export class InModuleMock {
     public async init(): Promise<gResult<any, unknown>> {
         return iOK({
             lib: {
-                addPoolCallback() {},
-                addBlockCallback() {},
-                getPoolHeightCallback() {},
-                getBlockHeightCallback() {},
-                getBlockDigestCallback() {},
-                getBlockCallback() {},
-                examineBlockDifferenceCallback() {},
-                examinePoolDifferenceCallback() {},
-                async sendRpcAll(core: ccInType, payload: systemrpc.ccSystemRpcFormat.AsObject, timeoutMs?: number,
-                    clientInstance?: any): Promise<gResult<rpcReturnFormat[], unknown>> {
-                    const ret = await this.sendRpc(core, "", payload, timeoutMs, clientInstance);
-                    if (ret.isSuccess()) return iOK([ret.value]);
-                    return iError("Error");
+                async init(conf: inConfigType, log: any, systemInstance: any, 
+                    blockInstance: any, keyringInstance: any, ServerInstance?: any): Promise<gResult<any, unknown>> {
+                    let core: any = {
+                        lib: new InModuleMock(),
+                        conf: conf,
+                        log: log,
+                        receiver: undefined,
+                        s: systemInstance ?? undefined,
+                        b: blockInstance ?? undefined,
+                        k: keyringInstance ?? undefined
+                    }
+                    return iOK(core);
                 },
-                async sendRpc(core: ccInType, target: any, payload: systemrpc.ccSystemRpcFormat.AsObject, 
-                    timeoutMs?: number, clientInstance?: any, retry?: number): Promise<gResult<rpcReturnFormat, gError>>  {
-                    let ret: rpcReturnFormat = {
-                        targetHost: "",
-                        request: payload.request,
-                        status: 0,
-                        data: undefined
+                async start(core: any, services?: any, serverInstance?: any): Promise<gResult<void, gError>> {
+                    if ((serverInstance === undefined) && ((services === undefined))) {
+                        return iError("start", "createInsecure", "");
                     }
-                    if (payload.request === "GetBlockDigest") {
-                        const retData: digestDataFormat = {
-                            hash: randomString64(),
-                            height: 0
-                        }
-                        ret.data = JSON.stringify(retData);
-                        return iOK(ret);
+                    if (serverInstance === undefined) {
+                        return iError("start", "startServer", "server instance is not defined");
                     }
-                    if (payload.request === "ExaminePoolDifference") {
-                        return iOK(ret);
+                    if (services === undefined) {
+                        return iError("start", "startServer", "serviceImplementation is not defined");
                     }
-                    if (payload.request === "SignAndResendOrStore") {
-                        if ((timeoutMs === undefined) || (timeoutMs > 0)) {
-                            const obj = JSON.parse(payload.dataasstring);
-                            ret.data = JSON.stringify(obj.block);
-                            return iOK(ret);
+                    return iOK(undefined);
+                },
+                async restart(core: any, log: any, systemInstance: any, blockInstance: any, 
+                    keyringInstance: any): Promise<gResult<any, gError>> {
+                    if (systemInstance === undefined) {
+                        return iError("stop", "stopServer", "");
+                    }
+                    const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance);
+                    if (ret2.isFailure()) { return iError("restart", "init", "unknown error") };
+                    const newCore: any = ret2.value;
+                    return iOK(newCore);
+                },
+                async stop(core: any): Promise<gResult<void, gError>> {
+                    return iOK<void>(undefined);
+                },
+                async waitForRPCisOK(core: ccInType, waitSec: number, rpcInstance?: any): Promise<gResult<void, gError>> {
+                    if (rpcInstance !== undefined) {
+                        return iError("runRpcs", "runRpcs", "");
+                    }
+                    if (waitSec > 1000) {
+                        return iError("waitForRPCisOK", "runRpcs", "Unreachable nodes have been remained yet");
+                    }
+                    return iOK<void>(undefined);
+                },
+                async runRpcs(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+                    if (targets.length === 0) {
+                        return iError("runRpcs", "runRpcs", "No nodes are allowed to communicate");
+                    }
+                    // getConnection errors
+                    if (targets[0].nodename === "wrong") {
+                        return iError("getConnection", "nodeConfiguration", "nodename " + targets[0].nodename + " is not found in the node list");
+                    }
+                    if (targets[0].allow_outgoing === false) {
+                        return iError("getConnection", "nodeConfiguration", "nodename " + targets[0].nodename + " is not allowed in the node list");
+                    }
 
-                        } else {
-                            return iError("sendRpc", "createRpcConnection", "")
-                        }
+                    // errors at makeNewCallWithListener
+                    const fakeResult_OK: rpcResultFormat = {
+                        id: randomUUID(),
+                        node: targets[0],
+                        result: iOK(new icGeneralPacket())
                     }
-                    // default
-                    if ((timeoutMs === undefined) || (timeoutMs > 0)) {
-                        return iOK(ret);
-                    } else {
-                        return iError("sendRpc", "rpcReturnFormat", "")
+                    const fakeResult_NG: rpcResultFormat = {
+                        id: randomUUID(),
+                        node: targets[0],
+                        result: iError("", "", "")
                     }
+                    if (request === "wrong") { return iOK([fakeResult_NG]); }
+                    return iOK([fakeResult_OK]);
                 }
             },
 
