@@ -8,7 +8,7 @@ import { gResult, gSuccess, gFailure, gError } from "../utils";
 
 import { ccSystemType, postScanAndFixOptions, examineHashes, examinedHashes, RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER } from "../system";
 import { systemConfigType } from "../config";
-import { digestDataFormat } from "../internode";
+import { inDigestReturnDataFormat } from "../internode";
 import { blockFormat } from "../block";
 import { objTx } from "../datastore";
 import { logMock } from "./mock_logger";
@@ -82,7 +82,7 @@ export class SystemModuleMock {
                 async postScanAndFixBlock(core: ccSystemType, options?: postScanAndFixOptions): Promise<gResult<boolean, gError>> {
                     return sOK(true);
                 },
-                async requestToGetLastHash(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<digestDataFormat, gError>> {
+                async requestToGetLastHash(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
                     if (failIfUnhealthy === true) { // for a flag
                         return sOK({ hash: "fake", height: 1 })
                     } else {

@@ -13,8 +13,7 @@ import { ccLogType } from "../logger/index.js";
 import { ccBlockType, createBlockOptions, blockFormat } from "./index.js";
 import { objTx } from "../datastore/index.js";
 import { ccSystemType } from "../system/index.js";
-//import { ccInType } from "../internode/index.js";
-import { ccInTypeV2 } from "../internode/v2_index.js";
+import { ccInType } from "../internode/index.js";
 import { ccKeyringType } from "../keyring/index.js";
 import { ccMainType } from "../main/index.js";
 import { randomUUID } from "crypto";
@@ -76,7 +75,7 @@ export class BlockModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
      */
     public async init(conf: blockConfigType, log: ccLogType, systemInstance?: ccSystemType, 
-        internodeInstance?: ccInTypeV2, keyringInstance?: ccKeyringType, mainInstance?: 
+        internodeInstance?: ccInType, keyringInstance?: ccKeyringType, mainInstance?: 
         ccMainType, configInstance?: ccConfigType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
 
         this.coreCondition = "loading"
@@ -121,7 +120,7 @@ export class BlockModule {
      * @param c - set ccConfigType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
      */
-    public async restart(core: ccBlockType, log: ccLogType, i: ccInTypeV2, k: ccKeyringType,
+    public async restart(core: ccBlockType, log: ccLogType, i: ccInType, k: ccKeyringType,
         m: ccMainType, s: ccSystemType, c: ccConfigType): Promise<gResult<ccBlockType, gError>> {
         const LOG = log.lib.LogFunc(log);
         LOG("Info", 0, "BlockModule:restart");

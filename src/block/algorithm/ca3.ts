@@ -11,7 +11,7 @@ import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { objTx } from "../../datastore/index.js"
 import { createBlockOptions, ccBlockType } from "../index.js"
-import { inAddBlockDataFormat, rpcResultFormat } from "../../internode/v2_index.js";
+import { inAddBlockDataFormat, rpcResultFormat } from "../../internode/index.js";
 
 import { randomOid } from "../../utils.js"
 import { nodeProperty } from "../../config/index.js"

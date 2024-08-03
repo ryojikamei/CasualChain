@@ -1,52 +1,52 @@
-/**
- * Copyright (c) 2024 Ryoji Kamei
- * Released under the MIT license
- * https://opensource.org/licenses/mit-license.php
- */
+import { randomUUID } from "crypto";
+import { setInterval } from "timers/promises";
+import { promisify } from "util";
 
 import clone from "clone";
+import { Server, ServerCredentials, ChannelCredentials, handleBidiStreamingCall, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream } from "@grpc/grpc-js";
 
-import { promisify } from "util";
-import { setInterval } from "timers/promises";
+import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
+import ic from "../../grpc/interconnect_pb.js";
+
+import { inConnectionResetLevel } from "./index.js";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
-
-import * as grpc from "@grpc/grpc-js";
-//import { addReflection } from "grpc-server-reflection";
-import systemrpc from '../../grpc_v1/systemrpc_pb.js';
-import systemrpc_grpc from "../../grpc_v1/systemrpc_grpc_pb.js";
-const { ccSystemRpcFormat, Param, ReturnCode, ReturnValues } = systemrpc;
-const { gSystemRpcClient } = systemrpc_grpc;
-import { ccInType, heightDataFormat, digestDataFormat, rpcConnectionFormat, rpcReturnFormat } from "./index.js";
+import { moduleCondition } from "../index.js";
 
 import { inConfigType, nodeProperty } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
-import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, examineHashes } from "../system/index.js";
+import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
-import { Ca3TravelingFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3.js";
 import { ccKeyringType } from "../keyring/index.js";
-import { moduleCondition } from "../index.js";
+import { ccInType, rpcResultFormat } from "./index.js";
+import { InReceiverSubModule } from "./receiver.js";
 
-/**
- * An internal class of InModule that list the inter-node APIs
- */
-export class gSystemRpcServer implements systemrpc_grpc.IgSystemRpcServer {
-    [name:string]: grpc.UntypedHandleCall;
+class icServer implements ic_grpc.IinterconnectServer {
     constructor(
-        public ping: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public addPool: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>,
-        public addBlock: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>,
-        public addBlockCa3: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>,
-        public getPoolHeight: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public getBlockHeight: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public getBlockDigest: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public getBlock: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public examineBlockDifference: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public examinePoolDifference: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public declareBlockCreation: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public signAndResendOrStore: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>,
-        public resetTestNode: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>
-    ){}   
+        public ccGeneralIc: handleBidiStreamingCall<ic.icGeneralPacket, ic.icGeneralPacket>
+    ) {}
+}
+
+type inConnection = {
+    channel: ic_grpc.interconnectClient,
+    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+}
+type inConnections = {
+    [nodename: string]: inConnection
+}
+
+type clientInstance = {
+    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+    newcall: boolean
+}
+
+const inResultsType = { "yet": 0, "success": 1, "failure": 2 } as const;
+type inResults = {
+    [requestId: string]: {
+        state: number,
+        installationtime: number,
+        result: gResult<ic.icGeneralPacket, gError>
+    }
 }
 
 /**
@@ -58,7 +58,7 @@ export class InModule {
      * @param response - response contents
      * @returns returns gSuccess instance contains response
      */
-    protected iOK<T>(response: T): gResult<T, never> {
+    public iOK<T>(response: T): gResult<T, never> {
         return new gSuccess(response)
     }
     /**
@@ -68,7 +68,7 @@ export class InModule {
      * @param message - set the error message
      * @returns returns gFailure instance contains gError instance
      */
-    protected iError(func: string, pos?: string, message?: string): gResult<never, gError> {
+    public iError(func: string, pos?: string, message?: string): gResult<never, gError> {
         return new gFailure(new gError("in", func, pos, message));
     }
 
@@ -91,9 +91,18 @@ export class InModule {
         this.coreCondition = condition;
     }
 
-    protected log: ccLogType
-    protected score: ccSystemType | undefined
-    protected bcore: ccBlockType | undefined
+    protected generalConnections: inConnections;
+    protected generalResults: inResults;
+
+    protected log: ccLogType;
+    protected conf: inConfigType;
+    protected receiver: InReceiverSubModule;
+
+    /** 
+     * Holding server instance
+     */
+    protected server: Server;
+    protected serviceImplementation: UntypedServiceImplementation | undefined;
 
     /**
      * Stub values for features not supported in the open source version
@@ -101,51 +110,96 @@ export class InModule {
     protected master_key: string
     protected common_parsel: string
 
-    protected server: grpc.Server
-    protected connections: rpcConnectionFormat
-
-    constructor(log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType) {
+    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, keyringInstance: ccKeyringType) {
+        this.conf = conf;
         this.log = log;
-        this.score = systemInstance;
-        this.bcore = blockInstance;
+        this.coreCondition = "unloaded";
+        this.generalConnections = {};
+        this.generalResults = {};
+        this.server = new Server();
         this.master_key = RUNTIME_MASTER_IDENTIFIER;
         this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
-        this.server = new grpc.Server();
-        this.connections = {};
+        this.receiver = new InReceiverSubModule(this.conf, this.log, systemInstance, blockInstance);
     }
 
     /**
-     * The initialization of the InternodeModule. It has many argument to be set.
+     * The initialization of the InternodeModule. It has many arguments to be set.
      * @param conf - set inConfigType instance
      * @param log - set ccLogType instance
      * @param systemInstance - set ccSystemType instance
      * @param blockInstance - set ccBlockType instance
      * @param keyringInstance - set ccKeyringType instance
+     * @param ServerInstance - can inject server instance, mainly for tests
      * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and unknown if it's failure.
      * So there is no need to be concerned about the failure status.
      */
     public async init(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, 
-        blockInstance: ccBlockType, keyringInstance: ccKeyringType): Promise<gResult<ccInType, unknown>> {
+        blockInstance: ccBlockType, keyringInstance: ccKeyringType, ServerInstance?: any): Promise<gResult<ccInType, unknown>> {
 
         this.coreCondition = "loading";
+
         let core: ccInType = {
-            lib: new InModule(log, systemInstance, blockInstance),
+            lib: new InModule(conf, log, systemInstance, blockInstance, keyringInstance),
             conf: conf,
-            log: this.log,
+            log: log,
+            receiver: this.receiver,
             s: systemInstance ?? undefined,
             b: blockInstance ?? undefined,
             k: keyringInstance ?? undefined
         }
 
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:init");
-
-        this.score = core.s;
-        this.bcore = core.b;
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":init");
         
         this.coreCondition = "initialized";
         core.lib.coreCondition = this.coreCondition;
+
+        core.lib.generalResults = this.generalResults;
+
+        await this.start(core, core.lib.generalServerServices(), ServerInstance)
+        .then(() => { core.lib.coreCondition = "active"; })
+
         return this.iOK(core);
+    }
+
+    /**
+     * Start this module
+     * @param core - set ccInType instance
+     * @param services - set server service implementations
+     * @param serverInstance - can inject server instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async start(core: ccInType, services?: UntypedServiceImplementation, serverInstance?: any): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":start");
+
+        LOG("Debug", 0, "In:" + this.conf.self.nodename + ":start:startServer");
+        if (serverInstance !== undefined) {
+            this.server = serverInstance;
+        }
+        if (this.server === undefined) {
+            return this.iError("start", "startServer", "server instance is not defined");
+        }
+        if (services !== undefined) { this.serviceImplementation = services };
+        if (this.serviceImplementation === undefined) {
+            return this.iError("start", "startServer", "serviceImplementation is not defined");
+        }
+        try {
+            /* @ts-expect-error */
+            this.server.addService(ic_grpc.interconnectService, this.generalServerServices());
+            const creds: ServerCredentials = ServerCredentials.createInsecure();
+            const port = "0.0.0.0:" + core.conf.self.rpc_port;
+            this.server.bindAsync(port, creds, async () => {
+                LOG("Notice", 0, "Inter-node server is starting");
+                this.coreCondition = "active";
+                return this.iOK(undefined);
+            });          
+        } catch (error: any) {
+            return this.iError("start", "createInsecure", error.toString());
+        }
+
+        return this.iError("start", "startServer", "unknown error");
     }
 
     /**
@@ -155,829 +209,439 @@ export class InModule {
      * @param systemInstance - set ccSystemType instance
      * @param blockInstance - set ccBlockType instance
      * @param keyringInstance - set ccKeyringType instance
-     * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and unknown if it's failure.
-     * So there is no need to be concerned about the failure status.
+     * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and gError if it's failure.
      */
-    public async restart(core: ccInType, log: ccLogType, systemInstance: ccSystemType, 
-        blockInstance: ccBlockType, keyringInstance: ccKeyringType): Promise<gResult<ccInType, unknown>> {
+    public async restart(core: ccInType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, 
+        keyringInstance: ccKeyringType): Promise<gResult<ccInType, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:restart");
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":restart");
 
         this.coreCondition = "unloaded";
-        const ret1 = await this.stopServer(core);
+        const ret1 = await this.stop(core);
         if (ret1.isFailure()) return ret1;
 
         const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance);
         if (ret2.isFailure()) { return this.iError("restart", "init", "unknown error") };
         const newCore: ccInType = ret2.value;
-        // reconnect is done in init
+        this.coreCondition = "initialized"
 
-        const ret3 = await this.startServer(core);
-        if (ret3.isFailure()) return ret3;
-
+        this.coreCondition = "active";
+        newCore.lib.coreCondition = this.coreCondition;
         return this.iOK(newCore);
     }
 
     /**
-     * Start gRPC server.
-     * @param core - set ccInType instance
-     * @param serverInstance - can inject serverInstance
-     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
-     * So there is no need to check the value of success.
-     */
-    public async startServer(core: ccInType, serverInstance?: any): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:startServer");
-
-        if (serverInstance !== undefined) {
-            this.server = serverInstance;
-        }
-        //addReflection(server, "./grpc/systemrpc_descriptor.pb");
-        try {
-            this.server.addService(systemrpc_grpc.gSystemRpcService,
-                new gSystemRpcServer(this.pingCallback, this.addPoolCallback, this.addBlockCa2Callback, 
-                    this.addBlockCa3Callback,this.getPoolHeightCallback, this.getBlockHeightCallback,
-                    this.getBlockDigestCallback, this.getBlockCallback, 
-                    this.examineBlockDifferenceCallback, this.examinePoolDifferenceCallback, 
-                    this.declareBlockCreationCallback, this.signAndResendOrStoreCallback,
-                    this.resetTestNodeCallback)
-                    );
-            let creds: grpc.ServerCredentials;
-            LOG("Notice", 0, "Inter-node server starts");
-            creds = grpc.ServerCredentials.createInsecure();
-            this.server.bindAsync("0.0.0.0:" + core.conf.self.rpc_port, creds, () => {
-                LOG("Info", 0, "InModule:Listen");
-            })
-        } catch (error: any) {
-            return this.iError("startServer", undefined, error.toString());
-        }
-        this.coreCondition = "active";
-        return this.iOK<void>(undefined);
-    }
-
-    /**
-     * Stop gRPC server
+     * Stop this module
      * @param core - set ccInType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async stopServer(core: ccInType): Promise<gResult<void, gError>> {
+    public async stop(core: ccInType): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:stopServer");
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":stop");
 
+        // server
+        if (this.server === undefined) {
+            return this.iError("stop", "stopServer", "server instance is not defined");
+        }
         const promisedTryShutdown = promisify(this.server.tryShutdown).bind(this.server);
         await promisedTryShutdown()
         .then(() => {})
         .catch((error: any) => {
-            return this.iError("stopServer", undefined, error.toString());
+            return this.iError("stop", "stopServer", error.toString());
         })
+        this.server = new Server();
+
+        // channels
+        this.generalConnections = {};
         return this.iOK<void>(undefined);
+    }
+
+
+    /* Server side functions */
+
+    /**
+     * Return implementaions of server services
+     * @returns return the services with type UntypedServiceImplementation
+     */
+    protected generalServerServices(): UntypedServiceImplementation {
+        const LOG = this.log.lib.LogFunc(this.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":generalServerServices");
+        return {
+            ccGeneralIc: this.generalServerResponse.bind(this)
+        };
+    }
+
+    /**
+     * Implementation of general server response
+     * @param call - connecting data stream
+     */
+    protected generalServerResponse(call: ServerDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>) {
+        const LOG = this.log.lib.LogFunc(this.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":generalServerResonse");
+
+        call.on("data", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":generalServerResonse:dataArrived");
+
+            this.receiver.generalReceiver(req)
+            .then((ret) => {
+                if (ret.isSuccess()) {
+                    if (ret.value.getPacketId() !== "") { // Need response
+                        call.write(ret.value);
+                        call.on("error", () => {
+                            LOG("Notice", 0, "In:" + this.conf.self.nodename + ":generalServerResonse:Failed sending a packet to: " + ret.value.getReceiver());
+                        })
+                    } // Otherwise, the process is terminated on this side, so keeping connection silently
+                } else {
+                    // Drop incorrect packets
+                }
+            })
+        });
     }
 
     /**
      * Wait until the gRPC server is fully up and running
      * @param core - set ccInType instance
-     * @param retryCount - set retry count of the ping
+     * @param waitSec - set minimum number of seconds to wait for response
      * @param rpcInstance - can set rpcInstance. Mainly for testing
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async waitForRPCisOK(core: ccInType, retryCount: number, rpcInstance?: any): Promise<gResult<void, gError>> {
+    public async waitForRPCisOK(core: ccInType, waitSec: number, rpcInstance?: any): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:waitForRPCisOK");
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":waitForRPCisOK");
 
-        let rpc;
-        if (rpcInstance === undefined) {
-            rpc = core.lib.sendRpc;
-        } else {
-            rpc = rpcInstance;
-        }
-
-        let sObj: systemrpc.ccSystemRpcFormat.AsObject;
-        sObj = {
-            version: 3,
-            request: "Ping",
-            param: undefined,
-            dataasstring: ""
-        }
-        let nodes = clone(core.conf.nodes);
-        for await (const targets of setInterval(1000, nodes, undefined)) {
-            let retryNodes: nodeProperty[] = [];
-            for (const target of targets) {
-                if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
-                if (target.allow_outgoing === false) continue;
-                sObj.param = { tenant: this.master_key };
-                const ret = await rpc(core, target, sObj);
-                if (ret.isFailure()) {
-                    retryNodes.push(target);
-                }
-            }
-            if (retryNodes.length === 0) {
-                return this.iOK<void>(undefined);
-            } else if (retryCount === 0) {
-                return this.iError("waitForRPCisOK", "sendRpc", "Unreachable nodes have been remained yet:" + JSON.stringify(retryNodes));
+        let leftNodes = clone(core.conf.nodes);
+        for await (const _ of setInterval(1000)) {
+            
+            let ret: gResult<rpcResultFormat[], gError>
+            if (rpcInstance === undefined) {
+                ret = await this.runRpcs(core, leftNodes, "Ping", "Ping", waitSec, "check");
             } else {
-                retryCount--;
-                nodes = retryNodes;
+                ret = await rpcInstance(core, leftNodes, "Ping", "Ping", waitSec, "check");
+            }
+            if (ret.isFailure()) return ret;
+            leftNodes = [];
+            for (const result of ret.value) {
+                if (result.result.isFailure()) { leftNodes.push(result.node); }
+            }
+            if (leftNodes.length === 0) {
+                return this.iOK<void>(undefined);
+            } else if (waitSec <= 0) {
+                return this.iError("waitForRPCisOK", "runRpcs", "Unreachable nodes have been remained yet:" + JSON.stringify(leftNodes));
+            } else {
+                waitSec--;
             }
         }
         return this.iError("waitForRPCisOK", "setInterval", "unknown error occured");
     }
 
-    /**
-     * The function for checking communication
-     * 
-     */
-    public pingCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:pingCallback");
+    /* Client side functions */
 
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        ret = ret.setReturncode(0);
-        ret = ret.setDataasstring("Pong");
-        return callback(null, ret);
+    /**
+     * Make a payload of a packet
+     * @param request - set request type
+     * @param dataAsString - set data as string
+     * @returns returns a payload with icPacketPayload object
+     */
+    protected makeOnePayload(request: string, dataAsString: string): ic.icPacketPayload {
+        const payload = new ic.icPacketPayload();
+        payload.setPayloadType(ic.payload_type.REQUEST);
+        payload.setRequest(request);
+        payload.setDataAsString(dataAsString);
+        return payload;
+    }
+    /**
+     * Make a packet with a payload
+     * @param core - set ccInType instance
+     * @param target - set target node information with nodeProperty format
+     * @param payload - set the payload to deliver
+     * @returns returns a packet with icGeneralPacket object
+     */
+    protected makeOnePacket(core: ccInType, target: nodeProperty, payload: ic.icPacketPayload): ic.icGeneralPacket {
+        const id = randomUUID();
+        const packet = new ic.icGeneralPacket();
+        packet.setVersion(4);
+        packet.setPacketId(id);
+        packet.setSender(core.conf.self.nodename);
+        packet.setReceiver(target.nodename);
+        packet.setPayload(payload);
+        packet.setPrevId("");
+        return packet;
+    }
+    /**
+     * Send a packet to the destination
+     * @param core - set ccInType instance
+     * @param packet - set the packet
+     */
+    protected async sendOnePacket(core: ccInType, packet: ic.icGeneralPacket): Promise<void> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendPacket");
+
+        const call = this.generalConnections[packet.getReceiver()].call;
+        call.write(packet, () => {
+            LOG("Debug", 0, "Make a reply box for id: " + packet.getPacketId());
+            this.generalResults[packet.getPacketId()] = {
+                state: inResultsType.yet,
+                installationtime: new Date().valueOf(),
+                result: this.iError("undefined")
+            }
+        });
     }
 
     /**
-     * The relay function for AddPool to call requestToAddPool.
+     * Run RPCs to multiple nodes in parallel
+     * @param core - set ccInType instance
+     * @param targets - set target nodes' information with an array of nodeProperty format
+     * @param request - set request string
+     * @param dataAsString - set data for the request as a string
+     * @param maxRetryCount - can set limit of retries. The default is 30.
+     * @param resetLevel - can set the level of network resetting when RPC is failed. If it failed again, the level will be escalated, except for "check" level for network checking.
+     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with an array of rpcResultFormat if it's success, and gError if it's failure.
      */
-    public addPoolCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:addPoolCallback");
+    public async runRpcs(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":runRpcs");
 
-        let ret: systemrpc.ReturnCode = new ReturnCode();
+        if (maxRetryCount === undefined) { maxRetryCount = 30; }
+        if (resetLevel === undefined) { resetLevel = "no"; }
 
-        const ret1 = JSON.parse(call.request.getDataasstring());
-
-        if (this.score !== undefined) {
-            this.score.lib.requestToAddPool(this.score, ret1)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
+        // Auto target control is a provisional specification
+        let normalNodes: nodeProperty[] = [];
+        for (const target of targets) {
+            if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
+            if (target.allow_outgoing === false) continue;
+            normalNodes.push(target);
         }
-    }
-
-    /**
-     * The function to answer communications from CA2 nodes
-     */
-    public addBlockCa2Callback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:addBlockCallback");
-
-        let ret1: systemrpc.ReturnCode = new ReturnCode();
-        LOG("Warning", 0, "Ca2 request, addBlockCa2Callback, is ignored. CA2 is not supported on this node.");
-        ret1 = ret1.setReturncode(-2);
-        return callback(null, ret1);
-    }
-
-    /**
-     * The relay function for AddBlock from CA3 node to call requestToAddBlock properly.
-     */
-    public addBlockCa3Callback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:addBlockCallback");
-
-        let ret: systemrpc.ReturnCode = new ReturnCode();
-        const tObj: Ca3TravelingFormat = JSON.parse(call.request.getDataasstring());
-        const params = call.request.getParam();
-        let removeFromPool: boolean | undefined;
-        if (params !== undefined) {
-            removeFromPool = params.getRemovepool();
+        if (normalNodes.length === 0) {
+            return this.iError("runRpcs", "runRpcs", "No nodes are allowed to communicate");
         }
-        if (this.score !== undefined) {
-            this.score.lib.requestToAddBlock(this.score, tObj.block, removeFromPool, tObj.trackingId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
+
+        const payload = this.makeOnePayload(request, dataAsString);
+
+        const results: rpcResultFormat[] = []
+        for (const target of normalNodes) {
+            const ret = await this.getConnection(core, target.nodename, resetLevel);
+            if (ret.isFailure()) { return ret };
+
+            const packet = this.makeOnePacket(core, target, payload);
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":runRpcs:msg " + packet.getPacketId() + " from " + packet.getSender() + " to " + packet.getReceiver());
+
+            this.sendOnePacket(core, packet); // async
+            
+            results.push({
+                id: packet.getPacketId(),
+                node: target,
+                result: this.iError("undefined")
+            });
+        }
+
+        // Wait until all results are available.
+        const size = results.length;
+        let retryNodes: nodeProperty[] = [];
+        let successResults: rpcResultFormat[] = [];
+        let failureResults: rpcResultFormat[] = [];
+        for await (const _ of setInterval(500)) {
+            retryNodes = [];
+            successResults = [];
+            failureResults = [];
+            for (const result of results) {
+                if (this.generalResults[result.id].state === inResultsType.success) {
+                    successResults.push(result);
                 }
-                ret = ret.setReturncode(0);
-                if (ret.getReturncode() === 0) {
-                    if (this.bcore !== undefined) {
-                        this.bcore.algorithm.closeATransaction(tObj.trackingId);
+                if (this.generalResults[result.id].state === inResultsType.failure) {
+                    failureResults.push(result);
+                    retryNodes.push(result.node);
+                }
+            }
+            if (failureResults.length + successResults.length === size) { break; }
+        }
+
+        // Retry; set resetLevel when retrying
+        let restResults: rpcResultFormat[] = [];
+        if ((retryNodes.length !== 0) && (maxRetryCount > 0)) {
+            maxRetryCount--;
+            switch (resetLevel) {
+                case "no":
+                    resetLevel = "call";
+                    break;
+                case "call":
+                    resetLevel = "channel";
+                    break;
+                case "channel": // Do not retry fails with channel reset
+                    LOG("Notice", 0, "In:" + this.conf.self.nodename + ":runRpcs:Some communication after channel reset for some nodes were still failed. Gave up for them.");
+                    resetLevel = "never";
+                    break;
+                case "check":
+                    resetLevel = "check";
+                    break;
+                case "never":
+                    resetLevel = "never";
+                    break;
+                default:
+                    resetLevel = "no";
+                    break;
+            }
+            if (resetLevel !== "never") {
+                const ret = await this.runRpcs(core, retryNodes, request, dataAsString, maxRetryCount, resetLevel);
+                if (ret.isFailure()) return ret;
+                restResults = ret.value;
+            } else {
+                restResults = failureResults;
+            }
+        }
+        const finalResults: rpcResultFormat[] = successResults.concat(restResults);
+
+        // Insert results (Convert to external format)
+        for (const result of finalResults) {
+            result.result = this.generalResults[result.id].result;
+            delete this.generalResults[result.id];
+        }
+        return this.iOK(finalResults);
+    }
+    /**
+     * Make a new connection in call level, and add call listeners and packet handlers
+     * @param core - set ccInType instance
+     * @param channel - set channel instance for the target node
+     * @returns returns ClientDuplexStream
+     */
+    protected makeNewCallWithListener(core: ccInType, channel: ic_grpc.interconnectClient): ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "InModule:makeNewCallWithListener");
+
+        const newcall = channel.ccGeneralIc();
+
+        newcall.on("error", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:data error to " + req.getReceiver());
+            this.generalResults[req.getPacketId()] = {
+                state: inResultsType.failure,
+                installationtime: new Date().valueOf(),
+                result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
+            }
+        })
+        newcall.on("data", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:dataArrived from " + req.getSender());
+            /**
+             * The return packet:
+             * 1. isFailure() === true: parsing itself is failed, drop.
+             * 2. isSuccess() === true: parsing successful.
+             * 2.1. ret.value.getPayload()?.getPayloadType() !== ic.payload_type.REQUEST
+             *     This should be the response what it has been requesting
+             * 2.1.1. generalResults[req.getPrevId()] has been prepared
+             *     It need to be saved.
+             * 2.1.2. generalResults[req.getPrevId()] has NOT been prepared
+             *     Drop it. (Do nothing)
+             * 2.2. ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST
+             *     This is request
+             * 2.2.1. ret.value.getPacketId() !== ""
+             *     It needs response.
+             * 2.2.2. ret.value.getPacketId() === ""
+             *     It needs to be terminated with no response. (Do nothing)
+             */
+            this.receiver.generalReceiver(req)
+            .then((ret) => {
+                if (ret.isSuccess()) {
+                    if (ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST) {
+                        if (ret.value.getPacketId() !== "") {
+                            newcall.write(ret.value);
+                            newcall.on("error", () => {
+                                LOG("Notice", 0, "In:" + this.conf.self.nodename + ":getConnection:Failed sending a packet to: " + ret.value.getReceiver());
+                            })
+                        }
+                    } else {
+                        if ((this.generalResults[req.getPrevId()] !== undefined) && (this.generalResults[req.getPrevId()].state === inResultsType.yet)) {
+                            this.generalResults[req.getPrevId()].state = inResultsType.success;
+                            this.generalResults[req.getPrevId()].result = this.iOK(ret.value);
+                        } else {
+                            LOG("Notice", 0, "Dropped a packet that was addressed to me but for which no reply box was provided");
+                            LOG("Debug", 0, "A reply box for id: " + req.getPrevId() + " should have been prepared.");
+                        }
                     }
                 }
-                return callback(null, ret);
             })
-        } else {
-            throw new Error("The system module is down");
-        }
+        });
+
+        return newcall;
     }
-
     /**
-     * The relay function for GetPoolHeight to call requestToGetPoolHeight.
-     */
-    public getPoolHeightCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:getPoolHeightCallback");
-
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToGetPoolHeight(this.score, tenantId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                const d: heightDataFormat = {
-                    height: data.value
-                }
-                ret = ret.setDataasstring(JSON.stringify(d))
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-
-    /**
-     * The relay function for GetBlockHeight to call requestToGetBlockHeight.
-     */
-    public getBlockHeightCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:getBlockHeightCallback");
-
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToGetBlockHeight(this.score, tenantId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }   
-                ret = ret.setReturncode(0);
-                const d: heightDataFormat = {
-                    height: data.value
-                }
-                ret = ret.setDataasstring(JSON.stringify(d))
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-
-    /**
-     * The relay function for GetBlockDigest to call requestToGetLastHash.
-     */
-    public getBlockDigestCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:getBlockDigestCallback");
-
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        let failIfUnhealthy: boolean | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-            failIfUnhealthy = params.getFailifunhealthy();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToGetLastHash(this.score, tenantId, failIfUnhealthy)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                if (data.value.hash !== "") {
-                    ret = ret.setReturncode(0);
-                } else {
-                    ret = ret.setReturncode(-1);
-                }
-                const d: digestDataFormat = {
-                    hash: data.value.hash,
-                    height: data.value.height
-                }
-                ret = ret.setDataasstring(JSON.stringify(d))
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-
-    /**
-     * The relay function for GetBlock to call requestToGetBlock.
-     */
-    public getBlockCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:getBlockCallback");
-
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const oid: string = call.request.getDataasstring();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        let returnUndefinedIfFail: boolean | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-            returnUndefinedIfFail = params.getReturnundefinedifnoexistent();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToGetBlock(this.score, oid, returnUndefinedIfFail, tenantId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                if (data.value !== undefined) {
-                    ret = ret.setDataasstring(JSON.stringify(data.value));
-                    return callback(null, ret);
-                } else {
-                    return callback(null, undefined);
-                }
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-
-    /**
-     * The relay function for ExamineBlockDifference to call requestToExamineBlockDifference.
-     */
-    public examineBlockDifferenceCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:examineBlockDifferenceCallback");
-
-        const examineList: examineHashes = JSON.parse(call.request.getDataasstring());
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToExamineBlockDifference(this.score, examineList, tenantId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                ret = ret.setDataasstring(JSON.stringify(data.value))
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-
-    /**
-     * The relay function for ExaminePoolDifference to call requestToExaminePoolDifference.
-     */
-    public examinePoolDifferenceCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:examinePoolDifferenceCallback");
-
-        const examineList: string[] = call.request.getDataasstring().split(",");
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        const params = call.request.getParam();
-        let tenantId: string | undefined;
-        if (params !== undefined) {
-            tenantId = params.getTenant();
-        }
-        if (this.score !== undefined) {
-            this.score.lib.requestToExaminePoolDifference(this.score, examineList, tenantId)
-            .then((data) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                ret = ret.setDataasstring(JSON.stringify(data.value))
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The system module is down");
-        }
-    }
-    
-    /**
-     * The relay function for DeclareBlockCreation to call requestToDeclareBlockCreation.
-     */
-    public declareBlockCreationCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:declareBlockCreationCallback");
-
-        const tObj: Ca3TravelingIdFormat2 = JSON.parse(call.request.getDataasstring());
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        if (this.bcore !== undefined) {
-            this.bcore.algorithm.requestToDeclareBlockCreation(this.bcore, tObj)
-            .then((data: any) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                ret = ret.setDataasstring(JSON.stringify(data.value));
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The block module is down");
-        }
-    }
-    
-    /**
-     * The relay function for SignAndResendOrStore to call requestToSignAndResendOrStore.
-     */
-    public signAndResendOrStoreCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:signAndResendOrStoreCallback");
-
-        const tObj: Ca3TravelingFormat = JSON.parse(call.request.getDataasstring());
-        let ret: systemrpc.ReturnValues = new ReturnValues();
-        if (this.bcore !== undefined) {
-            this.bcore.algorithm.requestToSignAndResendOrStore(this.bcore, tObj)
-            .then((data: any) => {
-                if (data.isFailure()) {
-                    ret = ret.setReturncode(-1);
-                    return callback(null, ret);
-                }
-                ret = ret.setReturncode(0);
-                ret = ret.setDataasstring(JSON.stringify(data.value));
-                return callback(null, ret);
-            })
-        } else {
-            throw new Error("The block module is down");
-        }
-    }    
-
-    /**
-     * Whole network reset call from a node to each node. Testing only.
-     */
-    public resetTestNodeCallback: grpc.handleUnaryCall<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode> = (call, callback) => {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "InModule:resetTestNodeCallback");
-
-        let ret1: systemrpc.ReturnCode = new ReturnCode();
-        LOG("Warning", 0, "resetTestNodeCallback is ignored. It is not supported on this node.");
-        ret1 = ret1.setReturncode(-2);
-        return callback(null, ret1);
-    }
-
-
-    /**
-     * Send gRPC call to all nodes except disallowed nodes.
+     * Make a new connection from creating the channel
      * @param core - set ccInType instance
-     * @param payload - set the payload to deliver
-     * @param timeoutMs - can set timeout in milliseconds
-     * @param clientInstance - can set the instance of client, mainly for testing
-     * @returns returns with gResult type that contains rpcReturnFormat[] if it's success, and unknown if it's failure.
-     * The return form of this method is somewhat special: it always returns success, and the result of each RPC is stored in rpcReturnFormat[].
+     * @param targetName - set target name
+     * @param targetHostPort - set a string with the format hostname or ip + ":" + port number
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
      */
-    public async sendRpcAll(core: ccInType, payload: systemrpc.ccSystemRpcFormat.AsObject, timeoutMs?: number,
-        clientInstance?: systemrpc_grpc.gSystemRpcClient): Promise<gResult<rpcReturnFormat[], unknown>> {
+    protected makeNewChannelAndCall(core: ccInType, targetName: string, targetHostPort: string): gResult<void, gError> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:sendRpcAll");
+        LOG("Info", 0, "InModule:makeNewChannelAndCall");
 
-        let rets: rpcReturnFormat[] = [];
-        for(const target of core.conf.nodes) {
-            if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
-            if (target.allow_outgoing === true) {
-                const ret = await core.lib.sendRpc(core, target, payload, timeoutMs, clientInstance);
-                if (ret.isFailure()) {
-                    const ret2: rpcReturnFormat = JSON.parse(ret.value.message);
-                    rets.push(ret2);
-                } else {
-                    rets.push(ret.value);
+        try {
+            const creds: ChannelCredentials = ChannelCredentials.createInsecure();
+            const newchannel = new ic_grpc.interconnectClient(targetHostPort, creds);
+            const newcall = this.makeNewCallWithListener(core, newchannel);
+            this.generalConnections[targetName] = {
+                channel: newchannel,
+                call: newcall
+            }
+            return this.iOK(undefined);
+        } catch (error: any) {
+            return this.iError("makeNewChannelAndCall", "create", error.toString());
+        }
+    }
+    /**
+     * Connect to the target's server or reuse already-established connection
+     * @param core - set ccInType instance
+     * @param nodename - set target's nodename
+     * @param resetLevel - can set "call", "channel", or "check" to force to reset a connection
+     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with clientInstance format if it's success, and gError if it's failure.
+     */
+    protected async getConnection(core: ccInType, nodename: string, resetLevel?: inConnectionResetLevel): Promise<gResult<clientInstance, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "IcModule:getConnection");
+
+        let found1: boolean = false;
+        let target: string = "";
+        for (const node of core.conf.nodes) {
+            if (nodename === node.nodename) {
+                found1 = true;
+                if (node.allow_outgoing === true) { 
+                    target = node.host + ":" + node.rpc_port;
                 }
+                break;
             }
         }
-        return this.iOK<rpcReturnFormat[]>(rets);
-    }
+        if (found1 === false) {
+            return this.iError("getConnection", "nodeConfiguration", "nodename " + nodename + " is not found in the node list");
+        }
+        if (target === "") {
+            return this.iError("getConnection", "nodeConfiguration", "nodename " + nodename + " is not allowed in the node list");
+        }
 
-    /**
-     * create gRPC connection to a target
-     * @param core - set ccInType instance
-     * @param target - set target information with nodeProperty type
-     * @param timeoutMs - can set timeout in milliseconds
-     * @param clientInstance - can set the instance of client, mainly for testing
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with systemrpc_grpc.gSystemRpcClient if it's success, and gError if it's failure.
-     */
-    protected async createRpcConnection(core: ccInType, target: nodeProperty, timeoutMs?: number, 
-        clientInstance?: systemrpc_grpc.gSystemRpcClient): Promise<gResult<systemrpc_grpc.gSystemRpcClient, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:createRpcConnection");
-
-        const targetHost: string = target.host + ":" + target.rpc_port;
-        let client: systemrpc_grpc.gSystemRpcClient;
-
-        if (this.connections[targetHost] !== undefined) {
-            LOG("Debug", 0, "InModule:createRpcConnection:reuse");
-            client = this.connections[targetHost];
+        // AS-IS first
+        if ((resetLevel === undefined) || (resetLevel === "no")) {
+            if (this.generalConnections[nodename] !== undefined) {
+                return this.iOK({ call: this.generalConnections[nodename].call, newcall: false });
+            }
+        }
+        // Recover-call-only second
+        if ((resetLevel === "call") || (resetLevel === "check")) {
+            if (this.generalConnections[nodename] !== undefined) {
+                this.generalConnections[nodename].call.end();
+                this.generalConnections[nodename].call = this.makeNewCallWithListener(core, this.generalConnections[nodename].channel);
+                return this.iOK({ call: this.generalConnections[nodename].call, newcall: true });
+            }
+        }
+        // Otherwise, full creation
+        try {
+            this.generalConnections[nodename].call.end();
+        } catch (error) {
+            
+        }
+        const ret = this.makeNewChannelAndCall(core, nodename, target);
+        if (ret.isSuccess()) {
+            return this.iOK({ call: this.generalConnections[nodename].call, newcall: true });
         } else {
-            if (clientInstance === undefined) {
-                let creds: grpc.ChannelCredentials;
-                creds = grpc.credentials.createInsecure();
-                if (timeoutMs === undefined) {
-                    client = new gSystemRpcClient(targetHost, creds, { waitForReady: true });
-                } else {
-                    client = new gSystemRpcClient(targetHost, creds, { waitForReady: true, deadline: timeoutMs });
-                }
-            } else {
-                client = clientInstance;
-            }
-            this.connections[targetHost] = client;
-        }
-
-        return this.iOK(client);
-    }
-
-    /**
-     * Send gRPC call to the specified node.
-     * @param core - set ccInType instance
-     * @param target - set the target with nodeProperty format
-     * @param payload - set the payload to deliver
-     * @param timeoutMs - can set timeout in milliseconds
-     * @param clientInstance - can inject clientInstance
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with rpcReturnFormat if it's success, and gError if it's failure.
-     * Note that the stringified rpcReturnFormat is stored in the error details.
-     */
-    public async sendRpc(core: ccInType, target: nodeProperty, payload: systemrpc.ccSystemRpcFormat.AsObject, 
-        timeoutMs?: number, clientInstance?: systemrpc_grpc.gSystemRpcClient, retry?: number): Promise<gResult<rpcReturnFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-
-        const targetHost: string = target.host + ":" + target.rpc_port;
-        if (retry === undefined) {
-            LOG("Info", 0, "InModule:sendRpc:" + targetHost);
-            retry = 1;
-        } else {
-            retry++;
-            delete this.connections[targetHost];
-            LOG("Info", 0, "InModule:sendRpc(" + retry.toString()  + "):" + targetHost);
-        }
-        let ret: rpcReturnFormat = {
-            targetHost: targetHost,
-            request: payload.request,
-            status: -1,
-            data: undefined
-        }
-
-        if (target.allow_outgoing === false) {
-            ret.data = "disallowCommunication";
-            return this.iError("sendRpc", "disallowCommunication", JSON.stringify(ret));
-        }
-
-        const ret2 = await core.lib.createRpcConnection(core, target, timeoutMs, clientInstance);
-        if (ret2.isFailure()) {
-            ret.status = -2;
-            ret.data = ret2.value.origin.detail;
-            return this.iError("sendRpc", "createRpcConnection", JSON.stringify(ret));
-        }
-        const client: systemrpc_grpc.gSystemRpcClient = ret2.value;
-
-        return await core.lib.callRpcFunc(core, client, payload, ret);
-    }
-
-    /**
-     * Call one of functions that is supported this module 
-     * @param core - set ccInType instance
-     * @param client - set client instance
-     * @param payload - set the payload to deliver
-     * @param ret - set properties of the target host in rpcReturnFormat
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with rpcReturnFormat if it's success, and gError if it's failure.
-     */
-    protected async callRpcFunc(core: ccInType, client: systemrpc_grpc.gSystemRpcClient, payload:
-        systemrpc.ccSystemRpcFormat.AsObject, ret: rpcReturnFormat): Promise<gResult<rpcReturnFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "InModule:callRpcFunc");
-
-        let gPayload: systemrpc.ccSystemRpcFormat = new ccSystemRpcFormat();
-        gPayload.setVersion(payload.version);
-        gPayload.setRequest(payload.request);
-        if (payload.param !== undefined) {
-            const Param1: systemrpc.Param = new Param();
-            if (payload.param.tenant === undefined) {
-                if (this.score !== undefined) Param1.setTenant(this.common_parsel);
-            } else {
-                Param1.setTenant(payload.param.tenant);
-            }
-            if (payload.param.removepool === true) {
-                Param1.setRemovepool(true);
-            } else {
-                Param1.setRemovepool(false);
-            }
-            if (payload.param.failifunhealthy === true) {
-                Param1.setFailifunhealthy(true);
-            } else {
-                Param1.setFailifunhealthy(false);
-            }
-            if (payload.param.returnundefinedifnoexistent === true) {
-                Param1.setReturnundefinedifnoexistent(true);
-            } else {
-                Param1.setReturnundefinedifnoexistent(false);
-            }
-            gPayload.setParam(Param1);
-        }
-        if (payload.dataasstring !== undefined) {
-            gPayload.setDataasstring(payload.dataasstring);
-        }
-
-        switch (payload.request) {
-            case "Ping":
-                LOG("Info", 0, "InModule:sendRpc:Ping");
-                const promisedPing = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.ping).bind(client);
-                await promisedPing(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "AddPool":
-                LOG("Info", 0, "InModule:sendRpc:AddPool");
-                const promisedAddPool = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>(client.addPool).bind(client);
-                await promisedAddPool(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100; // Shift to avoid conflicts with gRPC status codes
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "AddBlock":
-                LOG("Info", 0, "InModule:sendRpc:AddBlock");
-                const promisedAddBlock = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>(client.addBlock).bind(client);
-                await promisedAddBlock(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "AddBlockCa3":
-                LOG("Info", 0, "InModule:sendRpc:AddBlockCa3");
-                const promisedAddBlockCa3 = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>(client.addBlockCa3).bind(client);
-                await promisedAddBlockCa3(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "GetPoolHeight":
-                LOG("Info", 0, "InModule:sendRpc:GetPoolHeight");
-                const promisedGetPoolHeight = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.getPoolHeight).bind(client);
-                await promisedGetPoolHeight(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "GetBlockHeight":
-                LOG("Info", 0, "InModule:sendRpc:GetBlockHeight");
-                const promisedGetBlockHeight = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.getBlockHeight).bind(client);
-                await promisedGetBlockHeight(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "GetBlockDigest":
-                LOG("Info", 0, "InModule:sendRpc:GetBlockDigest");
-                const promisedGetBlockDigest = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.getBlockDigest).bind(client);
-                await promisedGetBlockDigest(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "GetBlock":
-                LOG("Info", 0, "InModule:sendRpc:GetBlock");
-                const promisedGetBlock = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.getBlock).bind(client);
-                await promisedGetBlock(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "ExamineBlockDifference":
-                LOG("Info", 0, "InModule:sendRpc:ExamineBlockDifference");
-                const promisedExamineBlockDifference = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.examineBlockDifference).bind(client);
-                await promisedExamineBlockDifference(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "ExaminePoolDifference":
-                LOG("Info", 0, "InModule:sendRpc:ExaminePoolDifference");
-                const promisedExaminePoolDifference = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.examinePoolDifference).bind(client);
-                await promisedExaminePoolDifference(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "DeclareBlockCreation":
-                LOG("Info", 0, "InModule:sendRpc:DeclareBlockCreation");
-                const promisedDeclareBlockCreation = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.declareBlockCreation).bind(client);
-                await promisedDeclareBlockCreation(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "SignAndResendOrStore":
-                LOG("Info", 0, "InModule:sendRpc:SignAndResendOrStore");
-                const promisedSignAndResendOrStore = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnValues>(client.signAndResendOrStore).bind(client);
-                await promisedSignAndResendOrStore(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                    ret.data = res.getDataasstring();
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            case "ResetTestNode":
-                LOG("Info", 0, "InModule:sendRpc:ResetTestNode");
-                const promisedResetTestNode = promisify<systemrpc.ccSystemRpcFormat, systemrpc.ReturnCode>(client.resetTestNode).bind(client);
-                await promisedResetTestNode(gPayload)
-                .then((res) => {
-                    ret.status = res.getReturncode() * 100;
-                }).catch((reason) => {
-                    const gRPCException: any = reason;
-                    ret.status = gRPCException.code * -1;
-                    ret.data = gRPCException.details;
-                    LOG("Info", 0, "InModule:sendRpc:Exception:" +  JSON.stringify(ret));
-                })
-                break;
-            default:
-                LOG("Warning", 1, "InModule:sendRpc:IllegalRequest:" + payload.request);
-                break;
-        }
-
-        if (ret.status >= 0) {
-            return this.iOK<rpcReturnFormat>(ret);
-        } else {
-            return this.iError("sendRpc", "rpcReturnFormat", JSON.stringify(ret));
+            return ret;
         }
     }
 }

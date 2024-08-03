@@ -6,8 +6,7 @@
 
 import { blockConfigType, ccConfigType } from "../config"
 import { ccLogType } from "../logger"
-//import { ccInType } from "../internode"
-import { ccInTypeV2 } from "../internode/v2_index"
+import { ccInType } from "../internode"
 import { ccSystemType } from "../system"
 import { ccKeyringType } from "../keyring"
 import { ccMainType } from "../main"
@@ -46,7 +45,7 @@ export type ccBlockType = {
     algorithm: any,
     conf: blockConfigType,
     log: ccLogType,
-    i: ccInTypeV2 | undefined,
+    i: ccInType | undefined,
     s: ccSystemType | undefined,
     k: ccKeyringType | undefined,
     m: ccMainType | undefined,
