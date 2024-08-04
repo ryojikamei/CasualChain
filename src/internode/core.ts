@@ -73,7 +73,7 @@ export class InModule {
     }
 
     /**
-     * Inter-class variable to set module condition
+     * Variable common to each class for setting the module condition
      */
     protected coreCondition: moduleCondition = "unloaded";
     /**
@@ -419,7 +419,7 @@ export class InModule {
 
         const payload = this.makeOnePayload(request, dataAsString);
 
-        const results: rpcResultFormat[] = []
+        const results: rpcResultFormat[] = [];
         for (const target of normalNodes) {
             const ret = await this.getConnection(core, target.nodename, resetLevel);
             if (ret.isFailure()) { return ret };

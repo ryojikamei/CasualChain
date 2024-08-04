@@ -98,10 +98,21 @@ export type inExaminePoolDiffernceDataFormat = {
     tenantId?: string
 }
 
+/**
+ * The data format when obtaining RPC results
+ */
 export type rpcResultFormat = {
     id: string,
     node: nodeProperty,
     result: gResult<ic.icGeneralPacket, gError>
 }
 
+/**
+ * Policy to reset the client connection
+ * no: communicate with current connetion. If it failed, the connection will be reset at call level before retrying
+ * call: create new call, and then communicate with new connection. If it failed, the connection will be reset at channel level before retrying
+ * channel: create new channel and create call, and then communicate with new connection. If it failed, an error will be reported.
+ * check: repeat retrying at call level. It is useful for checking connection.
+ * never: communicate with current connetion. If it failed, an error will be reported immediately.
+ */
 export type inConnectionResetLevel = "no" | "call" | "channel" | "check" | "never";
