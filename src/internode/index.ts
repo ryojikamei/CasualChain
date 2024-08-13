@@ -1,6 +1,9 @@
+import { ClientDuplexStream } from "@grpc/grpc-js";
+
 import { gResult, gError } from "../utils.js"
 
-import ic from "../../grpc/interconnect_pb.js"
+import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
+import ic from "../../grpc/interconnect_pb.js";
 
 import { InModule } from "./core.js"
 import { inConfigType, nodeProperty } from "../config/index.js"
@@ -23,9 +26,9 @@ export type ccInType = {
     conf: inConfigType,
     log: ccLogType,
     receiver: InReceiverSubModule,
-    s: ccSystemType | undefined,
-    b: ccBlockType | undefined,
-    k: ccKeyringType | undefined
+    s: ccSystemType,
+    b: ccBlockType,
+    k: ccKeyringType
 }
 
 /**
@@ -109,10 +112,21 @@ export type rpcResultFormat = {
 
 /**
  * Policy to reset the client connection
- * no: communicate with current connetion. If it failed, the connection will be reset at call level before retrying
- * call: create new call, and then communicate with new connection. If it failed, the connection will be reset at channel level before retrying
- * channel: create new channel and create call, and then communicate with new connection. If it failed, an error will be reported.
- * check: repeat retrying at call level. It is useful for checking connection.
- * never: communicate with current connetion. If it failed, an error will be reported immediately.
+ * - no: communicate with current connetion. If it failed, the connection will be reset at call level before retrying
+ * - call: create new call, and then communicate with new connection. If it failed, the connection will be reset at channel level before retrying
+ * - channel: create new channel and create call, and then communicate with new connection. If it failed, an error will be reported.
+ * - check: repeat retrying at call level. It is useful for checking connection.
+ * - never: communicate with current connetion. If it failed, an error will be reported immediately.
  */
 export type inConnectionResetLevel = "no" | "call" | "channel" | "check" | "never";
+
+export type inConnection = {
+    channel: ic_grpc.interconnectClient,
+    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+}
+
+/**
+ * The RPC requests
+ */
+export type inRequestType = "Ping" | "AddPool" | "AddBlock" | "AddBlockCa3" | "GetPoolHeight" | "GetBlockHeight" | "GetBlockDigest" | "GetBlock" | 
+    "ExamineBlockDifference" | "ExaminePoolDifference" | "DeclareBlockCreation" | "SignAndResendOrStore" | "ResetTestNode" | "TestMode";

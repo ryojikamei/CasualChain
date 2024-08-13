@@ -3,12 +3,12 @@ import { setInterval } from "timers/promises";
 import { promisify } from "util";
 
 import clone from "clone";
-import { Server, ServerCredentials, ChannelCredentials, handleBidiStreamingCall, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream } from "@grpc/grpc-js";
+import { Server, ServerCredentials, ChannelCredentials, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream } from "@grpc/grpc-js";
 
 import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
 import ic from "../../grpc/interconnect_pb.js";
 
-import { inConnectionResetLevel } from "./index.js";
+import { inConnectionResetLevel, inRequestType, inConnection } from "./index.js";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { moduleCondition } from "../index.js";
@@ -21,16 +21,6 @@ import { ccKeyringType } from "../keyring/index.js";
 import { ccInType, rpcResultFormat } from "./index.js";
 import { InReceiverSubModule } from "./receiver.js";
 
-class icServer implements ic_grpc.IinterconnectServer {
-    constructor(
-        public ccGeneralIc: handleBidiStreamingCall<ic.icGeneralPacket, ic.icGeneralPacket>
-    ) {}
-}
-
-type inConnection = {
-    channel: ic_grpc.interconnectClient,
-    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
-}
 type inConnections = {
     [nodename: string]: inConnection
 }
@@ -92,7 +82,7 @@ export class InModule {
     }
 
     protected generalConnections: inConnections;
-    protected generalResults: inResults;
+    public generalResults: inResults;
 
     protected log: ccLogType;
     protected conf: inConfigType;
@@ -110,16 +100,19 @@ export class InModule {
     protected master_key: string
     protected common_parsel: string
 
-    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, keyringInstance: ccKeyringType) {
+    protected debugId: string
+
+    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, keyringInstance: ccKeyringType, serverInstance?: any) {
         this.conf = conf;
         this.log = log;
         this.coreCondition = "unloaded";
         this.generalConnections = {};
         this.generalResults = {};
-        this.server = new Server();
+        this.server = serverInstance?? new Server();
         this.master_key = RUNTIME_MASTER_IDENTIFIER;
         this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
         this.receiver = new InReceiverSubModule(this.conf, this.log, systemInstance, blockInstance);
+        this.debugId = randomUUID();
     }
 
     /**
@@ -130,22 +123,22 @@ export class InModule {
      * @param blockInstance - set ccBlockType instance
      * @param keyringInstance - set ccKeyringType instance
      * @param ServerInstance - can inject server instance, mainly for tests
-     * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and unknown if it's failure.
-     * So there is no need to be concerned about the failure status.
+     * @param ServiceInstance - can inject server service instance, mainly for tests
+     * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and gError if it's failure.
      */
-    public async init(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, 
-        blockInstance: ccBlockType, keyringInstance: ccKeyringType, ServerInstance?: any): Promise<gResult<ccInType, unknown>> {
+    public async init(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, 
+        keyringInstance: ccKeyringType, ServerInstance?: any, ServiceInstance?: any): Promise<gResult<ccInType, gError>> {
 
         this.coreCondition = "loading";
 
         let core: ccInType = {
-            lib: new InModule(conf, log, systemInstance, blockInstance, keyringInstance),
+            lib: new InModule(conf, log, systemInstance, blockInstance, keyringInstance, ServerInstance),
             conf: conf,
             log: log,
             receiver: this.receiver,
-            s: systemInstance ?? undefined,
-            b: blockInstance ?? undefined,
-            k: keyringInstance ?? undefined
+            s: systemInstance,
+            b: blockInstance,
+            k: keyringInstance
         }
 
         const LOG = core.log.lib.LogFunc(core.log);
@@ -155,9 +148,16 @@ export class InModule {
         core.lib.coreCondition = this.coreCondition;
 
         core.lib.generalResults = this.generalResults;
-
-        await this.start(core, core.lib.generalServerServices(), ServerInstance)
-        .then(() => { core.lib.coreCondition = "active"; })
+        
+        let services: UntypedServiceImplementation;
+        if (ServiceInstance === undefined) {
+            services = core.lib.generalServerServices();
+        } else {
+            services = ServiceInstance;
+        }
+        const ret = await this.start(core, services);
+        if (ret.isFailure()) return ret;
+        core.lib.coreCondition = "active";
 
         return this.iOK(core);
     }
@@ -170,33 +170,40 @@ export class InModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async start(core: ccInType, services?: UntypedServiceImplementation, serverInstance?: any): Promise<gResult<void, gError>> {
+    protected async start(core: ccInType, services?: UntypedServiceImplementation): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":start");
 
         LOG("Debug", 0, "In:" + this.conf.self.nodename + ":start:startServer");
-        if (serverInstance !== undefined) {
-            this.server = serverInstance;
-        }
-        if (this.server === undefined) {
-            return this.iError("start", "startServer", "server instance is not defined");
-        }
-        if (services !== undefined) { this.serviceImplementation = services };
+        if (services !== undefined) { this.serviceImplementation = services; }
         if (this.serviceImplementation === undefined) {
             return this.iError("start", "startServer", "serviceImplementation is not defined");
         }
+        let result: gResult<void, gError> | undefined;
         try {
             /* @ts-expect-error */
-            this.server.addService(ic_grpc.interconnectService, this.generalServerServices());
+            this.server.addService(ic_grpc.interconnectService, this.serviceImplementation);
+        } catch (error) {
+            // Ignore error for duplication
+        }
+        try {
             const creds: ServerCredentials = ServerCredentials.createInsecure();
             const port = "0.0.0.0:" + core.conf.self.rpc_port;
-            this.server.bindAsync(port, creds, async () => {
-                LOG("Notice", 0, "Inter-node server is starting");
-                this.coreCondition = "active";
-                return this.iOK(undefined);
-            });          
+            this.server.bindAsync(port, creds, (error: any) => {
+                if (error === null) {
+                    LOG("Notice", 0, "Inter-node server is starting for " + port);
+                    result = this.iOK(undefined);
+                } else {
+                    result = this.iError("start", "createInsecure", error.toString());
+                }
+            });
         } catch (error: any) {
-            return this.iError("start", "createInsecure", error.toString());
+            result = this.iError("start", "createInsecure", error.toString());
+        }
+        for await (const _ of setInterval(200)) {
+            if (result !== undefined) {
+                return result;
+            }
         }
 
         return this.iError("start", "startServer", "unknown error");
@@ -212,15 +219,15 @@ export class InModule {
      * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and gError if it's failure.
      */
     public async restart(core: ccInType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, 
-        keyringInstance: ccKeyringType): Promise<gResult<ccInType, gError>> {
+        keyringInstance: ccKeyringType, serverInstance?: any, ServiceInstance?: any): Promise<gResult<ccInType, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":restart");
 
         this.coreCondition = "unloaded";
-        const ret1 = await this.stop(core);
+        const ret1 = await this.stop(core, serverInstance, ServiceInstance);
         if (ret1.isFailure()) return ret1;
 
-        const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance);
+        const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance, serverInstance, ServiceInstance);
         if (ret2.isFailure()) { return this.iError("restart", "init", "unknown error") };
         const newCore: ccInType = ret2.value;
         this.coreCondition = "initialized"
@@ -236,21 +243,22 @@ export class InModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async stop(core: ccInType): Promise<gResult<void, gError>> {
+    public async stop(core: ccInType, serverInstance?: any, ServiceInstance?: any): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":stop");
 
-        // server
-        if (this.server === undefined) {
-            return this.iError("stop", "stopServer", "server instance is not defined");
+        try {
+            const promisedTryShutdown = promisify(this.server.tryShutdown).bind(this.server);
+            await promisedTryShutdown()
+            .then(() => {})
+            .catch((error: any) => {
+                return this.iError("stop", "stopServer", error.toString());
+            })
+        } catch (error) {
+            LOG("Info", 0, "In:" + this.conf.self.nodename + ":ignore failing of server stop.");   
         }
-        const promisedTryShutdown = promisify(this.server.tryShutdown).bind(this.server);
-        await promisedTryShutdown()
-        .then(() => {})
-        .catch((error: any) => {
-            return this.iError("stop", "stopServer", error.toString());
-        })
-        this.server = new Server();
+        
+        this.server = serverInstance?? new Server();
 
         // channels
         this.generalConnections = {};
@@ -299,27 +307,31 @@ export class InModule {
         });
     }
 
+    /* Client side functions */
+
     /**
-     * Wait until the gRPC server is fully up and running
+     * Wait until other gRPC servers are fully up and running
      * @param core - set ccInType instance
      * @param waitSec - set minimum number of seconds to wait for response
-     * @param rpcInstance - can set rpcInstance. Mainly for testing
+     * @param clientImpl - can inject client implementation class. Mainly for tests
+     * @param removeAllChannel - can check from channel creation. Mainly for tests
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async waitForRPCisOK(core: ccInType, waitSec: number, rpcInstance?: any): Promise<gResult<void, gError>> {
+    public async waitForRPCisOK(core: ccInType, waitSec: number, clientImpl?: any, removeAllChannel?: boolean): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":waitForRPCisOK");
 
         let leftNodes = clone(core.conf.nodes);
+        if (removeAllChannel === true) {
+            for (const node of leftNodes) {
+                delete this.generalConnections[node.nodename];
+            }
+        }
+
         for await (const _ of setInterval(1000)) {
             
-            let ret: gResult<rpcResultFormat[], gError>
-            if (rpcInstance === undefined) {
-                ret = await this.runRpcs(core, leftNodes, "Ping", "Ping", waitSec, "check");
-            } else {
-                ret = await rpcInstance(core, leftNodes, "Ping", "Ping", waitSec, "check");
-            }
+            const ret: gResult<rpcResultFormat[], gError> = await this.runRpcs(core, leftNodes, "Ping", "Ping", waitSec, "check", clientImpl);
             if (ret.isFailure()) return ret;
             leftNodes = [];
             for (const result of ret.value) {
@@ -336,70 +348,18 @@ export class InModule {
         return this.iError("waitForRPCisOK", "setInterval", "unknown error occured");
     }
 
-    /* Client side functions */
-
-    /**
-     * Make a payload of a packet
-     * @param request - set request type
-     * @param dataAsString - set data as string
-     * @returns returns a payload with icPacketPayload object
-     */
-    protected makeOnePayload(request: string, dataAsString: string): ic.icPacketPayload {
-        const payload = new ic.icPacketPayload();
-        payload.setPayloadType(ic.payload_type.REQUEST);
-        payload.setRequest(request);
-        payload.setDataAsString(dataAsString);
-        return payload;
-    }
-    /**
-     * Make a packet with a payload
-     * @param core - set ccInType instance
-     * @param target - set target node information with nodeProperty format
-     * @param payload - set the payload to deliver
-     * @returns returns a packet with icGeneralPacket object
-     */
-    protected makeOnePacket(core: ccInType, target: nodeProperty, payload: ic.icPacketPayload): ic.icGeneralPacket {
-        const id = randomUUID();
-        const packet = new ic.icGeneralPacket();
-        packet.setVersion(4);
-        packet.setPacketId(id);
-        packet.setSender(core.conf.self.nodename);
-        packet.setReceiver(target.nodename);
-        packet.setPayload(payload);
-        packet.setPrevId("");
-        return packet;
-    }
-    /**
-     * Send a packet to the destination
-     * @param core - set ccInType instance
-     * @param packet - set the packet
-     */
-    protected async sendOnePacket(core: ccInType, packet: ic.icGeneralPacket): Promise<void> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendPacket");
-
-        const call = this.generalConnections[packet.getReceiver()].call;
-        call.write(packet, () => {
-            LOG("Debug", 0, "Make a reply box for id: " + packet.getPacketId());
-            this.generalResults[packet.getPacketId()] = {
-                state: inResultsType.yet,
-                installationtime: new Date().valueOf(),
-                result: this.iError("undefined")
-            }
-        });
-    }
-
     /**
      * Run RPCs to multiple nodes in parallel
      * @param core - set ccInType instance
      * @param targets - set target nodes' information with an array of nodeProperty format
-     * @param request - set request string
+     * @param request - set request string listing at inRequestType
      * @param dataAsString - set data for the request as a string
      * @param maxRetryCount - can set limit of retries. The default is 30.
-     * @param resetLevel - can set the level of network resetting when RPC is failed. If it failed again, the level will be escalated, except for "check" level for network checking.
+     * @param resetLevel - can set the level of network resetting when RPC is failed. If it failed again, the level will be escalated. See description of inConnectionResetLevel for the detail.
+     * @param clientImpl - can inject client implementation class. Mainly for tests
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result with an array of rpcResultFormat if it's success, and gError if it's failure.
      */
-    public async runRpcs(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+    public async runRpcs(core: ccInType, targets: nodeProperty[], request: inRequestType, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel, clientImpl?: any): Promise<gResult<rpcResultFormat[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":runRpcs");
 
@@ -421,7 +381,7 @@ export class InModule {
 
         const results: rpcResultFormat[] = [];
         for (const target of normalNodes) {
-            const ret = await this.getConnection(core, target.nodename, resetLevel);
+            const ret = await this.getConnection(core, target.nodename, resetLevel, clientImpl);
             if (ret.isFailure()) { return ret };
 
             const packet = this.makeOnePacket(core, target, payload);
@@ -483,12 +443,14 @@ export class InModule {
                     break;
             }
             if (resetLevel !== "never") {
-                const ret = await this.runRpcs(core, retryNodes, request, dataAsString, maxRetryCount, resetLevel);
+                const ret = await this.runRpcs(core, retryNodes, request, dataAsString, maxRetryCount, resetLevel, clientImpl);
                 if (ret.isFailure()) return ret;
                 restResults = ret.value;
             } else {
                 restResults = failureResults;
             }
+        } else {
+            restResults = failureResults;
         }
         const finalResults: rpcResultFormat[] = successResults.concat(restResults);
 
@@ -499,6 +461,58 @@ export class InModule {
         }
         return this.iOK(finalResults);
     }
+    /**
+     * Make a payload of a packet
+     * @param request - set request type
+     * @param dataAsString - set data as string
+     * @returns returns a payload with icPacketPayload object
+     */
+    protected makeOnePayload(request: string, dataAsString: string): ic.icPacketPayload {
+        const payload = new ic.icPacketPayload();
+        payload.setPayloadType(ic.payload_type.REQUEST);
+        payload.setRequest(request);
+        payload.setDataAsString(dataAsString);
+        return payload;
+    }
+    /**
+     * Make a packet with a payload
+     * @param core - set ccInType instance
+     * @param target - set target node information with nodeProperty format
+     * @param payload - set the payload to deliver
+     * @returns returns a packet with icGeneralPacket object
+     */
+    protected makeOnePacket(core: ccInType, target: nodeProperty, payload: ic.icPacketPayload): ic.icGeneralPacket {
+        const id = randomUUID();
+        const packet = new ic.icGeneralPacket();
+        packet.setVersion(4);
+        packet.setPacketId(id);
+        packet.setSender(core.conf.self.nodename);
+        packet.setReceiver(target.nodename);
+        packet.setPayload(payload);
+        packet.setPrevId("");
+        return packet;
+    }
+    /**
+     * Send a packet to the destination
+     * @param core - set ccInType instance
+     * @param packet - set the packet
+     */
+    protected async sendOnePacket(core: ccInType, packet: ic.icGeneralPacket): Promise<void> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendOnePacket");
+
+        const call = core.lib.generalConnections[packet.getReceiver()].call;
+        call.write(packet, () => {
+            LOG("Debug", 0, "In object: " + core.lib.debugId)
+            LOG("Debug", 0, "Make a reply box for id: " + packet.getPacketId());
+            core.lib.generalResults[packet.getPacketId()] = {
+                state: inResultsType.yet,
+                installationtime: new Date().valueOf(),
+                result: core.lib.iError("undefined")
+            }
+        });
+    }
+
     /**
      * Make a new connection in call level, and add call listeners and packet handlers
      * @param core - set ccInType instance
@@ -512,15 +526,15 @@ export class InModule {
         const newcall = channel.ccGeneralIc();
 
         newcall.on("error", async (req: ic.icGeneralPacket) => {
-            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:data error to " + req.getReceiver());
-            this.generalResults[req.getPacketId()] = {
+            LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":getConnection:data error to " + req.getReceiver());
+            core.lib.generalResults[req.getPacketId()] = {
                 state: inResultsType.failure,
                 installationtime: new Date().valueOf(),
-                result: this.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
+                result: core.lib.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
             }
         })
         newcall.on("data", async (req: ic.icGeneralPacket) => {
-            LOG("Debug", 0, "In:" + this.conf.self.nodename + ":getConnection:dataArrived from " + req.getSender());
+            LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":getConnection:dataArrived from " + req.getSender());
             /**
              * The return packet:
              * 1. isFailure() === true: parsing itself is failed, drop.
@@ -538,8 +552,9 @@ export class InModule {
              * 2.2.2. ret.value.getPacketId() === ""
              *     It needs to be terminated with no response. (Do nothing)
              */
-            this.receiver.generalReceiver(req)
+            core.lib.receiver.generalReceiver(req)
             .then((ret) => {
+                LOG("Debug", 0, "In object: " + core.lib.debugId)
                 if (ret.isSuccess()) {
                     if (ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST) {
                         if (ret.value.getPacketId() !== "") {
@@ -549,9 +564,15 @@ export class InModule {
                             })
                         }
                     } else {
-                        if ((this.generalResults[req.getPrevId()] !== undefined) && (this.generalResults[req.getPrevId()].state === inResultsType.yet)) {
-                            this.generalResults[req.getPrevId()].state = inResultsType.success;
-                            this.generalResults[req.getPrevId()].result = this.iOK(ret.value);
+                        //if ((core.lib.generalResults[req.getPrevId()] !== undefined) && (core.lib.generalResults[req.getPrevId()].state === inResultsType.yet)) {
+                        if (core.lib.generalResults[req.getPrevId()] !== undefined) {
+                            if (core.lib.generalResults[req.getPrevId()].state === inResultsType.failure) {
+                                LOG("Warning", 0, "Overwrite failure result with new success result");
+                            } else if (core.lib.generalResults[req.getPrevId()].state === inResultsType.success) {
+                                LOG("Warning", 0, "Overwrite success result with new success result");
+                            }
+                            core.lib.generalResults[req.getPrevId()].state = inResultsType.success;
+                            core.lib.generalResults[req.getPrevId()].result = core.lib.iOK(ret.value);
                         } else {
                             LOG("Notice", 0, "Dropped a packet that was addressed to me but for which no reply box was provided");
                             LOG("Debug", 0, "A reply box for id: " + req.getPrevId() + " should have been prepared.");
@@ -568,16 +589,22 @@ export class InModule {
      * @param core - set ccInType instance
      * @param targetName - set target name
      * @param targetHostPort - set a string with the format hostname or ip + ":" + port number
+     * @param clientImpl - can inject client implementation class. Mainly for tests
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    protected makeNewChannelAndCall(core: ccInType, targetName: string, targetHostPort: string): gResult<void, gError> {
+    protected makeNewChannelAndCall(core: ccInType, targetName: string, targetHostPort: string, clientImpl?: any): gResult<void, gError> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "InModule:makeNewChannelAndCall");
 
         try {
             const creds: ChannelCredentials = ChannelCredentials.createInsecure();
-            const newchannel = new ic_grpc.interconnectClient(targetHostPort, creds);
+            let newchannel: ic_grpc.interconnectClient;
+            if (clientImpl === undefined) {
+                newchannel = new ic_grpc.interconnectClient(targetHostPort, creds);
+            } else {
+                newchannel = new clientImpl(targetHostPort, creds, core); // For testing
+            }
             const newcall = this.makeNewCallWithListener(core, newchannel);
             this.generalConnections[targetName] = {
                 channel: newchannel,
@@ -593,9 +620,10 @@ export class InModule {
      * @param core - set ccInType instance
      * @param nodename - set target's nodename
      * @param resetLevel - can set "call", "channel", or "check" to force to reset a connection
-     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with clientInstance format if it's success, and gError if it's failure.
+     * @param clientImpl - can inject client implementation class. Mainly for tests
+     * @returns returns with gResult, that is wrapped by a Promise, that contains the result with clientImpl format if it's success, and gError if it's failure.
      */
-    protected async getConnection(core: ccInType, nodename: string, resetLevel?: inConnectionResetLevel): Promise<gResult<clientInstance, gError>> {
+    protected async getConnection(core: ccInType, nodename: string, resetLevel?: inConnectionResetLevel, clientImpl?: any): Promise<gResult<clientInstance, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "IcModule:getConnection");
 
@@ -637,7 +665,7 @@ export class InModule {
         } catch (error) {
             
         }
-        const ret = this.makeNewChannelAndCall(core, nodename, target);
+        const ret = this.makeNewChannelAndCall(core, nodename, target, clientImpl);
         if (ret.isSuccess()) {
             return this.iOK({ call: this.generalConnections[nodename].call, newcall: true });
         } else {
