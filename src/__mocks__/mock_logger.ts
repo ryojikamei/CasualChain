@@ -40,4 +40,5 @@ export class logMock {
             pending_message: ""
         }
     }
+    
 }

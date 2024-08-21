@@ -29,7 +29,7 @@ export class BackendDbSubModuleMock {
         if (conf.mongo_port > 0) {
             return this.dbOK({ client: "mongodb" });
         } else {
-            return this.dbError("Error");
+            return this.dbError("Error in mock_mongodb");
         }
     }
 

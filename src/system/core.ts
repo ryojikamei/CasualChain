@@ -121,7 +121,7 @@ export class SystemModule {
     }
 
     /**
-     * Inter-class variable to set module condition
+     * Variable common to each class for setting the module condition
      */
     protected coreCondition: moduleCondition = "unloaded";
     /**
@@ -1400,7 +1400,7 @@ export class SystemModule {
         let repairNeeded: number;
         const ret1 = await core.lib.reportHealthOfChain(core);
         if (ret1.isFailure()) {
-            LOG("Warning", -2, "Failed to generate health check report. It needs to repair");
+            LOG("Warning", -2, "Failed to generate health check report:" + ret1.value +  " It needs to repair");
             repairNeeded = 2;
         } else {
             self_report = ret1.value;

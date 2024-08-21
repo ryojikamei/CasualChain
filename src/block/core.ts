@@ -44,7 +44,7 @@ export class BlockModule {
     }
 
     /**
-     * Inter-class variable to set module condition
+     * Variable common to each class for setting the module condition
      */
     protected coreCondition: moduleCondition = "unloaded";
     /**

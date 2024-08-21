@@ -47,7 +47,7 @@ export class SystemModuleMock {
                 async requestToAddPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> {
 
                     if ((txArr[0] !== undefined) && (txArr[0].hasOwnProperty("wrong") === true)) {
-                        return sError("Error");
+                        return sError("Error in mock_system");
                     } else {
                         return sOK(undefined);
                     }
@@ -57,7 +57,7 @@ export class SystemModuleMock {
                 },
                 async requestToAddBlock(core: ccSystemType, bObj: blockFormat, removeFromPool: boolean | undefined, trackingId?: string): Promise<gResult<void, gError>> {
                     if (bObj.size < 0) {
-                        return sError("Error");
+                        return sError("Error in mock_system");
                     } else {
                         return sOK(undefined);
                     }
@@ -86,12 +86,12 @@ export class SystemModuleMock {
                     if (failIfUnhealthy === true) { // for a flag
                         return sOK({ hash: "fake", height: 1 })
                     } else {
-                        return sError("Error");
+                        return sError("Error in mock_system");
                     }
                 },
                 async requestToExamineBlockDifference(core: ccSystemType, examineList: examineHashes): Promise<gResult<examinedHashes, gError>> {
                     if (examineList[0]._id === "wrong") {
-                        return sError("Error");
+                        return sError("Error in mock_system");
                     } else {
                         return sOK({ add: [], del: [] });
                     }
@@ -101,7 +101,7 @@ export class SystemModuleMock {
                 },
                 async requestToExaminePoolDifference(core: ccSystemType, examineList: string[]): Promise<gResult<objTx[], gError>> {
                     if (examineList[0] === "wrong") {
-                        return sError("Error");
+                        return sError("Error in mock_system");
                     } else {
                         return sOK([]);
                     }
