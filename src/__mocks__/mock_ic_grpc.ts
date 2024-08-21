@@ -1,5 +1,4 @@
 import { EventEmitter } from "events";
-import { randomUUID } from "crypto";
 
 import * as grpc from "@grpc/grpc-js";
 import ic from "../../grpc/interconnect_pb.js"
@@ -20,32 +19,32 @@ export class ServerMock {
 
     public addService(service: grpc.ServiceDefinition, implementation: grpc.UntypedServiceImplementation) {
         if (this.testAddService === 0) {
-            console.log("addService OK");
+            //console.log("addService OK");
             return undefined;
         }
-        console.log("addService error");
+        //console.log("addService error");
         throw new Error("addService error");
     }
 
     public async bindAsync(port: string, creds: grpc.ServerCredentials, callback: (error: Error | null, port: number) => void) {
         const bindPort: number = Number(port.split(":")[1]);
         if (this.testBindAsync === 0) {
-            console.log("bindAsync OK");
+            //console.log("bindAsync OK");
             callback(null, bindPort);
             return undefined;
         }
-        console.log("bindAsync error");
+        //console.log("bindAsync error");
         callback(new Error("bindAsync error"), bindPort * -1);
         return undefined;
     }
 
     public tryShutdown(callback: (error?: Error) => void) {
         if (this.testTryShutdown === 0) {
-            console.log("tryShutdown OK");
+            //console.log("tryShutdown OK");
             callback();
             return undefined;
         }
-        console.log("tryShutdown error");
+        //console.log("tryShutdown error");
         callback(new Error("tryShutdown error"));
         return undefined;
     }
@@ -106,10 +105,19 @@ export class interconnectClient_Success extends interconnectClient_Base {
 
     // Success response
     protected write(req: ic.icGeneralPacket, callback?: Function) {
-        if (callback !== undefined) { callback(); }
+        if (callback !== undefined) {
+            console.log("callback:MakeBox:" + req.getPacketId())
+            callback();
+        }
         const receiver = new InReceiverSubModuleMock();
-        const response = receiver.generalReceiver(req);
-        emitter.emit("data", response);
+        receiver.generalReceiver(req) // fake receiver of the server side
+        .then((ret) => {
+            if (ret.isSuccess()) {
+                if (ret.value.getPacketId() !== "") {
+                    emitter.emit("data", ret.value)  // receiver on the client side
+                }
+            }
+        })
     }
 }
 

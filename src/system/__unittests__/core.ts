@@ -14,10 +14,10 @@ import { InModuleMock } from "../../__mocks__/mock_in";
 import { logMock } from "../../__mocks__/mock_logger";
 import { BlockModuleMock } from "../../__mocks__/mock_block";
 import { MainModuleMock } from "../../__mocks__/mock_main";
+import { EventModuleMock } from "../../__mocks__/mock_event";
 import { randomOid } from "../../utils";
 import { randomUUID } from "crypto";
 import { objTx } from "../../datastore";
-import { EventModule } from "../../event";
 
 const default_tenant_id = randomUUID()
 
@@ -64,7 +64,7 @@ describe("Test of SystemModule", () => {
         if (ret2.isSuccess()) icore = ret2.value; 
         const ret3 = await (new BlockModuleMock().init())
         if (ret3.isSuccess()) bcore = ret3.value;
-        const ret4 = new EventModule().init({ enable_internaltasks: false}, new logMock())
+        const ret4 = new EventModuleMock().init();
         if (ret4.isSuccess()) ecore = ret4.value;
 
         const ret01 = await(new DsModuleMock().init());
@@ -85,23 +85,12 @@ describe("Test of SystemModule", () => {
         mcoreFail.lib.getLastBlock = () => { return new gFailure(new gError("main", "getLastBlock", "", "")); };
         const ret21 =  await (new InModuleMock().init());
         if (ret21.isSuccess()) icoreFail = ret21.value;
-        icoreFail.lib.sendRpc = () => { return new gFailure(new gError("in", "sendRpc", "", "")); }
+        icoreFail.lib.runRpcs = () => { return new gFailure(new gError("in", "runRpcs", "", "")); }
         const ret31 = await (new BlockModuleMock().init())
         if (ret31.isSuccess()) bcoreFail = ret31.value;
         bcoreFail.lib.createBlock = () => { return new gFailure(new gError("block", "createBlock", "", "")); }
         bcoreFail.lib.verifyBlock = () => { return new gFailure(new gError("block", "verifyBlock", "", "")); }
     });
-
-    /* describe("Method init()", () => {
-        test("succeed in initialization", async () => {
-            const ret = slib.init(confMock, new logMock());
-            if (ret.isSuccess()) {
-                expect(ret.value).toEqual(score);
-            } else {
-                throw new Error("unknown error");
-            }
-        });
-    }); */
 
     describe("Method registerAutoTasks()", () => {
         test("Success", () => {
@@ -180,8 +169,8 @@ describe("Test of SystemModule", () => {
             score.i = icoreFail;
             const ret3 = await slib.postDeliveryPool(score);
             expect(ret3.type).toBe("failure");
-        });
-    });
+        }); 
+    }); 
 
     describe("Method requestToAddPool()", () => {
         test("succeed in adding", async () => {
@@ -489,13 +478,16 @@ describe("Test of SystemModule", () => {
             score.m = mcore;
             score.i = icore;
             score.d = dcore;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
+            console.log(JSON.stringify(ret.value));
             expect(ret.type).toBe("success");
         });
         test("Failed to pass the test due to down of main module", async() => {
             score.m = undefined;
             score.i = icore;
             score.d = dcore;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
             expect(ret.type).toBe("failure");
         });
@@ -503,6 +495,7 @@ describe("Test of SystemModule", () => {
             score.m = mcore;
             score.i = undefined;
             score.d = dcore;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
             expect(ret.type).toBe("failure");
         });
@@ -510,6 +503,7 @@ describe("Test of SystemModule", () => {
             score.m = mcore;
             score.i = icore;
             score.d = dcore;
+            score.b = bcore;
             score.serializationLocks.postScanAndFixBlock = true;
             const ret = await slib.postScanAndFixBlock(score);
             score.serializationLocks.postScanAndFixBlock = false;
@@ -519,22 +513,33 @@ describe("Test of SystemModule", () => {
             score.m = mcore;
             score.i = icoreFail;
             score.d = dcore;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
             expect(ret.type).toBe("failure");
         });
         /*
-        test("Failure5", async () => {
+        test("Failure5", async() => {
+            score.m = mcore;
+            score.i = icore;
+            score.d = dcore;
+            score.b = bcoreFail;
+            const ret = await slib.postScanAndFixBlock(score);
+            expect(ret.type).toBe("failure");
+        });
+        test("Failure6", async () => {
             score.m = mcore;
             score.i = icore;
             score.d = dcoreFail;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
             expect(ret.type).toBe("failure");
         });
         */
-        test("Failure6", async () => {
+        test("Failure7", async () => {
             score.m = mcoreFail;
             score.i = icore;
             score.d = dcore;
+            score.b = bcore;
             const ret = await slib.postScanAndFixBlock(score);
             expect(ret.type).toBe("failure");
         });

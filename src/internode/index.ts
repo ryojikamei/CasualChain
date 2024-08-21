@@ -25,7 +25,6 @@ export type ccInType = {
     lib: InModule,
     conf: inConfigType,
     log: ccLogType,
-    receiver: InReceiverSubModule,
     s: ccSystemType,
     b: ccBlockType,
     k: ccKeyringType

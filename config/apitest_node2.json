@@ -1,11 +1,11 @@
 {
     "logger": {
         "console_output": true,
-        "console_level": "info",
+        "console_level": "Debug",
         "file_output": true,
         "file_path": "/tmp/cc_apitest_node2.log",
         "file_rotation": false,
-        "file_level": "debug"
+        "file_level": "Debug"
     },
     "block": {
         "ca3": {

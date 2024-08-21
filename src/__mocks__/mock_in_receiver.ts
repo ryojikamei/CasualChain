@@ -20,8 +20,8 @@ export class InReceiverSubModuleMock {
 
     //constructor(conf: any, log: any, systemInstance: any, blockInstance: any) {}
 
-    public async generalReceiver(req: ic.icGeneralPacket) {
-        console.log("in generalReceiver")
+    public async generalReceiver(req: ic.icGeneralPacket): Promise<gResult<ic.icGeneralPacket, gError>> {
+        console.log("in mocked generalReceiver")
 
         const payload = req.getPayload()?.toObject();
         if (payload === undefined) { return this.irError("generalReceiver", "parse", "Payload is undefined"); }
@@ -29,6 +29,8 @@ export class InReceiverSubModuleMock {
         if (payload.payloadType !== ic.payload_type.REQUEST) {
             return this.irOK(req);
         }
+
+        const samples = await generateSamples();
 
         type responseOrTerminate = "response" | "terminate";
         let resultType: responseOrTerminate = "terminate";
@@ -56,12 +58,12 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret11[0].tenant === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    result.setDataAsString("OK");
-                } else {
+                if (ret11[0].tenant === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    result.setDataAsString("OK");
                 }
                 break;
             case "AddBlock":
@@ -84,12 +86,12 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret21.traveling.block.tenant === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    result.setDataAsString("OK");
-                } else {
+                if (ret21.traveling.block.tenant === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    result.setDataAsString("OK");
                 }
                 break;
             case "GetPoolHeight":
@@ -107,13 +109,13 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret31.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
+                if (ret31.tenantId === "Wrong") {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
                     const d: inHeightReturnDataFormat = { height: 1 };
                     result.setDataAsString(JSON.stringify(d));
-                } else {
-                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
-                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
                 }
                 break;
             case "GetBlockHeight":
@@ -131,13 +133,13 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret41.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
+                if (ret41.tenantId === "Wrong") {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
                     const d42: inHeightReturnDataFormat = { height: 1 };
                     result.setDataAsString(JSON.stringify(d42));
-                } else {
-                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
-                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
                 }
                 break;
             case "GetBlockDigest":
@@ -155,16 +157,17 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret51.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    const d52: inDigestReturnDataFormat = {
-                        hash: "fakeHash",
-                        height: 10
-                    }
-                    result.setDataAsString(JSON.stringify(d52));
-                } else {
+                if (ret51.tenantId === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    const blk0 = samples.blks.get("blk0");
+                    const d52: inDigestReturnDataFormat = {
+                        hash: blk0?.hash!,
+                        height: 0
+                    }
+                    result.setDataAsString(JSON.stringify(d52));
                 }
                 break;
             case "GetBlock":
@@ -182,16 +185,17 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret61.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    const d62: getBlockResult = {
-                        oid: ret61.oid,
-                        block: (await generateSamples()).blks.get("blk0")
-                    }
-                    result.setDataAsString(JSON.stringify(d62));
-                } else {
+                if (ret61.tenantId === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    const blk0 = samples.blks.get("blk0");
+                    const d62: getBlockResult = {
+                        oid: blk0?._id!,
+                        block: blk0
+                    }
+                    result.setDataAsString(JSON.stringify(d62));
                 }
                 break;
             case "ExamineBlockDifference":
@@ -209,16 +213,17 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret71.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
+                if (ret71.tenantId === "Wrong") {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    const blk2 = samples.blks.get("blk2");
                     const ret72: examinedHashes = {
-                        add: [(await generateSamples()).blks.get("blk2")!],
+                        add: [blk2!],
                         del: []
                     }
                     result.setDataAsString(JSON.stringify(ret72));
-                } else {
-                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
-                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
                 }
                 break;
             case "ExaminePoolDifference":
@@ -236,12 +241,13 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret81.tenantId === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    result.setDataAsString(JSON.stringify([(await generateSamples()).txs.get("tx3")]));
-                } else {
+                if (ret81.tenantId === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "The tenant is invalid")));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    const tx3 = samples.txs.get("tx3");
+                    result.setDataAsString(JSON.stringify([tx3]));
                 }
                 break;
             case "DeclareBlockCreation":
@@ -259,12 +265,12 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (ret91.block?.tenant === DEFAULT_PARSEL_IDENTIFIER) {
-                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
-                    result.setDataAsString(JSON.stringify(101));
-                } else {
+                if (ret91.block?.tenant === "Wrong") {
                     result.setPayloadType(ic.payload_type.RESULT_FAILURE);
                     result.setGErrorAsString(JSON.stringify(-102));
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    result.setDataAsString(JSON.stringify(101));
                 }
                 break;
             case "SignAndResendOrStore":
@@ -282,12 +288,12 @@ export class InReceiverSubModuleMock {
                     result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
                     break;
                 }
-                if (retA1.block.tenant === DEFAULT_PARSEL_IDENTIFIER) {
+                if (retA1.block.tenant === "Wrong") {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(3000)); // negatives, 1000s, 2000s, and 3000s 
+                } else {
                     result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
                     result.setDataAsString(JSON.stringify(0));
-                } else {
-                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
-                    result.setGErrorAsString(JSON.stringify(3000)); // negative, 1000s, 2000s, and 3000s 
                 }
                 break;
             case "ResetTestNode":

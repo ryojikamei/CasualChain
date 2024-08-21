@@ -9,12 +9,11 @@ import { gResult, gSuccess, gFailure, gError } from "../utils";
 import { ccInType, InModule, rpcResultFormat, inRequestType } from "../internode";
 import { inConnectionResetLevel } from "../internode/index.js";
 import { SystemModuleMock } from "./mock_system";
-import { KeyringModuleMock } from "./mock_keyring";
-import { BlockModuleMock } from "./mock_block";
 import { ccLogType, LogModule } from "../logger";
 import { inConfigType, logConfigType, nodeProperty } from "../config";
 import { randomUUID } from "crypto";
 import ic from "../../grpc/interconnect_pb.js";
+import { InReceiverSubModuleMock } from "./mock_in_receiver";
 
 const InConf: inConfigType = {
     "self": {
@@ -63,7 +62,6 @@ export class InModuleMock {
                         lib: new InModuleMock(),
                         conf: conf,
                         log: log,
-                        receiver: undefined,
                         s: systemInstance ?? undefined,
                         b: blockInstance ?? undefined,
                         k: keyringInstance ?? undefined
@@ -104,7 +102,7 @@ export class InModuleMock {
                     }
                     return iOK<void>(undefined);
                 },
-                async runRpcs(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+                async runRpcs_alt(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
                     if (targets.length === 0) {
                         return iError("runRpcs", "runRpcs", "No nodes are allowed to communicate");
                     }
@@ -130,9 +128,10 @@ export class InModuleMock {
                     if (request === "wrong") { return iOK([fakeResult_NG]); }
                     return iOK([fakeResult_OK]);
                 },
-                async runRpcs_useorig(core: ccInType, targets: nodeProperty[], request: inRequestType, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
+                async runRpcs(core: ccInType, targets: nodeProperty[], request: inRequestType, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel, clientImpl?: any): Promise<gResult<rpcResultFormat[], gError>> {
+                    console.log("Using half-mocked runRpcs for " + request)
                     const ic_grpc = await import("./mock_ic_grpc.js");
-                    const originalLib = new InModule(InConf, core.log, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0));
+                    const originalLib = new InModule(InConf, core.log, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0), new InReceiverSubModuleMock());
                     const logConf: logConfigType = {
                         console_output: false,
                         console_level: 6,
@@ -146,12 +145,13 @@ export class InModuleMock {
                     let logType: ccLogType | undefined;
                     if (ret.isSuccess()) logType = ret.value;
                     let originalCore: ccInType | undefined;
-                    const ret2 = await originalLib.init(InConf, logType!, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0));
-                    if (ret2.isSuccess()) originalCore = ret2.value;
+                    const ret2 = await originalLib.init(InConf, logType!, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0), undefined, new InReceiverSubModuleMock());
+                    if (ret2.isFailure()) { throw new Error(JSON.stringify(ret2.value)); }
+                    originalCore = ret2.value;
                     if (request === "TestMode") {
-                        return await originalLib.runRpcs(originalCore!, targets, request, dataAsString, maxRetryCount, resetLevel, ic_grpc.interconnectClient_Failure);
+                        return await originalLib.runRpcs(originalCore, targets, request, dataAsString, 0, "channel", ic_grpc.interconnectClient_Failure);
                     } else {
-                        return await originalLib.runRpcs(originalCore!, targets, request, dataAsString, maxRetryCount, resetLevel, ic_grpc.interconnectClient_Success);
+                        return await originalLib.runRpcs(originalCore, targets, request, dataAsString, 0, "channel", ic_grpc.interconnectClient_Success);
                     }
                 },
             },
