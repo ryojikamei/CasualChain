@@ -5,10 +5,6 @@ A blockchain core system that doesn't have any incentive features inside
 
 - Man shall not live by crypto currency alone
 
-# NOTE
-
-In order to brush up on functionality, we may make changes that will cause incompatibility during version 0.9.x.
-
 # Documentation
 
 - [Code reference](https://ryojikamei.github.io/CasualChain/index.html)
@@ -16,6 +12,7 @@ In order to brush up on functionality, we may make changes that will cause incom
 - [Overview(Japanese)](https://github.com/ryojikamei/CasualChain/blob/main/CasualChain_OverView-ja.pdf)
 - [API guide](https://github.com/ryojikamei/CasualChain/blob/main/API.md)
 - [DataFormat guide](https://github.com/ryojikamei/CasualChain/blob/main/DATAFORMAT.md)
+- [Configuration guide](https://github.com/ryojikamei/CasualChain/blob/main/CONFIG.md)
 
 # Try to run a demo
 
@@ -35,12 +32,12 @@ CasualChain also uses OpenSSL commands directly. This is usually already install
 
 ### Install the Node.js
 
-Version 18.x is tested. 20.x is testing.
+Version 18.x and 20.x are tested.
 Here is a installation example for ubuntu 22.04.
 ```
 $ sudo apt install nodejs npm
 $ sudo npm install n -g
-$ sudo n 18
+$ sudo n 20
 $ sudo apt purge nodejs npm
 $ sudo apt autoremove
 ```
@@ -73,7 +70,7 @@ In future versions, the core will be made into a library, which will be more use
 ```
 $ sudo apt install nodejs npm
 $ sudo npm install n -g
-$ sudo n 18
+$ sudo n 20
 $ sudo apt purge nodejs npm
 $ sudo apt autoremove
 ```
@@ -114,10 +111,10 @@ CONTAINER ID   IMAGE                                        COMMAND             
 $ sudo docker container stop quizzical_lederberg
 ```
 
-# Run for a evaluation
+# Run for a long-term evaluation
 
 The two startup modes - dev, and demo - build the MongoDB on volatile memory.
-When starting in evaluation, MongoDB must be configured as normal.
+When starting in a long-term evaluation, MongoDB must be configured as normal.
 
 ## MongoDB installation
 
