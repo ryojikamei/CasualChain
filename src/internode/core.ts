@@ -18,6 +18,7 @@ import { ccLogType } from "../logger/index.js";
 import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
 import { ccKeyringType } from "../keyring/index.js";
+import { ccConfigType } from "../config/index.js";
 import { ccInType, rpcResultFormat } from "./index.js";
 import { InReceiverSubModule } from "./receiver.js";
 
@@ -128,7 +129,7 @@ export class InModule {
      * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and gError if it's failure.
      */
     public async init(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, 
-        keyringInstance: ccKeyringType, ServerInstance?: any, ServiceInstance?: any, receiverInstance?: any): Promise<gResult<ccInType, gError>> {
+        keyringInstance: ccKeyringType, configInstance: ccConfigType, ServerInstance?: any, ServiceInstance?: any, receiverInstance?: any): Promise<gResult<ccInType, gError>> {
 
         this.coreCondition = "loading";
 
@@ -138,7 +139,8 @@ export class InModule {
             log: log,
             s: systemInstance,
             b: blockInstance,
-            k: keyringInstance
+            k: keyringInstance,
+            c: configInstance
         }
 
         const LOG = core.log.lib.LogFunc(core.log);
@@ -350,6 +352,37 @@ export class InModule {
     }
 
     /**
+     * Receive error list of other nodes, and blocks communication with nodes where a certain number of errors have occurred.
+     * @param core - set ccInType instance
+     * @param abnormalNodes - set a list of node names that have problems
+     * @returns returns no useful values
+     */
+    public disableAbnormalNodes(core: ccInType, abnormalNodes: string[]): gResult<void, unknown> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "In:" + this.conf.self.nodename + ":disableAbnormalNodes");
+
+        if (core.c === undefined) { this.iError("disableAbnormalNodes", "setNodeConfiguration", "Unknown error"); }
+        if (abnormalNodes.length !== 0) {
+            for (const abnormalNodeName of abnormalNodes) {
+                for (const confNode of core.conf.nodes) {
+                    if (abnormalNodeName === confNode.nodename) {
+                        let count = 1;
+                        if (confNode.abnormal_count !== undefined) {
+                            count = confNode.abnormal_count + 1;
+                        }
+                        core.c.lib.setNodeConfiguration(abnormalNodeName, "abnormal_count", count.toString());
+                        if (count >= core.conf.abnormalCountForJudging) {
+                            core.c.lib.setNodeConfiguration(abnormalNodeName, "allow_outgoing", "false");
+                        }
+                    }
+                }
+            }
+        }
+
+        return this.iOK(undefined);
+    }
+
+    /**
      * Run RPCs to multiple nodes in parallel
      * @param core - set ccInType instance
      * @param targets - set target nodes' information with an array of nodeProperty format
@@ -367,10 +400,10 @@ export class InModule {
         if (maxRetryCount === undefined) { maxRetryCount = 30; }
         if (resetLevel === undefined) { resetLevel = "no"; }
 
-        // Auto target control is a provisional specification
         let normalNodes: nodeProperty[] = [];
         for (const target of targets) {
             if ((target.nodename === core.conf.self.nodename) && (target.rpc_port === core.conf.self.rpc_port)) continue;
+            // Auto target control effect
             if (target.allow_outgoing === false) continue;
             normalNodes.push(target);
         }

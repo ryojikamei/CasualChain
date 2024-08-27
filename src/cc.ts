@@ -15,7 +15,6 @@ import { SystemModule, ccSystemType } from "./system/index.js";
 import { MainModule, ccMainType } from "./main/index.js";
 import { DsModule, ccDsType } from "./datastore/index.js";
 import { ApiModule, ccApiType } from "./api/index.js";
-//import { InModule, ccInType } from "./internode/index.js";
 import { InModule, ccInType } from "./internode/index.js";
 import { BlockModule, ccBlockType } from "./block/index.js";
 import { KeyringModule, ccKeyringType } from "./keyring/index.js";
@@ -139,7 +138,7 @@ export class CC {
         LOG("Notice", 0, "Initialize InterNode: ", {lf: false});
         //const ilib: InModule = new InModule(l, s, b); // v1
         const ilib: InModule = new InModule(c.i, l, s, b, k); // v2
-        const ret8 = await ilib.init(c.i, l, s, b, k);
+        const ret8 = await ilib.init(c.i, l, s, b, k, c);
         if (ret8.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
         } else {
@@ -200,12 +199,12 @@ export class CC {
         core.i.b = core.b;
         core.i.k = core.k;
         core.i.s = core.s;
+        core.i.c = core.c;
         // Add pathes from Block
         core.b.i = core.i;
         core.b.k = core.k;
         core.b.m = core.m;
         core.b.s = core.s;
-        core.b.c = core.c;
         // Add pathes from Keyring
         core.k.i = core.i;
         core.k.m = core.m;
@@ -298,7 +297,6 @@ export class CC {
                     for (const mod of ret.value.fromFileChanges) {
                         switch (mod) {
                             case "a":
-                                LOG("Warning", 0, "systemLoop:configA:" + JSON.stringify(core.a.conf))
                                 core.a.lib.setCondition("reloadNeeded");
                                 break;
                             case "b":
@@ -349,8 +347,6 @@ export class CC {
                 } else {
                     LOG("Warning", 0, "systemLoop: ConfigModule restart failed:" + retC.value);
                 }
-                LOG("Warning", 0, "systemLoop:configA2:" + JSON.stringify(core.a.conf))
-                LOG("Warning", 0, "systemLoop:configA3:" + JSON.stringify(core.c.a))
             }
             if (core.c.lib.getCondition() === "pulldataNeeded") {
                 const ret = core.c.lib.getData();
@@ -410,7 +406,7 @@ export class CC {
             }
             // BlockModule
             if (core.b.lib.getCondition() === "reloadNeeded") {
-                const retB = await core.b.lib.restart(core.b, core.l, core.i, core.k, core.m, core.s, core.c);
+                const retB = await core.b.lib.restart(core.b, core.l, core.i, core.k, core.m, core.s);
                 if (retB.isSuccess()) {
                     LOG("Notice", 0, "systemLoop: BlockModule restarted");
                     core.b = retB.value;

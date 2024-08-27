@@ -11,7 +11,6 @@
         "ca3": {
             "minLifeTime": 20,
             "maxLifeTime": 360,
-            "abnormalCountForJudging": 2,
             "minSignNodes": 2,
             "maxSignNodes": 2
         }
@@ -30,6 +29,7 @@
             "nodename": "dev_node1",
             "rpc_port": 7000
         },
+        "abnormalCountForJudging": 2,
         "nodes": [
             {
                 "allow_outgoing": true,

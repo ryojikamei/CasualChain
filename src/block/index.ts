@@ -48,8 +48,7 @@ export type ccBlockType = {
     i: ccInType | undefined,
     s: ccSystemType | undefined,
     k: ccKeyringType | undefined,
-    m: ccMainType | undefined,
-    c: ccConfigType | undefined
+    m: ccMainType | undefined
 }
 
 /**
