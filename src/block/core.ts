@@ -8,7 +8,7 @@ import clone from "clone";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { blockConfigType, ccConfigType } from "../config/index.js";
+import { blockConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { ccBlockType, createBlockOptions, blockFormat } from "./index.js";
 import { objTx } from "../datastore/index.js";
@@ -76,7 +76,7 @@ export class BlockModule {
      */
     public async init(conf: blockConfigType, log: ccLogType, systemInstance?: ccSystemType, 
         internodeInstance?: ccInType, keyringInstance?: ccKeyringType, mainInstance?: 
-        ccMainType, configInstance?: ccConfigType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
+        ccMainType, algorithmFile?: string): Promise<gResult<ccBlockType, gError>> {
 
         this.coreCondition = "loading"
         let core: ccBlockType = {
@@ -87,8 +87,7 @@ export class BlockModule {
             i: internodeInstance ?? undefined,
             s: systemInstance ?? undefined,
             k: keyringInstance ?? undefined,
-            m: mainInstance ?? undefined,
-            c: configInstance ?? undefined
+            m: mainInstance ?? undefined
         }
 
         const LOG = core.log.lib.LogFunc(core.log);
@@ -121,7 +120,7 @@ export class BlockModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
      */
     public async restart(core: ccBlockType, log: ccLogType, i: ccInType, k: ccKeyringType,
-        m: ccMainType, s: ccSystemType, c: ccConfigType): Promise<gResult<ccBlockType, gError>> {
+        m: ccMainType, s: ccSystemType): Promise<gResult<ccBlockType, gError>> {
         const LOG = log.lib.LogFunc(log);
         LOG("Info", 0, "BlockModule:restart");
 
@@ -133,8 +132,7 @@ export class BlockModule {
         newCore.i = i;
         newCore.k = k;
         newCore.m = m;
-        newCore.s = s;
-        newCore.c = c;
+        newCore.s = s
 
         return this.bOK(newCore);
     }

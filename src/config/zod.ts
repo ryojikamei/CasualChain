@@ -123,6 +123,7 @@ export const inConfigInputSchema = z.object({
         nodename: z.string().max(255),
         rpc_port: z.number().min(0).max(65535)
     }),
+    abnormalCountForJudging: z.number().safe().positive(),
     nodes: z.array(nodePropertyInputSchema)
 })
 /**
@@ -133,7 +134,6 @@ export type inConfigType = z.infer<typeof inConfigInputSchema>;
 export const Ca3PropertyInputSchema = z.object({
     minLifeTime: z.number().safe().positive(),
     maxLifeTime: z.number().safe().positive(),
-    abnormalCountForJudging: z.number().safe().positive(),
     minSignNodes: z.number().safe().positive(),
     maxSignNodes: z.number().safe().positive()
 })

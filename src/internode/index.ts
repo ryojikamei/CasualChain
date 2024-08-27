@@ -6,7 +6,7 @@ import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
 import ic from "../../grpc/interconnect_pb.js";
 
 import { InModule } from "./core.js"
-import { inConfigType, nodeProperty } from "../config/index.js"
+import { ccConfigType, inConfigType, nodeProperty } from "../config/index.js"
 import { ccLogType } from "../logger/index.js"
 import { ccSystemType, examineHashes } from "../system/index.js"
 import { ccBlockType } from "../block/index.js"
@@ -27,7 +27,8 @@ export type ccInType = {
     log: ccLogType,
     s: ccSystemType,
     b: ccBlockType,
-    k: ccKeyringType
+    k: ccKeyringType,
+    c: ccConfigType
 }
 
 /**

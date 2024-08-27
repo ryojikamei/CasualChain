@@ -16,7 +16,7 @@
     "prepare": "npm run build",
     "grpcgen": "grpc_tools_node_protoc -I ./grpc --plugin=protoc-gen-ts=./node_modules/.bin/protoc-gen-ts --js_out=import_style=commonjs,binary:./grpc --descriptor_set_out=./grpc/systemrpc_descriptor.pb --grpc_out=grpc_js:./grpc --ts_out=service=grpc-node,mode=grpc-js:./grpc ./grpc/*.proto",
     "pwdgen": "node dist/Run_pwdgen.js",
-    "unittest": "export SUPPRESS_NO_CONFIG_WARNING=0 && export NODE_CONFIG_ENV='apitest_node1' && export NODE_CONFIG_DIR='./config/' && export NODE_OPTIONS='--experimental-vm-modules' && npx jest --verbose --runInBand --detectOpenHandles --forceExit ",
+    "unittest": "export SUPPRESS_NO_CONFIG_WARNING=0 && export NODE_CONFIG_ENV='unittest' && export NODE_CONFIG_DIR='./config/' && export NODE_OPTIONS='--experimental-vm-modules' && npx jest --verbose --runInBand --detectOpenHandles --forceExit ",
     "doc": "typedoc"
   },
   "keywords": [
