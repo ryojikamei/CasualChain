@@ -29,7 +29,7 @@
             "nodename": "apitest_node2",
             "rpc_port": 7002
         },
-        "abnormalCountForJudging": 2,
+        "abnormalCountForJudging": 0,
         "nodes": [
             {
                 "allow_outgoing": true,

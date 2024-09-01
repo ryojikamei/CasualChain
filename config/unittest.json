@@ -29,7 +29,7 @@
             "nodename": "unittest_node1",
             "rpc_port": 7001
         },
-        "abnormalCountForJudging": 2,
+        "abnormalCountForJudging": 0,
         "nodes": [
             {
                 "allow_outgoing": true,

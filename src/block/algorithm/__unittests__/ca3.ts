@@ -7,14 +7,14 @@
 import { randomUUID, createHash } from "crypto";
 import clone from "clone";
 
-import { blockConfigType, ConfigModule, Ca3Property, keyringConfigType } from "../../../config"
+import { blockConfigType, Ca3Property, keyringConfigType } from "../../../config"
 import { ccBlockType, BlockModule } from "../.."
 import { logMock } from "../../../__mocks__/mock_logger"
 import { SystemModuleMock } from "../../../__mocks__/mock_system"
 import { InModuleMock } from "../../../__mocks__/mock_in"
 import { KeyringModuleMock } from "../../../__mocks__/mock_keyring"
 
-import { KeyringModule, ccKeyringType } from "../../../keyring"
+import { KeyringModule } from "../../../keyring"
 
 import * as CA3 from "../ca3"
 import { randomOid } from "../../../utils"
@@ -28,7 +28,6 @@ const administation_id = randomUUID();
 const ca3ConfMock: Ca3Property = {
     minLifeTime: 40,
     maxLifeTime: 60,
-    abnormalCountForJudging: 2,
     minSignNodes: 1,
     maxSignNodes: 1
 }
@@ -165,15 +164,13 @@ describe("Test of CA3 functions", () => {
         if (ret6.isFailure()) { throw new Error("beforeAll failed in init of KeyringModule"); };
         const ret7 = await (new MainModuleMock().init());
         if (ret7.isFailure()) { throw new Error("beforeAll failed in init of MainModule"); };
-        const ret8 = await (new ConfigModule().init());
-        if (ret8.isFailure()) { throw new Error("beforeAll failed in init of ConfigModule"); };
         let algorithmFile: string;
         if (existsSync("./dist/block/algorithm/ca3.js") === true) {
             algorithmFile = "./algorithm/ca3.js";
         } else {
             algorithmFile = "../../../../dist/enterprise/src/block/algorithm/ca3.js";
         }
-        const ret9 = await lib.init(confMock, new logMock(), ret4.value, ret5.value, ret6.value, ret7.value, ret8.value, algorithmFile);
+        const ret9 = await lib.init(confMock, new logMock(), ret4.value, ret5.value, ret6.value, ret7.value, algorithmFile);
         if (ret9.isFailure()) { throw new Error("beforeAll failed in init of BlockModule:" + ret9.value); };
         core = ret9.value;
     })

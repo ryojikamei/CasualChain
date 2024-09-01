@@ -447,7 +447,7 @@ export class CC {
             }
             // InModule
             if (core.i.lib.getCondition() === "reloadNeeded") {
-                const retI = await core.i.lib.restart(core.i, core.l, core.s, core.b, core.k);
+                const retI = await core.i.lib.restart(core.i, core.l, core.s, core.b, core.k, core.c);
                 if (retI.isSuccess()) {
                     LOG("Notice", 0, "systemLoop: InModule restarted");
                     core.i = retI.value;

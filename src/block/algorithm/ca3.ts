@@ -205,7 +205,7 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
                             }
                             break;
                         case ic.payload_type.RESULT_FAILURE:
-                            // It will be occured when the other node cannot interpret a packet that this node has sent.
+                            // It will be occured when the other node cannot interpret a packets sent by this node or a node impersonating this node.
                             // It should be ignored.
                             LOG("Info", 0, "CA3:declareCreation:an unknown packet is delivered to " + result.node.nodename + " or this node.");
                             break;
@@ -567,9 +567,9 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
                             case ic.payload_type.RESULT_SUCCESS:
                                 if (payload.dataAsString !== undefined) {
                                     const data = Number(payload.dataAsString);
-                                    if (data <= 0) { // Block saved anyway
+                                    if (data <= 0) { // The other node saved the block anyway
                                         breakLoop = true;
-                                    } else { // Block discarded
+                                    } else { // The other node discarded the block
                                         errorNodes.push(node.nodename);
                                     }
                                 } else {
@@ -707,6 +707,7 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
                                     // Noting needed
                                     break;
                                 case ic.payload_type.RESULT_FAILURE:
+                                    LOG("Notice", 0, "Node " + result.node.nodename + " has failed to save the block:" + payload.gErrorAsString);
                                     errorNodes.push(result.node.nodename);
                                     break;
                                 default:

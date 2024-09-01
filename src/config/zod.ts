@@ -123,7 +123,7 @@ export const inConfigInputSchema = z.object({
         nodename: z.string().max(255),
         rpc_port: z.number().min(0).max(65535)
     }),
-    abnormalCountForJudging: z.number().safe().positive(),
+    abnormalCountForJudging: z.number().safe().nonnegative(),
     nodes: z.array(nodePropertyInputSchema)
 })
 /**

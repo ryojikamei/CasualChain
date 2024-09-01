@@ -222,7 +222,7 @@ export class InModule {
      * @returns returns with gResult type, that is wrapped by a Promise, that contains ccInType if it's success, and gError if it's failure.
      */
     public async restart(core: ccInType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, 
-        keyringInstance: ccKeyringType, serverInstance?: any, ServiceInstance?: any): Promise<gResult<ccInType, gError>> {
+        keyringInstance: ccKeyringType, configInstance: ccConfigType, serverInstance?: any, ServiceInstance?: any): Promise<gResult<ccInType, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":restart");
 
@@ -230,7 +230,7 @@ export class InModule {
         const ret1 = await this.stop(core, serverInstance, ServiceInstance);
         if (ret1.isFailure()) return ret1;
 
-        const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance, serverInstance, ServiceInstance);
+        const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance, configInstance, serverInstance, ServiceInstance);
         if (ret2.isFailure()) { return this.iError("restart", "init", "unknown error") };
         const newCore: ccInType = ret2.value;
         this.coreCondition = "initialized"
@@ -333,7 +333,6 @@ export class InModule {
         }
 
         for await (const _ of setInterval(1000)) {
-            
             const ret: gResult<rpcResultFormat[], gError> = await this.runRpcs(core, leftNodes, "Ping", "Ping", waitSec, "check", clientImpl);
             if (ret.isFailure()) return ret;
             leftNodes = [];
@@ -357,21 +356,30 @@ export class InModule {
      * @param abnormalNodes - set a list of node names that have problems
      * @returns returns no useful values
      */
-    public disableAbnormalNodes(core: ccInType, abnormalNodes: string[]): gResult<void, unknown> {
+    public async disableAbnormalNodes(core: ccInType, abnormalNodes: string[]): Promise<gResult<void, unknown>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":disableAbnormalNodes");
 
+        // When disabled
+        if (core.conf.abnormalCountForJudging === 0) {
+            LOG("Info", 0, "In:" + this.conf.self.nodename + ":disableAbnormalNodes:disabled");
+            return this.iOK(undefined);
+        }
+
         if (core.c === undefined) { this.iError("disableAbnormalNodes", "setNodeConfiguration", "Unknown error"); }
+
         if (abnormalNodes.length !== 0) {
             for (const abnormalNodeName of abnormalNodes) {
                 for (const confNode of core.conf.nodes) {
                     if (abnormalNodeName === confNode.nodename) {
+                        LOG("Info", 0, "In:" + this.conf.self.nodename + ":disableAbnormalNodes:increment " + abnormalNodeName);
                         let count = 1;
                         if (confNode.abnormal_count !== undefined) {
                             count = confNode.abnormal_count + 1;
                         }
                         core.c.lib.setNodeConfiguration(abnormalNodeName, "abnormal_count", count.toString());
                         if (count >= core.conf.abnormalCountForJudging) {
+                            LOG("Notice", 0, "In:" + this.conf.self.nodename + ":disableAbnormalNodes:disable " + abnormalNodeName);
                             core.c.lib.setNodeConfiguration(abnormalNodeName, "allow_outgoing", "false");
                         }
                     }

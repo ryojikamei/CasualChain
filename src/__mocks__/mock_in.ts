@@ -20,6 +20,7 @@ const InConf: inConfigType = {
         "nodename": "node1",
         "rpc_port": 7000
     },
+    "abnormalCountForJudging": 2,
     "nodes": [
         {
             "allow_outgoing": true,
@@ -56,15 +57,16 @@ export class InModuleMock {
     public async init(): Promise<gResult<any, unknown>> {
         return iOK({
             lib: {
-                async init(conf: inConfigType, log: any, systemInstance: any, 
-                    blockInstance: any, keyringInstance: any, ServerInstance?: any): Promise<gResult<any, unknown>> {
+                async init(conf: inConfigType, log: any, systemInstance: any, blockInstance: any, 
+                    keyringInstance: any, configInstance: any, ServerInstance?: any): Promise<gResult<any, unknown>> {
                     let core: any = {
                         lib: new InModuleMock(),
                         conf: conf,
                         log: log,
                         s: systemInstance ?? undefined,
                         b: blockInstance ?? undefined,
-                        k: keyringInstance ?? undefined
+                        k: keyringInstance ?? undefined,
+                        c: configInstance ?? undefined
                     }
                     return iOK(core);
                 },
@@ -81,11 +83,11 @@ export class InModuleMock {
                     return iOK(undefined);
                 },
                 async restart(core: any, log: any, systemInstance: any, blockInstance: any, 
-                    keyringInstance: any): Promise<gResult<any, gError>> {
+                    keyringInstance: any, configInstance: any): Promise<gResult<any, gError>> {
                     if (systemInstance === undefined) {
                         return iError("stop", "stopServer", "");
                     }
-                    const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance);
+                    const ret2 = await this.init(core.conf, log, systemInstance, blockInstance, keyringInstance, configInstance);
                     if (ret2.isFailure()) { return iError("restart", "init", "unknown error") };
                     const newCore: any = ret2.value;
                     return iOK(newCore);
@@ -102,31 +104,8 @@ export class InModuleMock {
                     }
                     return iOK<void>(undefined);
                 },
-                async runRpcs_alt(core: ccInType, targets: nodeProperty[], request: string, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel): Promise<gResult<rpcResultFormat[], gError>> {
-                    if (targets.length === 0) {
-                        return iError("runRpcs", "runRpcs", "No nodes are allowed to communicate");
-                    }
-                    // getConnection errors
-                    if (targets[0].nodename === "wrong") {
-                        return iError("getConnection", "nodeConfiguration", "nodename " + targets[0].nodename + " is not found in the node list");
-                    }
-                    if (targets[0].allow_outgoing === false) {
-                        return iError("getConnection", "nodeConfiguration", "nodename " + targets[0].nodename + " is not allowed in the node list");
-                    }
-
-                    // errors at makeNewCallWithListener
-                    const fakeResult_OK: rpcResultFormat = {
-                        id: randomUUID(),
-                        node: targets[0],
-                        result: iOK(new ic.icGeneralPacket())
-                    }
-                    const fakeResult_NG: rpcResultFormat = {
-                        id: randomUUID(),
-                        node: targets[0],
-                        result: iError("", "", "")
-                    }
-                    if (request === "wrong") { return iOK([fakeResult_NG]); }
-                    return iOK([fakeResult_OK]);
+                async disableAbnormalNodes(core: ccInType, abnormalNodes: string[]): Promise<gResult<void, unknown>> {
+                    return iOK<void>(undefined)
                 },
                 async runRpcs(core: ccInType, targets: nodeProperty[], request: inRequestType, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel, clientImpl?: any): Promise<gResult<rpcResultFormat[], gError>> {
                     console.log("Using half-mocked runRpcs for " + request)
@@ -145,7 +124,7 @@ export class InModuleMock {
                     let logType: ccLogType | undefined;
                     if (ret.isSuccess()) logType = ret.value;
                     let originalCore: ccInType | undefined;
-                    const ret2 = await originalLib.init(InConf, logType!, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0), undefined, new InReceiverSubModuleMock());
+                    const ret2 = await originalLib.init(InConf, logType!, core.s, core.b, core.k, core.c, new ic_grpc.ServerMock(0, 0, 0), undefined, new InReceiverSubModuleMock());
                     if (ret2.isFailure()) { throw new Error(JSON.stringify(ret2.value)); }
                     originalCore = ret2.value;
                     if (request === "TestMode") {
