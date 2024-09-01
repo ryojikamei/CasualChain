@@ -23,7 +23,6 @@ const confMock3: blockConfigType = {
     ca3: {
         minLifeTime: 40,
         maxLifeTime: 360,
-        abnormalCountForJudging: 2,
         minSignNodes: 0,
         maxSignNodes: 0
     }
@@ -70,9 +69,9 @@ describe("Test of BlockModule", () => {
         beforeAll(async () => {
             const lib = new BlockModule();
             let ret6: gResult<ccBlockType, gError>
-            ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../dist/__mocks__/mock_ca3.js");
+            ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../dist/__mocks__/mock_ca3.js");
             if (ret6.isFailure()) {
-                ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
+                ret6 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
             }
             if (ret6.isSuccess()) {
                 core = ret6.value;
@@ -123,9 +122,9 @@ describe("Test of BlockModule", () => {
         beforeAll(async () => {
             const lib = new BlockModule();
             let ret5: gResult<ccBlockType, gError>
-            ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../dist/__mocks__/mock_ca3.js");
+            ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../dist/__mocks__/mock_ca3.js");
             if (ret5.isFailure()) {
-                ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, c, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
+                ret5 = await lib.init(confMock3, new logMock(), s, i, k, m, "../../../../dist/enterprise/src/__mocks__/mock_ca3.js");
             }
             if (ret5.isSuccess()) {
                 core = ret5.value;

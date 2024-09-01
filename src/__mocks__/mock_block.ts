@@ -20,7 +20,6 @@ const blockConf: blockConfigType = {
     ca3: {
         minLifeTime: 40,
         maxLifeTime: 360,
-        abnormalCountForJudging: 2,
         minSignNodes: 2,
         maxSignNodes: 2
     }

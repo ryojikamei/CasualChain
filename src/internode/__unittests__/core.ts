@@ -14,7 +14,7 @@ import { SystemModuleMock } from "../../__mocks__/mock_system";
 import { BlockModuleMock } from "../../__mocks__/mock_block";
 import { KeyringModuleMock } from "../../__mocks__/mock_keyring";
 import { logMock } from "../../__mocks__/mock_logger";
-import { nodeProperty, inConfigType } from "../../config";
+import { nodeProperty, inConfigType, ccConfigType, ConfigModule } from "../../config";
 
 const myNode: nodeProperty = {
     allow_outgoing: true,
@@ -35,6 +35,7 @@ const confMock: inConfigType = {
         nodename: "test_node2",
         rpc_port: 7001
     },
+    abnormalCountForJudging: 2,
     nodes: [anotherNode]
 }
 
@@ -50,6 +51,7 @@ describe("Test of InModule", () => {
     let score: ccSystemType;
     let bcore: ccBlockType;
     let kcore: ccKeyringType;
+    let ccore: ccConfigType;
 
     beforeAll(async () => {
         const slib = new SystemModuleMock();
@@ -61,28 +63,31 @@ describe("Test of InModule", () => {
         const klib = new KeyringModuleMock();
         const ret3 = await klib.init();
         if (ret3.isSuccess()) kcore = ret3.value;
+        const clib = new ConfigModule();
+        const ret4 = await clib.init();
+        if (ret4.isSuccess()) ccore = ret4.value;
         const lib = new InModule(confMock, new logMock(), score, bcore, kcore, new Server(0, 0, 0));
         // right core
-        const ret4 = await lib.init(confMock, new logMock(), score, bcore, kcore, new Server(0, 0, 0));
-        if (ret4.isFailure()) { throw new Error("FAIL"); }
-        core = ret4.value;
-        // wrong server 1, addService error
-        const ret5 = await lib.init(confMock, new logMock(), score, bcore, kcore, new Server(1, 0, 0));
+        const ret5 = await lib.init(confMock, new logMock(), score, bcore, kcore, ccore, new Server(0, 0, 0));
         if (ret5.isFailure()) { throw new Error("FAIL"); }
-        coreW1 = ret5.value;
-        // wrong server 2, bindAsync error
-        const ret6 = await lib.init(confMock, new logMock(), score, bcore, kcore, new Server(0, 1, 0));
+        core = ret5.value;
+        // wrong server 1, addService error
+        const ret6 = await lib.init(confMock, new logMock(), score, bcore, kcore, ccore, new Server(1, 0, 0));
         if (ret6.isFailure()) { throw new Error("FAIL"); }
-        coreW2 = ret6.value;
-        // wrong server 3, tryShutdown error
-        const ret7 = await lib.init(confMock, new logMock(), score, bcore, kcore, new Server(0, 0, 1));
+        coreW1 = ret6.value;
+        // wrong server 2, bindAsync error
+        const ret7 = await lib.init(confMock, new logMock(), score, bcore, kcore, ccore, new Server(0, 1, 0));
         if (ret7.isFailure()) { throw new Error("FAIL"); }
-        coreW3 = ret7.value;
+        coreW2 = ret7.value;
+        // wrong server 3, tryShutdown error
+        const ret8 = await lib.init(confMock, new logMock(), score, bcore, kcore, ccore, new Server(0, 0, 1));
+        if (ret8.isFailure()) { throw new Error("FAIL"); }
+        coreW3 = ret8.value;
     });
 
     describe("Method restart()", () => { // including stop
         test("Success1", async () => {
-            const ret = await core.lib.restart(core, core.log, score, bcore, kcore, new Server(0, 0, 0));
+            const ret = await core.lib.restart(core, core.log, score, bcore, kcore, ccore, new Server(0, 0, 0));
             expect(ret.type).toBe("success");
             if (ret.isFailure()) { throw new Error("FAIL"); }
             expect(ret.value.lib.getCondition()).toBe("active");
@@ -94,13 +99,13 @@ describe("Test of InModule", () => {
         //    expect(core.lib.getCondition()).toBe("initialized");
         //});
         test("Failure2", async () => {
-            const ret = await core.lib.restart(core, core.log, score, bcore, kcore, new Server(0, 1, 0));
+            const ret = await core.lib.restart(core, core.log, score, bcore, kcore, ccore, new Server(0, 1, 0));
             expect(ret.type).toBe("failure");
             if (ret.isSuccess()) { throw new Error("FAIL"); }
             expect(core.lib.getCondition()).toBe("initialized");
         });
         test("Success2", async () => {
-            const ret = await coreW3.lib.restart(core, core.log, score, bcore, kcore, new Server(0, 0, 0));
+            const ret = await coreW3.lib.restart(core, core.log, score, bcore, kcore, ccore, new Server(0, 0, 0));
             expect(ret.type).toBe("success");
             if (ret.isFailure()) { throw new Error("FAIL"); }
             expect(ret.value.lib.getCondition()).toBe("active");

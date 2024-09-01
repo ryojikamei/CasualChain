@@ -6,6 +6,7 @@
 
 import clone from "clone";
 import { randomUUID, randomInt } from 'crypto';
+import { setInterval } from "timers/promises";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
@@ -20,7 +21,7 @@ import { randomOid } from '../utils.js';
 import { ccEventType, internalEventFormat } from '../event/index.js';
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
 import { moduleCondition } from "../index.js";
-import { setInterval } from "timers/promises";
+import ic from "../../grpc/interconnect_pb.js";
 
 /**
  * The result of single block diagnostics
@@ -318,10 +319,9 @@ export class SystemModule {
     /**
      * Deliver pooled transactions to other nodes.
      * @param core - set ccSystemType instance
-     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
-     * So there is no need to check the value of success.
+     * @returns returns with gResult, that is wrapped by a Promise, that contains number of nodes successfully transferred if it's success, and gError if it's failure.
      */
-    public async postDeliveryPool(core: ccSystemType, waitForUnLock?: boolean): Promise<gResult<void, gError>> {
+    public async postDeliveryPool(core: ccSystemType, waitForUnLock?: boolean): Promise<gResult<number, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:postDeliveryPool");
 
@@ -364,36 +364,67 @@ export class SystemModule {
             return this.sError("postDeliveryPool", "runRpcs", "The internode module is down");
         }
 
-        // If even one node succeeds, change its own node to true.
-        let success: number = 0;
-        let failure: number = 0;
+        let success: number = 0
+        let errorNodes: string[] = [];
         for (const result of results) {
-            if (result.result.isFailure()) {
-                failure++;
-            } else {
-                success++;
+            try {
+                if (result.result.isFailure()) {
+                    errorNodes.push(result.node.nodename);
+                } else {
+                    const payload = result.result.value.getPayload()?.toObject();
+                    if (payload === undefined) {
+                        errorNodes.push(result.node.nodename);
+                    } else {
+                        switch (payload.payloadType) {
+                            case ic.payload_type.RESULT_SUCCESS:
+                                if (payload.dataAsString === "OK") {
+                                    success++;
+                                } else {
+                                    errorNodes.push(result.node.nodename);
+                                }
+                                break;
+                            case ic.payload_type.RESULT_FAILURE:
+                                LOG("Info", 0, "Node " + result.node.nodename + " has failed to save transaction data:" + payload.gErrorAsString);
+                                errorNodes.push(result.node.nodename);
+                                break;
+                            default:
+                                errorNodes.push(result.node.nodename);
+                                break;
+                        }
+                    }
+                }
+            } catch (error) {
+                errorNodes.push(result.node.nodename);
             }
         }
+        LOG("Info", 0, "postDeliveryPool:success:" + success.toString() + ",failure:" + errorNodes.length.toString());
+
+        // Something error => need attension
+        core.i.lib.disableAbnormalNodes(core.i, errorNodes);
+
+        // If any one transfer succeeds, it is considered successful.
         if (success > 0) {
             let oids: string[] = [];
             let tx: any;
             for (tx of ret1.value) {
                 oids.push(tx._id.toString());
             }
-            // modify both db and readcache at same time
             if (core.d !== undefined) {
                 const ret4 = await core.d.lib.poolModifyReadsFlag(core.d, oids, this.master_key);
-                if (ret4.isFailure()) ret4;
+                if (ret4.isFailure()) { 
+                    core.serializationLocks.postDeliveryPool = false;
+                    return ret4;
+                };
             } else {
                 core.serializationLocks.postDeliveryPool = false;
                 return this.sError("postDeliveryPool", "poolModifyReadsFlag", "The datastore module is down");
             }
         } else {
             core.serializationLocks.postDeliveryPool = false;
-            return this.sError("postDeliveryPool", "runRpcs", failure.toString() + " errors occurs");
+            return this.sError("postDeliveryPool", "runRpcs", "All " + errorNodes.length.toString() + " nodes return error");
         }
         core.serializationLocks.postDeliveryPool = false;
-        return this.sOK<void>(undefined);
+        return this.sOK<number>(success);
     }
     /**
      * Request from a sibling, the original invoker, to make this node adding sent transactions to the pool.
@@ -632,23 +663,53 @@ export class SystemModule {
                     return ret2;
                 }
                 results = ret2.value;
+
+                let errorNodes: string[] = [];
+                let returnError: gResult<never, gError> | undefined;
                 for (const result of results) {
-                    if (result.result.isFailure()) {
-                        LOG("Warning", -1, "There is a problem getting data from a remote node. No genesis block is created.");
-                        core.serializationLocks.postGenesisBlock = false;
-                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight is failed");
+                    try {
+                        if (result.result.isFailure()) {
+                            LOG("Warning", -1, "There is a problem getting data from a remote node. No genesis block is created.");
+                            returnError = this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight is failed");
+                        } else {
+                            const payload = result.result.value.getPayload()?.toObject();
+                            if (payload === undefined) {
+                                errorNodes.push(result.node.nodename);
+                            } else {
+                                switch (payload.payloadType) {
+                                    case ic.payload_type.RESULT_SUCCESS:
+                                        if (payload.dataAsString !== undefined) {
+                                            const d: inHeightReturnDataFormat = JSON.parse(payload.dataAsString);
+                                            if (d.height !== 0) {
+                                                LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
+                                                returnError = this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight indicates that there is data on a remote node");
+                                            }
+                                        } else {
+                                            returnError = this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight returns unknown error");
+                                            errorNodes.push(result.node.nodename);
+                                        }
+                                        break;
+                                    case ic.payload_type.RESULT_FAILURE:
+                                        LOG("Info", 0, "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                        errorNodes.push(result.node.nodename);
+                                        break;
+                                    default:
+                                        errorNodes.push(result.node.nodename);
+                                        break;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        errorNodes.push(result.node.nodename);
                     }
-                    const dataAsString = result.result.value.getPayload()?.getDataAsString();
-                    if (dataAsString === undefined) {
-                        core.serializationLocks.postGenesisBlock = false;
-                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight returns unknown error");
-                    }
-                    const d: inHeightReturnDataFormat = JSON.parse(dataAsString);
-                    if (d.height !== 0) {
-                        LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
-                        core.serializationLocks.postGenesisBlock = false;
-                        return this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight indicates that there is data on a remote node");
-                    }
+                }
+
+                // Something error => need attension
+                core.i.lib.disableAbnormalNodes(core.i, errorNodes);
+
+                if (returnError !== undefined) {
+                    core.serializationLocks.postGenesisBlock = false;
+                    return returnError;
                 }
             } else {
                 core.serializationLocks.postGenesisBlock = false;
@@ -1001,7 +1062,7 @@ export class SystemModule {
         // Get digest of own node (but only if it is healthy)
         if (localCondition === 0) {
             const ret1 = await core.lib.getLastHashAndHeight(core);
-            if (ret1.isFailure()) return ret1;
+            if (ret1.isFailure()) { return ret1 };
             if (ret1.value.hash === "") {
                 LOG("Error", -1, "Unable to obtain hash value");
                 return this.sError("obtainHealthyNodes", "getLastHashAndHeight", "Unable to obtain hash value");
@@ -1019,25 +1080,50 @@ export class SystemModule {
             const ret2 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
             if (ret2.isFailure()) return ret2;
             results = ret2.value;
+
+            let errorNodes: string[] = [];
             for (const result of results) {
-                // Ignore failures
-                if (result.result.isSuccess()) {
-                    const dataAsString = result.result.value.getPayload()?.getDataAsString();
-                    if (dataAsString !== undefined) {
-                        try {
-                            const rLast: inDigestReturnDataFormat = JSON.parse(dataAsString);
-                            if (rLast.height >= 0) {
-                                healthyNodes.push({
-                                    host: result.result.value.getSender(),
-                                    hash: rLast.hash,
-                                    height: rLast.height
-                                })
+                // Only gathers right nodes' information
+                try {
+                    if (result.result.isFailure()) {
+                        errorNodes.push(result.node.nodename);
+                    } else {
+                        const payload = result.result.value.getPayload()?.toObject();
+                        if (payload === undefined) {
+                            errorNodes.push(result.node.nodename);
+                        } else {
+                            switch (payload.payloadType) {
+                                case ic.payload_type.RESULT_SUCCESS:
+                                    if (payload.dataAsString !== undefined) {
+                                        const rLast: inDigestReturnDataFormat = JSON.parse(payload.dataAsString);
+                                        if (rLast.height >= 0) {
+                                            healthyNodes.push({
+                                                host: result.result.value.getSender(),
+                                                hash: rLast.hash,
+                                                height: rLast.height
+                                            })
+                                        }
+                                    } else {
+                                        errorNodes.push(result.node.nodename);
+                                    }
+                                    break;
+                                case ic.payload_type.RESULT_FAILURE:
+                                    LOG("Info", 0, "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                    errorNodes.push(result.node.nodename);
+                                    break;
+                                default:
+                                    errorNodes.push(result.node.nodename);
+                                    break;
                             }
-                        } catch (error) {
                         }
                     }
+                } catch (error) {
+                    errorNodes.push(result.node.nodename);
                 }
             }
+
+            // Something error => need attension
+            core.i.lib.disableAbnormalNodes(core.i, errorNodes);
         } else {
             return this.sError("obtainHealthyNodes", "runRpcs", "The internode module is down");
         }
@@ -1209,26 +1295,57 @@ export class SystemModule {
         }
         await Promise.all(pArr).then((rArr) => {
             for (const ret of rArr) {
+                let errorNodes: string[] = [];
+                let returnError: gResult<never, gError> | undefined;
                 if (ret.isFailure()) {
                     LOG("Warning", 1301, "The process was aborted because data acquisition from some nodes are failed.");
-                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                    returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                } else {
+                    const result = ret.value[0];
+                    try {
+                        if (result.result.isFailure()) {
+                            LOG("Warning", 1303, "The process was aborted because data acquisition from some nodes are failed.");
+                            returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                        } else {
+                            const payload = result.result.value.getPayload()?.toObject();
+                            if (payload === undefined) {
+                                errorNodes.push(result.node.nodename);
+                            } else {
+                                switch (payload.payloadType) {
+                                    case ic.payload_type.RESULT_SUCCESS:
+                                        if (payload.dataAsString !== undefined) {
+                                            bArr.push(JSON.parse(payload.dataAsString));
+                                        } else {
+                                            LOG("Warning", 1304, "The process was aborted because data acquisition from some nodes are failed.");
+                                            returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                                        }
+                                        break;
+                                    case ic.payload_type.RESULT_FAILURE:
+                                        // Occurs when the receiving node failed to get block cursor
+                                        LOG("Warning", 1305, "The process was aborted because data acquisition from some nodes are failed.");
+                                        returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                                        errorNodes.push(result.node.nodename);
+                                        break;
+                                    default:
+                                        errorNodes.push(result.node.nodename);
+                                        break;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        LOG("Warning", 1306, "The process was aborted because data acquisition from some nodes are failed.");
+                        returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
+                        errorNodes.push(result.node.nodename);
+                    }
                 }
-                const res = ret.value[0].result;
-                if (res.isFailure()) {
-                    LOG("Warning", 1303, "The process was aborted because data acquisition from some nodes are failed.");
-                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
-                }
-                const dataAsString = res.value.getPayload()?.getDataAsString();
-                if (dataAsString === undefined) {
-                    LOG("Warning", 1304, "The process was aborted because data acquisition from some nodes are failed.");
-                    return this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
-                }
-                bArr.push(JSON.parse(dataAsString));
+
+                // Something error => need attension
+                if (core.i !== undefined) { core.i.lib.disableAbnormalNodes(core.i, errorNodes); }
             }
             LOG("Debug", 0, "getNormalBlocksAsPossible:bArr");
             LOG("Debug", 0, JSON.stringify(bArr));
             return bArr;
-        })
+        });
 
         // Next, try to get data from other nodes
 
@@ -1258,26 +1375,49 @@ export class SystemModule {
         const request = "GetBlock";
         let results: rpcResultFormat[] = [];
         if (core.i !== undefined) {
+            let errorNodes: string[] = [];
             for (const bRes of bArr) {
                 if (bRes.block === undefined) {
                     const data: inGetBlockDataFormat = {
                         oid: bRes.oid,
                         returnUndefinedIfFail: true
                     }
+                    let breakInternalFor: boolean = false;
                     for (const node of otherNodesList) {
                         const ret = await core.i.lib.runRpcs(core.i, [node], request, JSON.stringify(data))
                         if (ret.isSuccess()) {
                             results = ret.value;
-                            if (results[0].result.isSuccess()) {
-                                const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
-                                if (dataAsString !== undefined) {
-                                    const bRes2: getBlockResult = JSON.parse(dataAsString);
-                                    if (bRes2.block !== undefined) {
-                                        bRes.block = bRes2.block;
-                                        break;
+                            if (results[0].result.isFailure()) {
+                                errorNodes.push(node.nodename);
+                            } else {
+                                const payload = results[0].result.value.getPayload()?.toObject();
+                                if (payload === undefined) {
+                                    errorNodes.push(node.nodename);
+                                } else {
+                                    switch (payload.payloadType) {
+                                        case ic.payload_type.RESULT_SUCCESS:
+                                            if (payload.dataAsString !== undefined) {
+                                                const bRes2: getBlockResult = JSON.parse(payload.dataAsString);
+                                                if (bRes2.block !== undefined) {
+                                                    bRes.block = bRes2.block;
+                                                    breakInternalFor = true;
+                                                }
+                                            }
+                                            break;
+                                        case ic.payload_type.RESULT_FAILURE:
+                                            LOG("Info", 0, "Node " + node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                            errorNodes.push(node.nodename);
+                                            break;
+                                        default:
+                                            errorNodes.push(node.nodename);
+                                            break;
                                     }
                                 }
                             }
+                        }
+                        if (breakInternalFor === true) {
+                            breakInternalFor = false;
+                            break;
                         }
                     }
                     if (bRes.block === undefined) {
@@ -1285,6 +1425,9 @@ export class SystemModule {
                     }
                 }
             }
+
+            // Something error => need attension
+            core.i.lib.disableAbnormalNodes(core.i, errorNodes);
         } else {
             return this.sError("getNormalBlocksAsPossible", "runRpcs_1by1", "The internode module is down");
         }
@@ -1478,9 +1621,10 @@ export class SystemModule {
         const data: inExamineBlockDiffernceDataFormat = {
             list: ret4.value
         }
-        let results: rpcResultFormat[] = [];
         let examinedList: examinedHashes = {add: [], del: []};
         if (core.i !== undefined) {
+            let returnError: gResult<never, gError> | undefined = undefined;
+            let errorNodes: string[] = [];
             const host = nodes.majority.hosts[Math.floor(Math.random() * nodes.majority.hosts.length)];
             for (const node of core.i.conf.nodes) {
                 if (node.host + ":" + node.rpc_port === host) {
@@ -1489,19 +1633,49 @@ export class SystemModule {
                         core.serializationLocks.postScanAndFixBlock = false;
                         return ret5;
                     }
-                    results = ret5.value;
-                    if (results[0].result.isFailure()) {
-                        core.serializationLocks.postScanAndFixBlock = false;
-                        return results[0].result;
+                    const results: rpcResultFormat[] = ret5.value;
+                    try {
+                        if (results[0].result.isFailure()) {
+                            errorNodes.push(results[0].node.nodename);
+                            returnError = results[0].result;
+                        } else {
+                            const payload = results[0].result.value.getPayload()?.toObject();
+                            if (payload === undefined) {
+                                errorNodes.push(results[0].node.nodename);
+                                returnError = this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
+                            } else {
+                                switch (payload.payloadType) {
+                                    case ic.payload_type.RESULT_SUCCESS:
+                                        if (payload.dataAsString === undefined) {;
+                                            returnError = this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
+                                        } else {
+                                            examinedList = JSON.parse(payload.dataAsString);
+                                        }
+                                        break;
+                                    case ic.payload_type.RESULT_FAILURE:
+                                        errorNodes.push(results[0].node.nodename);
+                                        returnError = this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
+                                        break;
+                                    default:
+                                        errorNodes.push(results[0].node.nodename);
+                                        returnError = this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
+                                        break;
+                                }
+                            }
+                        }
+                    } catch (error: any) {
+                        returnError = this.sError("postScanAndFixBlock", "runRpcs", error.toString());
                     }
-                    const dataAsString = results[0].result.value.getPayload()?.getDataAsString();
-                    if (dataAsString === undefined) {
-                        core.serializationLocks.postScanAndFixBlock = false;
-                        return this.sError("postScanAndFixBlock", "runRpcs", "postScanAndFixBlock returns unknown error");
-                    }
-                    examinedList = JSON.parse(dataAsString);
                     break;
                 }
+            }
+            
+            // Something error => need attension
+            core.i.lib.disableAbnormalNodes(core.i, errorNodes);
+
+            if (returnError !== undefined) {
+                core.serializationLocks.postScanAndFixBlock = false;
+                return returnError;
             }
         } else {
             core.serializationLocks.postScanAndFixBlock = false;
@@ -1879,18 +2053,58 @@ export class SystemModule {
             return this.sError("postScanAndFixPool", "runRpcs", "The internode module is down");
         }
         let lackingTxs: objTx[] = [];
+        let errorNodes: string[] = [];
+        let returnError: gResult<never, gError> | undefined;
+        let breakFor: boolean = false;
         for (const result of results) {
-            if (result.result.isFailure()) {
-                LOG("Error", -2, "error in collecting lacking transactions");
-                core.serializationLocks.postScanAndFixPool = false;
-                return this.sError("postScanAndFixPool", "runRpcs", "error in collecting lacking transactions");
+            try {
+                if (result.result.isFailure()) {
+                    LOG("Error", -2, "error in collecting lacking transactions");
+                    errorNodes.push(result.node.nodename);
+                    returnError = this.sError("postScanAndFixPool", "runRpcs", "Error in collecting lacking transactions");
+                    breakFor = true;
+                } else {
+                    const payload = result.result.value.getPayload()?.toObject();
+                    if (payload === undefined) {
+                        errorNodes.push(result.node.nodename);
+                        returnError = this.sError("postScanAndFixPool", "runRpcs", "Node " + result.node.nodename + " returns wrong payload");
+                        breakFor = true;
+                    } else {
+                        switch (payload.payloadType) {
+                            case ic.payload_type.RESULT_SUCCESS:
+                                if (payload.dataAsString !== undefined) {
+                                    lackingTxs = lackingTxs.concat(JSON.parse(payload.dataAsString));
+                                } else {
+                                    errorNodes.push(result.node.nodename);
+                                    returnError = this.sError("postScanAndFixPool", "runRpcs", "Node " + result.node.nodename + " returns wrong data");
+                                    breakFor = true;
+                                }
+                                break;
+                            case ic.payload_type.RESULT_FAILURE:
+                                errorNodes.push(result.node.nodename);
+                                returnError = this.sError("postScanAndFixPool", "runRpcs", "Node " + result.node.nodename + " returns error:" + payload.gErrorAsString);
+                                breakFor = true;
+                                break;
+                            default:
+                                errorNodes.push(result.node.nodename);
+                                returnError = this.sError("postScanAndFixPool", "runRpcs", "Node " + result.node.nodename + " returns unknown result");
+                                breakFor = true;
+                                break;
+                        }
+                    }
+                }
+            } catch (error: any) {
+                errorNodes.push(result.node.nodename);
+                returnError = this.sError("postScanAndFixPool", "runRpcs", error.toString());
             }
-            const dataAsString = result.result.value.getPayload()?.getDataAsString();
-            if (dataAsString === undefined) {
-                core.serializationLocks.postScanAndFixBlock = false;
-                return this.sError("postScanAndFixPool", "runRpcs", "postScanAndFixBlock returns unknown error");
-            }
-            lackingTxs = lackingTxs.concat(JSON.parse(dataAsString))
+            if (breakFor === true) { break; }
+
+        }
+        // Something error => need attension
+        core.i.lib.disableAbnormalNodes(core.i, errorNodes);
+        if (returnError !== undefined) {
+            core.serializationLocks.postScanAndFixBlock = false;
+            return returnError;
         }
         
         // Eliminate duplicate acquisitions

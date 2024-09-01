@@ -85,6 +85,7 @@ const InConf: inConfigType = {
         "nodename": "node1",
         "rpc_port": 7000
     },
+    "abnormalCountForJudging": 2,
     "nodes": [
         {
             "allow_outgoing": true,

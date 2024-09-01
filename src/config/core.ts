@@ -204,10 +204,13 @@ export class ConfigModule {
                     nodename: nodeConfig.get("internode.self.nodename"),
                     rpc_port: nodeConfig.get("internode.self.rpc_port")
                 },
+                abnormalCountForJudging: nodeConfig.get("internode.abnormalCountForJudging"),
                 nodes: nodeConfig.get("internode.nodes")
             })
-            for (const node of i.nodes) {
-                node.abnormal_count = 0;
+            if (i.abnormalCountForJudging > 0) {
+                for (const node of i.nodes) {
+                    node.abnormal_count = 0;
+                }
             }
         } catch (error: any) {
             let detail: string;
