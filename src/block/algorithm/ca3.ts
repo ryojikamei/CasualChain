@@ -15,7 +15,6 @@ import { inAddBlockDataFormat, rpcResultFormat } from "../../internode/index.js"
 
 import { randomOid } from "../../utils.js"
 import { nodeProperty } from "../../config/index.js"
-import { DEFAULT_PARSEL_IDENTIFIER } from "../../system/index.js";
 import { Ca2BlockFormat } from "../index.js";
 import ic from "../../../grpc/interconnect_pb.js";
 
@@ -101,11 +100,6 @@ export type Ca3TravelingIdFormat2 = {
     txOids: string[],
     block: Ca3BlockFormat | undefined
 }
-
-/**
- * Stub values for features not supported in the open source version
- */
-let common_parsel: string = DEFAULT_PARSEL_IDENTIFIER;
 
 /**
  * List of blocks that started the trip. 
@@ -303,12 +297,12 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
  * @param pObj - set previous block
  * @param data - set transaction data to block 
  * @param trackingId - set the tracking ID to trace
- * @param __t -  in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId -  in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
  * @param blockOptions - can set options by createBlockOptions
  * @returns returns with gResult, that is wrapped by a Promise, that contains the result with Ca3BlockFormat if it's success, and gError if it's failure.
  */
 function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: any, 
-    trackingId: string, __t: string, blockOptions?: createBlockOptions): gResult<Ca3ReturnFormat, gError> {
+    trackingId: string, tenantId: string, blockOptions?: createBlockOptions): gResult<Ca3ReturnFormat, gError> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:packTxsToANewBlockObject:" + trackingId);
 
@@ -343,7 +337,7 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
         case "genesis":
             hObj = {
                 version: 2,
-                tenant: common_parsel,
+                tenant: core.conf.default_tenant_id,
                 height: 0,
                 size: 0,
                 type: "genesis",
@@ -360,7 +354,7 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
             }
             hObj = {
                 version: 2,
-                tenant: __t,
+                tenant: tenantId,
                 height: pObj.height + 1,
                 size: 1,
                 data: data,
@@ -378,7 +372,7 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
             }
             hObj = {
                 version: 2,
-                tenant: __t,
+                tenant: tenantId,
                 height: pObj.height + 1,
                 size: 0,
                 type: "parsel_close",
@@ -395,7 +389,7 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
             }
             hObj = {
                 version: 2,
-                tenant: __t,
+                tenant: tenantId,
                 height: pObj.height + 1,
                 size: data.length,
                 data: data,
@@ -868,7 +862,7 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @param core - set ccBlockType instance
  * @param type - set block type
  * @param data - set target transactions
- * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
  * @param startTimeMs - set starting time in ms
  * @param lifeTimeMs - set life time against starting time in ms
  * @param trackingId - set trackingId to trace
@@ -876,12 +870,9 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @returns returns with gResult type that contains the trackingId of the starting process if it's success, and unknown if it's failure.
  * So there is no need to be concerned about the failure status.
  */
-export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t: string, startTimeMs: number, lifeTimeMs: number, trackingId: string, commonId?: string): gResult<string, unknown> {
+export function setupCreator(core: ccBlockType, type: string, data: objTx[], tenantId: string, startTimeMs: number, lifeTimeMs: number, trackingId: string): gResult<string, unknown> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:setupCreator");
-
-    // Overwrite common_parsel value if specified
-    if (commonId !== undefined) common_parsel = commonId;
     
     // Delete timeouted travelingIds (Usually stopCreator unlocks)
     for (const traveling_id of Object.keys(travelingIds)) {
@@ -894,7 +885,7 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
     if (travelingIds[trackingId] === undefined) {
         // The target oids
         let oidList: string[] = [];
-        let tenant: string = __t;
+        let tenant: string = tenantId;
         switch (type) {
             case "data":
                 for (const tx of data) {
@@ -903,14 +894,14 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], __t
                 LOG("Debug", 0, "CA3:setupCreator:creating data block for:" + JSON.stringify(oidList));
                 break;
             case "genesis":
-                LOG("Debug", 0, "CA3:setupCreator:creating genesis block for:" + common_parsel);
-                tenant = common_parsel;
+                LOG("Debug", 0, "CA3:setupCreator:creating genesis block for:" + core.conf.default_tenant_id);
+                tenant = core.conf.default_tenant_id;
                 break;
             case "parcel_open":
-                LOG("Debug", 0, "CA3:setupCreator:creating parcel_open block for:" + __t);
+                LOG("Debug", 0, "CA3:setupCreator:creating parcel_open block for:" + tenantId);
                 break;
             case "parcel_close":
-                LOG("Debug", 0, "CA3:setupCreator:creating parcel_close block for:" + __t);
+                LOG("Debug", 0, "CA3:setupCreator:creating parcel_close block for:" + tenantId);
                 break;
             default:
                 return ca3Error("setupCreator", "prepareDeclareCreation", "unknown block type:" + type);
@@ -958,12 +949,12 @@ export function stopCreator(core: ccBlockType, trackingId: string): gResult<void
  * @param pObj - set the provous block to get some information
  * @param data - set the target transactions for blocking
  * @param trackingId - set trackingId to trace
- * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
  * @param blockOptions - can set blocking options with createBlockOptions
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
 export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: objTx[], 
-    trackingId: string, __t: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
+    trackingId: string, tenantId: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:proceedCreator");
     
@@ -983,7 +974,7 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     if ((core.i !== undefined) && (ret2.value.i !== undefined)) core.i.conf = ret2.value.i.conf;
 
     // block creation
-    const ret3 = packTxsToANewBlockObject(core, pObj, data, trackingId, __t, blockOptions);
+    const ret3 = packTxsToANewBlockObject(core, pObj, data, trackingId, tenantId, blockOptions);
     if (ret3.isFailure()) {
         travelingIds[trackingId].state = "arrived";
         travelingIds[trackingId].block = undefined;

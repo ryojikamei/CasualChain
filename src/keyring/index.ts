@@ -20,13 +20,15 @@ export import KeyringModule = core.KeyringModule
  * - sign_key_hex: sign_key by hex format
  * - verify_key: public key of its node
  * - verify_key_hex: verify key by hex format
+ * - tls_crt: TLS certificate of its node
  */
 export type cachedKeyFiles = {
     nodename?: string,
     sign_key?: string,
     sign_key_hex?: string,
     verify_key?: string,
-    verify_key_hex?: string
+    verify_key_hex?: string,
+    tls_crt?: string
 }
 
 /**

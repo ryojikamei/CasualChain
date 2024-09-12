@@ -18,7 +18,8 @@ export const confMock: apiConfigType = {
         userapi_user: "test1",
         userapi_password: "test1password",
         adminapi_user: "test2",
-        adminapi_password: "test2password"
+        adminapi_password: "test2password",
+        use_tls: false
     }
 }
 
@@ -50,7 +51,8 @@ export class ApiModuleMock {
             log: new logMock(),
             m: undefined,
             s: undefined,
-            c: undefined
+            c: undefined,
+            k: undefined
         }
         return this.aOK<ccApiType>(acore);
     }

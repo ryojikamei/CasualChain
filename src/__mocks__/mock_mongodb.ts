@@ -4,7 +4,7 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { InsertManyResult, ObjectId, Condition } from "mongodb";
+import { InsertManyResult } from "mongodb";
 
 import { gResult, gSuccess, gFailure, gError, randomOid } from "../utils";
 
@@ -140,5 +140,17 @@ export class BackendDbSubModuleMock {
         if (core.conf.mongo_host === "returnError1") return this.dbError("blockDeleteByOid", "updateOne", "");
         if (core.conf.mongo_host === "returnError2") return this.dbError("blockDeleteByOid", "other", "");
         return this.dbOK(undefined);
+    }
+
+    public async poolSyncFromDbToCache(core: ccCommonIoType, client: any, conf: dsConfigType): Promise<gResult<objTx[], gError>> {
+        if (core.conf.mongo_host === "returnError1") return this.dbError("poolSyncFromDbToCache", "abortTransaction", "");
+        if (core.conf.mongo_host === "returnError2") return this.dbError("poolSyncFromDbToCache", "commitTransaction", "");
+        return this.dbOK([]);
+    }
+
+    public async blockSyncFromDbToCache(core: ccCommonIoType, client: any, conf: dsConfigType): Promise<gResult<objBlock[], gError>> {
+        if (core.conf.mongo_host === "returnError1") return this.dbError("blockSyncFromDbToCache", "abortTransaction", "");
+        if (core.conf.mongo_host === "returnError2") return this.dbError("blockSyncFromDbToCache", "commitTransaction", "");
+        return this.dbOK([]);
     }
 }

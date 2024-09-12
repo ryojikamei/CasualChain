@@ -21,10 +21,8 @@ import { dataSet, generateSamples } from "../../__testdata__/generator";
 import { BackendDbSubModule } from "../../datastore/mongodb";
 import { MongoClient } from "mongodb";
 import { installSamples } from "../../__testdata__/installer";
-import c from "config";
 
 const rand = randomUUID()
-
 
 const dbLib = new BackendDbSubModule()
 let confMockDs: dsConfigType = {
@@ -36,7 +34,11 @@ let confMockDs: dsConfigType = {
     mongo_password: "bcpass_" + rand,
     mongo_poolcollection: "pool_node1",
     mongo_port: -1, // get later
-    mongo_authdb: "admin"
+    mongo_authdb: "admin",
+    queue_ondisk: false,
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID(),
+    enable_default_tenant: true
 };
 type StorageEngine = "ephemeralForTest" | "wiredTiger";
 const engine: StorageEngine = "wiredTiger";

@@ -2,6 +2,7 @@
     "logger": {
         "console_output": true,
         "console_level": "notice",
+        "console_color": "None",
         "file_output": true,
         "file_path": "/<appropriate path>/node1.log",
         "file_rotation": true,
@@ -22,12 +23,16 @@
             "postScanAndFixPoolMinInterval": 300,
             "postDeliveryPoolMinInterval": 5,
             "postAppendBlocksMinInterval": 5
-        }
+        },
+        "enable_default_tenant": true,
+        "administration_id": "<appropriate UUIDv4 string>",
+        "default_tenant_id": "<appropriate UUIDv4 string>"
     },
     "internode": {
         "self": {
             "nodename": "node1",
-            "rpc_port": 7001
+            "rpc_port": 7001,
+            "use_tls_internode": true
         },
         "abnormalCountForJudging": 0,
         "nodes": [
@@ -35,13 +40,17 @@
                 "allow_outgoing": true,
                 "nodename": "node2",
                 "host": "127.0.0.1",
-                "rpc_port": 7002
+                "rpc_port": 7002,
+                "use_tls_internode": true,
+                "administration_id": "<appropriate UUIDv4 string>"
             },
             {
                 "allow_outgoing": true,
                 "nodename": "node3",
                 "host": "127.0.0.1",
-                "rpc_port": 7003
+                "rpc_port": 7003,
+                "use_tls_internode": true,
+                "administration_id": "<appropriate UUIDv4 string>"
             }
         ]
 
@@ -49,7 +58,11 @@
     "keyring": {
         "create_keys_if_no_sign_key_exists": true,
         "sign_key_file": "node1.key",
-        "verify_key_file": "node1.pub"
+        "verify_key_file": "node1.pub",
+        "tls_crt_file": "node1.crt",
+        "tls_csr_file": "node1.csr",
+        "tls_ca_key_file": "example_ca.key",
+        "tls_ca_crt_file": "example_ca.crt"
     },
     "datastore": {
         "password_encryption": false,
@@ -60,7 +73,8 @@
         "mongo_dbuser": "bcuser1",
         "mongo_authdb": "bcdb1",
         "mongo_blockcollection": "block",
-        "mongo_poolcollection": "pool"
+        "mongo_poolcollection": "pool",
+        "queue_ondisk": true
     },
     "event": {
         "enable_internaltasks": false
@@ -73,7 +87,8 @@
             "userapi_password": "<some hard password>",
             "adminapi_port": 8001,
             "adminapi_user": "admin",
-            "adminapi_password": "<some hard password>"
+            "adminapi_password": "<some hard password>",
+            "use_tls": true
         }
     }
 }

@@ -136,8 +136,7 @@ export class CC {
         const b: ccBlockType = ret7.value;
 
         LOG("Notice", 0, "Initialize InterNode: ", {lf: false});
-        //const ilib: InModule = new InModule(l, s, b); // v1
-        const ilib: InModule = new InModule(c.i, l, s, b, k); // v2
+        const ilib: InModule = new InModule(c.i, l, s, b);
         const ret8 = await ilib.init(c.i, l, s, b, k, c);
         if (ret8.isSuccess())  {
             LOG("Notice", 0, "[ OK ]");
@@ -195,6 +194,7 @@ export class CC {
         core.a.m = core.m;
         core.a.s = core.s;
         core.a.c = core.c;
+        core.a.k = core.k;
         // Add pathes from Internode
         core.i.b = core.b;
         core.i.k = core.k;
@@ -223,40 +223,40 @@ export class CC {
         }
 
         // Run post scripts after startup
-        //const ret12 = await core.i.lib.startServer(core.i);
-        //if (ret12.isFailure()) { 
-        //    LOG("Error", 0, JSON.stringify(ret12.value));
-        //    process.exit(12); 
-        //}
-        const ret13 = await core.i.lib.waitForRPCisOK(core.i, 100);
+        const ret12 = await core.i.lib.waitForRPCisOK(core.i, 100);
+        if (ret12.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret12.value));
+            process.exit(12); 
+        }
+        const ret13 = await core.k.lib.postSelfPublicKeys(core.k);
         if (ret13.isFailure()) { 
             LOG("Error", 0, JSON.stringify(ret13.value));
             process.exit(13); 
         }
-        const ret14 = await core.k.lib.postSelfPublicKeys(core.k);
+        const ret14 = await core.k.lib.refreshPublicKeyCache(core.k, true);
         if (ret14.isFailure()) { 
             LOG("Error", 0, JSON.stringify(ret14.value));
             process.exit(14); 
         }
-        const ret15 = await core.k.lib.refreshPublicKeyCache(core.k, true);
-        if (ret15.isFailure()) { 
-            LOG("Error", 0, JSON.stringify(ret15.value));
-            process.exit(15); 
-        }
         if (core.s.conf.node_mode.endsWith("+init") === true) {
-            const ret16 = await core.m.lib.getLastBlock(core.m);
-            if (ret16.value === undefined) {
+            const ret15 = await core.m.lib.getLastBlock(core.m);
+            if (ret15.value === undefined) {
                 LOG("Notice", 0, "Initializing the blockchain: ", {lf: false});
-                const ret17 = await core.s.lib.postGenesisBlock(core.s);
-                if (ret17.isSuccess()) {
+                const ret16 = await core.s.lib.postGenesisBlock(core.s);
+                if (ret16.isSuccess()) {
                     LOG("Notice", 0, "[ OK ]");
                 } else {
-                    LOG("Error", 0, JSON.stringify(ret17.value));
-                    process.exit(17); 
+                    LOG("Error", 0, JSON.stringify(ret16.value));
+                    process.exit(16); 
                 }
             }
         }
-
+        const ret17 = await core.s.lib.refreshParselList(core.s);
+        if (ret17.isFailure()) { 
+            LOG("Error", 0, JSON.stringify(ret17.value));
+            process.exit(17); 
+        }
+        
         // Auto run of internal tasks
         if (core.e.conf.enable_internaltasks === true) {
             LOG("Notice", 0, "Enable internal auto tasks");
@@ -467,6 +467,7 @@ export class CC {
                     LOG("Notice", 0, "systemLoop: KeyringModule restarted");
                     core.k = retK.value;
                     // reconnect
+                    core.a.k = core.k;
                     core.i.k = core.k;
                     core.b.k = core.k;
                     core.e.w = core;
@@ -519,6 +520,7 @@ export class CC {
                     // reconnect
                     core.m.s = core.s;
                     core.a.s = core.s;
+                    core.i.s = core.s;
                     core.b.s = core.s;
                     core.k.s = core.s;
                     core.e.w = core;

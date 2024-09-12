@@ -31,12 +31,14 @@ export type ccMainType = {
  * - bareTranaction: returns transactions contained in blocks, not blocks 
  * - ignoreGenesisBlockIsNotFound: no error without the genesis block 
  * - constrainedSize: stops counting just before the specified size is exceeded
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getAllBlockOptions = {
     sortOrder?: number,
     bareTransaction?: boolean,
     ignoreGenesisBlockIsNotFound?: boolean,
-    constrainedSize?: number
+    constrainedSize?: number,
+    tenant?: string
 }
 
 /**
@@ -44,11 +46,13 @@ export type getAllBlockOptions = {
  * - sortOrder: 1 for ascending order, -1 for descending order
  * - ignoreGenesisBlockIsNotFound: no error without the genesis block 
  * - constrainedSize: stops counting just before the specified size is exceeded
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getBlockOptions = {
     sortOrder?: number,
     ignoreGenesisBlockIsNotFound?: boolean,
-    constrainedSize?: number
+    constrainedSize?: number,
+    tenant?: string
 }
 
 /**
@@ -56,21 +60,25 @@ export type getBlockOptions = {
  * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
  * - sortOrder: 1 for ascending order, -1  for descending order
  * - constrainedSize: stops counting just before the specified size is exceeded
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getTransactionOptions = {
     excludeNonpropergate?: boolean,
     sortOrder?: number,
-    constrainedSize?: number
+    constrainedSize?: number,
+    tenant?: string
 }
 
 /**
  * Options for getSearchByOid 
  * - targetIsBlock: limited to blocked transaction data
  * - constrainedSize: stops counting just before the specified size is exceeded
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getTransactionOrBlockOptions = {
     targetIsBlock?: boolean,
-    constrainedSize?: number
+    constrainedSize?: number,
+    tenant?: string
 }
 
 /**
@@ -78,11 +86,13 @@ export type getTransactionOrBlockOptions = {
  * - excludeBlocked: count only pooling transaction data 
  * - excludePooling: count only blocked transaction data
  * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getTransactionHeightOptions = {
     excludeBlocked?: boolean,
     excludePooling?: boolean,
-    excludeNonpropergate?: boolean
+    excludeNonpropergate?: boolean,
+    tenant?: string
 }
 
 /**
@@ -98,6 +108,7 @@ export type getTransactionHeightOptions = {
  * - matcherType: "strict" for strict maching of key/value
  * - whole: search whole data instead of user data
  * - constrainedSize: stops counting just before the specified size is exceeded
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type getJsonOptions = {
     key: string,
@@ -110,7 +121,8 @@ export type getJsonOptions = {
     sortOrder?: number,
     matcherType?: string,
     whole?: boolean,
-    constrainedSize?: number
+    constrainedSize?: number,
+    tenant?: string
 }
 
 /**
@@ -119,10 +131,12 @@ export type getJsonOptions = {
  * - prev_id: can set previous oid when type is "update" or "delete"
  * - data: set user data in JSON format
  * - compatDateTime: use human readable date format instead of unix timestamp
+ * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
 export type postJsonOptions = {
     type: string,
     prev_id?: string,
     data: any,
-    compatDateTime?: boolean
+    compatDateTime?: boolean,
+    tenant?: string
 }

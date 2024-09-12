@@ -5,6 +5,7 @@
  */
 
 import { setInterval } from "timers/promises";
+import * as https from "https";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
@@ -17,6 +18,7 @@ import { ListnerV3AdminApi } from "./rest/admin.js";
 import { moduleCondition } from "../index.js";
 import { ccMainType } from "../main/index.js";
 import { ccSystemType } from "../system/index.js";
+import { ccKeyringType } from "../keyring/index.js";
 
 /**
  * Provided APIs
@@ -104,7 +106,8 @@ export class ApiModule {
             log: log,
             m: undefined,
             s: undefined,
-            c: undefined
+            c: undefined,
+            k: undefined
         }
         this.coreCondition = "initialized";
 
@@ -121,7 +124,7 @@ export class ApiModule {
      * @param c - set ccConfigType instance
      * @returns returns with gResult type that contains ccApiType if it's success, and gError if it's failure.
      */
-    public async restart(core: ccApiType, log: ccLogType, m: ccMainType, s: ccSystemType, c: ccConfigType, _: any): Promise<gResult<ccApiType, gError>> {
+    public async restart(core: ccApiType, log: ccLogType, m: ccMainType, s: ccSystemType, c: ccConfigType, k: ccKeyringType): Promise<gResult<ccApiType, gError>> {
         const LOG = log.lib.LogFunc(log);
         LOG("Info", 0, "ApiModule:restart");
 
@@ -136,6 +139,7 @@ export class ApiModule {
         newCore.m = m;
         newCore.s = s;
         newCore.c = c;
+        newCore.k = k;
 
         const ret3 = await newCore.lib.activateApi(newCore, log);
         if (ret3.isFailure()) return ret3;
@@ -163,12 +167,34 @@ export class ApiModule {
         if (ret2.isFailure()) return this.aError("activateApi", "secondApi", "unknown error");
         secondApi = ret2.value
 
-        // Listen
-        try {
-            if (firstApi !== undefined) core.lib.restApi.firstApi.listen(core, firstApi);
-            if (secondApi !== undefined) core.lib.restApi.secondApi.listen(core, secondApi);
-        } catch (error: any) {
-            return this.aError("activateApi", "Listen", error.toString());
+        if (core.conf.rest.use_tls === true) {
+            // TLS
+            if (core.k === undefined) return this.aError("activateApi", "enableTls", "The keyring module is down");
+            let selfcrt: undefined | { key: string, cert: string };
+            for (const entry of core.k.cache) {
+                if ((entry.nodename === "self") && (entry.sign_key !== undefined) && (entry.tls_crt !== undefined)) {
+                    selfcrt = { key: entry.sign_key, cert: entry.tls_crt } ;
+                    break
+                }
+            }
+            if (selfcrt === undefined) {
+                return this.aError("activateApi", "enableTls", "The cache of private key and certification for this server are not found")
+            }
+            // Listen
+            try {
+                https.createServer(selfcrt, firstApi).listen(core.conf.rest.userapi_port);
+                https.createServer(selfcrt, secondApi).listen(core.conf.rest.adminapi_port);
+            } catch (error: any) {
+                return this.aError("activateApi", "ListenHttps", error.toString());
+            }
+        } else {
+            // Listen
+            try {
+                if (firstApi !== undefined) core.lib.restApi.firstApi.listen(core, firstApi);
+                if (secondApi !== undefined) core.lib.restApi.secondApi.listen(core, secondApi);
+            } catch (error: any) {
+                return this.aError("activateApi", "ListenHttp", error.toString());
+            }
         }
 
         this.coreCondition = "active";

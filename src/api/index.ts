@@ -8,6 +8,7 @@ import { apiConfigType, ccConfigType } from "../config/index.js"
 import { ccLogType } from "../logger/index.js"
 import { ccMainType } from "../main/index.js"
 import { ccSystemType } from "../system/index.js"
+import { ccKeyringType } from "../keyring/index.js"
 
 import * as core from "./core.js"
 export import ApiModule = core.ApiModule
@@ -22,5 +23,6 @@ export type ccApiType = {
     log: ccLogType,
     m: ccMainType | undefined,
     s: ccSystemType | undefined,
-    c: ccConfigType | undefined
+    c: ccConfigType | undefined,
+    k: ccKeyringType | undefined
 }

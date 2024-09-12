@@ -6,6 +6,7 @@
 
 import express from "express";
 import basicAuth from "express-basic-auth";
+import clone from "clone";
 
 import { setInterval } from "timers/promises";
 import { Server } from "http";
@@ -203,6 +204,62 @@ export class ListnerV3UserApi {
             }
         });
 
+        this.api.get("/get/lastblock", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:get-lastblock");
+            if (acore.m !== undefined) {
+                this.runcounter++;
+                acore.m.lib.getLastBlock(acore.m, req.body).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/get/lastblock"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "Main Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getLastBlock", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/get/lastblock"));
+            }
+        });
+
+        this.api.get("/get/poolingdelivered", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:get-poolingdelivered");
+            if (acore.m !== undefined) {
+                this.runcounter++;
+                acore.m.lib.getAllDeliveredPool(acore.m, req.body).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/get/poolingdelivered"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "Main Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAllDeliveredPool", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/get/poolingdelivered"));
+            }
+        });
+
+        this.api.get("/get/totalnumber", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:get-totalnumber");
+            if (acore.m !== undefined) {
+                this.runcounter++;
+                let opt = clone(req.body);
+                opt.skippooling = true;
+                acore.m.lib.getTransactionHeight(acore.m, opt).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/get/totalnumber"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "Main Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getTransactionHeight", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/get/totalnumber"));
+            }
+        });
+
         this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             LOG("Info", 0, "Api:get-histrory");
             if (acore.m !== undefined) {
@@ -282,6 +339,15 @@ export class ListnerV3UserApi {
         });
         this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/get/pooling"));
+        });
+        this.api.get("/get/lastblock", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/lastblock"));
+        });
+        this.api.get("/get/poolingdelivered", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/poolingdelivered"));
+        });
+        this.api.get("/get/totalnumber", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/get/totalnumber"));
         });
         this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/get/history/:oid(\\w{24})"));

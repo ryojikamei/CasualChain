@@ -35,7 +35,8 @@ const confMock: apiConfigType = {
         userapi_user: "userapi",
         userapi_password: "userapi@password",
         adminapi_user: "adminapi",
-        adminapi_password: "adminapi@password"
+        adminapi_password: "adminapi@password",
+        use_tls: false
     }
 }
 

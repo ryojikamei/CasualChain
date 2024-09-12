@@ -25,6 +25,8 @@ export class logMock {
         this.conf = {
             console_level: 7,
             console_output: true,
+            console_color: "None",
+            console_color_code: "",
             file_output: false,
             file_path: "",
             file_rotation: false,

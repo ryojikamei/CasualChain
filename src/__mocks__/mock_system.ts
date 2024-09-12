@@ -3,10 +3,10 @@
  * Released under the MIT license
  * https://opensource.org/licenses/mit-license.php
  */
-
+import { randomUUID } from "crypto";
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
-import { ccSystemType, postScanAndFixOptions, examineHashes, examinedHashes, RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER } from "../system";
+import { ccSystemType, postScanAndFixOptions, examineHashes, examinedHashes } from "../system";
 import { systemConfigType } from "../config";
 import { inDigestReturnDataFormat } from "../internode";
 import { blockFormat } from "../block";
@@ -14,6 +14,7 @@ import { objTx } from "../datastore";
 import { logMock } from "./mock_logger";
 import { postGenesisBlockOptions } from "../system";
 import { generateSamples } from "../__testdata__/generator";
+import { randomOid } from "../utils";
 
 export function sOK<T>(response: T): gResult<T, never> {
     return new gSuccess(response)
@@ -30,7 +31,10 @@ export const systemConf: systemConfigType = {
         postScanAndFixPoolMinInterval: 300,
         postDeliveryPoolMinInterval: 300,
         postAppendBlocksMinInterval: 300
-    }
+    },
+    enable_default_tenant: true,
+    administration_id: "8e921d59-00b4-48c2-9ed2-b9f2a90030d6",
+    default_tenant_id: "a24e797d-84d1-4012-ba78-8882f2711f6c"
 }
 
 export class SystemModuleMock {
@@ -63,7 +67,23 @@ export class SystemModuleMock {
                     }
                 },
                 async postGenesisBlock(core: ccSystemType, options?: postGenesisBlockOptions): Promise<gResult<any, gError>> {
-                    return sOK(undefined);
+                    if (options?.trytoreset === true) {
+                        return sError("postGenesisBlock", "cleanup", "failed")
+                    } else {
+                        const ret: blockFormat = {
+                            _id: randomOid().byStr(),
+                            version: 1,
+                            tenant: systemConf.default_tenant_id,
+                            height: 0,
+                            size: 0,
+                            settime: "1970/01/01 0:00:00",
+                            timestamp: "0",
+                            miner: "",
+                            prev_hash: "0",
+                            hash: "0"
+                        }
+                        return sOK(ret);
+                    }
                 },
                 async requestToGetPoolHeight(core: ccSystemType): Promise<gResult<number, gError>> {
                     return sOK(0);
@@ -112,6 +132,30 @@ export class SystemModuleMock {
                 async postSyncCaches(core: ccSystemType): Promise<gResult<void, gError>> {
                     return sOK(undefined);
                 },
+                async postOpenParsel(core: ccSystemType, options: any): Promise<gResult<string, gError>> {
+                    if (options.adminId === undefined) {
+                        return sError("postOpenParsel", "Check adminId", "The administration_id is required to create a new parsel");
+                    } else {
+                        return sOK(randomUUID());
+                    }
+                },
+                async postCloseParsel(core: ccSystemType, options: any): Promise<gResult<void, gError>> {
+                    if (options.adminId === undefined) {
+                        return sError("postCloseParsel", "Check administration ID", "The administration_id is required to disable a parsel");
+                    } else {
+                        return sOK(undefined);
+                    }
+                },
+                async refreshParselList(core: ccSystemType): Promise<gResult<void, gError>> {
+                    return sOK(undefined);
+                },
+                isOpenParsel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
+                    if (tenantId === "") {
+                        return sOK(false);
+                    } else {
+                        return sOK(true);
+                    }
+                },
 
                 // unused stubs
                 sOK<T>(response: T): gResult<T, never> {
@@ -120,8 +164,6 @@ export class SystemModuleMock {
                 sError(func: string, pos?: string, message?: string): gResult<never, gError> {
                     return new gFailure(new gError("system", func, pos, message));
                 },
-                master_key: RUNTIME_MASTER_IDENTIFIER,
-                common_parsel: DEFAULT_PARSEL_IDENTIFIER,
                 init(any: any): gResult<any, unknown> { return sOK(undefined) },
                 async removeFromPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> { return sOK(undefined) },
                 markDiagStatusWithChain(core: ccSystemType, diagArr: any[], highest_hash: string, status: number): gResult<any, unknown> { return sOK(undefined) },

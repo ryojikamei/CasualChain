@@ -147,7 +147,7 @@ export class BlockModule {
      * @param commonId - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the created block with blockFormat if it's success, and gError if it's failure.
      */
-    public async createBlock(core: ccBlockType, txArr: objTx[], __t: string, blockOptions?: createBlockOptions, commonId?: string): Promise<gResult<blockFormat | undefined, gError>> {
+    public async createBlock(core: ccBlockType, txArr: objTx[], __t: string, blockOptions?: createBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "BlockModule:createBlock");
         if (blockOptions === undefined) {
@@ -184,7 +184,7 @@ export class BlockModule {
             if ((core.algorithm.travelingIds[trackingId] === undefined) || 
             ((core.algorithm.travelingIds[trackingId] !== undefined) && 
             (core.algorithm.travelingIds[trackingId].timeoutMs <= currentTimeMs))) {
-                core.algorithm.setupCreator(core, blockOptions.type, txArr, __t, currentTimeMs, lifeTimeMs, trackingId, commonId);
+                core.algorithm.setupCreator(core, blockOptions.type, txArr, __t, currentTimeMs, lifeTimeMs, trackingId);
                 const ret1: gResult<Ca3ReturnFormat, gError> = await core.algorithm.proceedCreator(core, pObj, txArr, trackingId, __t, blockOptions);
                 if (ret1.isFailure()) {
                     if (ret1.value.origin.pos === "Timeout") {

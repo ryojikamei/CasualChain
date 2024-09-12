@@ -2,6 +2,7 @@
     "logger": {
         "console_output": true,
         "console_level": "Debug",
+        "console_color": "None",
         "file_output": true,
         "file_path": "/tmp/cc_apitest_node2.log",
         "file_rotation": false,
@@ -22,12 +23,16 @@
             "postScanAndFixPoolMinInterval": 300,
             "postDeliveryPoolMinInterval": 300,
             "postAppendBlocksMinInterval": 300
-        }
+        },
+        "enable_default_tenant": true,
+        "administration_id": "8e921d59-00b4-48c2-9ed2-b9f2a90030d6",
+        "default_tenant_id": "a24e797d-84d1-4012-ba78-8882f2711f6c"
     },
     "internode": {
         "self": {
             "nodename": "apitest_node2",
-            "rpc_port": 7002
+            "rpc_port": 7002,
+            "use_tls_internode": false
         },
         "abnormalCountForJudging": 0,
         "nodes": [
@@ -35,14 +40,20 @@
                 "allow_outgoing": true,
                 "nodename": "apitest_node1",
                 "host": "localhost",
-                "rpc_port": 7001
+                "rpc_port": 7001,
+                "use_tls_internode": false,
+                "administration_id": "8e921d59-00b4-48c2-9ed2-b9f2a90030d6"
             }
         ]
     },
     "keyring": {
         "create_keys_if_no_sign_key_exists": true,
         "sign_key_file": "apitest_node2.key",
-        "verify_key_file": "apitest_node2.pub"
+        "verify_key_file": "apitest_node2.pub",
+        "tls_crt_file": "apitest_node2.crt",
+        "tls_csr_file": "apitest_node2.csr",
+        "tls_ca_key_file": "example_ca.key",
+        "tls_ca_crt_file": "example_ca.crt"
     },
     "datastore": {
         "password_encryption": false,
@@ -53,7 +64,8 @@
         "mongo_dbuser": "bcuser",
         "mongo_authdb": "admin",
         "mongo_blockcollection": "block_node2",
-        "mongo_poolcollection": "pool_node2"
+        "mongo_poolcollection": "pool_node2",
+        "queue_ondisk": true
     },
     "event": {
         "enable_internaltasks": false
@@ -66,7 +78,8 @@
             "userapi_password": "userapi-password",
             "adminapi_port": 8002,
             "adminapi_user": "admin",
-            "adminapi_password": "adminapi-password"
+            "adminapi_password": "adminapi-password",
+            "use_tls": false
         }
 
     }

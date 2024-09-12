@@ -194,6 +194,8 @@ export class LogModule {
                 end = '';
             };
 
+            const console_color_reset_code = '\u001b[0m';
+
             let msgTagText: string;
             switch (level) {
                 case 3:
@@ -203,7 +205,7 @@ export class LogModule {
                     core.msg.last_resultmsg = "";
                     core.msg.last_status = status;
                     if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stderr.write(msgTagText + core.msg.last_errormsg + end);
+                        process.stderr.write(core.conf.console_color_code + msgTagText + core.msg.last_errormsg + console_color_reset_code + end);
                     }
                     if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
                         if ((lf === true) && (core.msg.pending_message === "") && (core.lib.winston !== undefined)) {
@@ -223,7 +225,7 @@ export class LogModule {
                     core.msg.last_resultmsg = "";
                     core.msg.last_status = status;
                     if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(msgTagText + core.msg.last_message + end);
+                        process.stdout.write(core.conf.console_color_code + msgTagText + core.msg.last_message + console_color_reset_code + end);
                     }
                     if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
                         if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
@@ -243,7 +245,7 @@ export class LogModule {
                     core.msg.last_resultmsg = "";
                     core.msg.last_status = status;
                     if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(core.msg.last_message + end); // Do not print "NOTICE: "
+                        process.stdout.write(core.conf.console_color_code + core.msg.last_message + console_color_reset_code + end); // Do not print "NOTICE: "
                     }
                     if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
                         if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
@@ -265,7 +267,7 @@ export class LogModule {
                     core.msg.last_resultmsg = "";
                     core.msg.last_status = status;
                     if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(msgTagText + core.msg.last_message + end);
+                        process.stdout.write(core.conf.console_color_code + msgTagText + core.msg.last_message + console_color_reset_code + end);
                     }
                     if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
                         if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
@@ -285,7 +287,7 @@ export class LogModule {
                     core.msg.last_resultmsg = "";
                     core.msg.last_status = status;
                     if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stderr.write(msgTagText + core.msg.last_errormsg + end);
+                        process.stderr.write(core.conf.console_color_code + msgTagText + core.msg.last_errormsg + console_color_reset_code + end);
                     }
                     if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
                         if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {

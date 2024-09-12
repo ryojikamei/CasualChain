@@ -48,6 +48,7 @@ export type ccSystemType = {
     log: ccLogType,
     autoTasks: autoTasks | undefined,
     serializationLocks: serializationLocks,
+    activeTenants: string[],
     d: ccDsType | undefined,
     i: ccInType | undefined,
     b: ccBlockType | undefined,
@@ -70,12 +71,6 @@ export type postScanAndFixOptions = {
 export type postGenesisBlockOptions = {
     trytoreset: boolean
 }
-
-/**
- * The system values
- */
-export const DEFAULT_PARSEL_IDENTIFIER = "__common__";
-export const RUNTIME_MASTER_IDENTIFIER = randomUUID(); // Not critical at collision so far
 
 /**
  * The rpc format for gRPC
@@ -126,4 +121,24 @@ export type delTarget = string
 export type examinedHashes = {
     add: blockFormat[],
     del: delTarget[]
+}
+
+/**
+ * The options for postOpenParsel
+ * - adminId: administration_id to initialize
+ * - recallPhrase: phrase to recall tenantId
+ */
+export type postOpenParselOptions = {
+    adminId: string,
+    recallPhrase: string
+}
+
+/**
+ * The options for postCloseParsel
+ * - adminId: administration_id to disable
+ * - tenantId: target tenant id to close
+ */
+export type postCloseParselOptions = {
+    adminId: string,
+    tenantId: string
 }

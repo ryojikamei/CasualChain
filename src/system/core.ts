@@ -10,7 +10,7 @@ import { setInterval } from "timers/promises";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes } from "./index.js";
+import { ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes, postOpenParselOptions, postCloseParselOptions } from "./index.js";
 import { systemConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { objTx, objBlock, poolResultObject, blockResultObject, ccDsType } from "../datastore/index.js";
@@ -141,16 +141,6 @@ export class SystemModule {
     }
 
     /**
-     * Stub values for features not supported in the open source version
-     */
-    protected master_key: string
-    protected common_parsel: string
-    constructor() {
-        this.master_key = RUNTIME_MASTER_IDENTIFIER;
-        this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
-    }
-
-    /**
      * Initialization for SystemModule.
      * @param conf - set systemConfigType instance
      * @param log - set ccLogType instance
@@ -179,6 +169,7 @@ export class SystemModule {
                 postScanAndFixBlock: false,
                 postScanAndFixPool: false
             },
+            activeTenants: [],
             d: dsInstance ?? undefined,
             i: inInstance ?? undefined,
             b: blockInstance ?? undefined,
@@ -345,7 +336,7 @@ export class SystemModule {
             return this.sError("postDeliveryPool", "getAllUndeliveredPool", "The main module is down");
         }
         // Prepare an array of tx's with the pool delivery flag false
-        const ret1 = await core.m.lib.getAllUndeliveredPool(core.m);
+        const ret1 = await core.m.lib.getAllUndeliveredPool(core.m, { tenant: core.conf.administration_id });
         if (ret1.isFailure()) {
             core.serializationLocks.postDeliveryPool = false;
             return ret1;
@@ -410,7 +401,7 @@ export class SystemModule {
                 oids.push(tx._id.toString());
             }
             if (core.d !== undefined) {
-                const ret4 = await core.d.lib.poolModifyReadsFlag(core.d, oids, this.master_key);
+                const ret4 = await core.d.lib.poolModifyReadsFlag(core.d, oids, core.conf.administration_id);
                 if (ret4.isFailure()) { 
                     core.serializationLocks.postDeliveryPool = false;
                     return ret4;
@@ -444,7 +435,7 @@ export class SystemModule {
             for (tx of txArr) {
                 // The oid is inherited from the transfer source
                 tx.deliveryF = true;
-                pArr.push(core.d.lib.setPoolNewData(core.d, tx, this.master_key));
+                pArr.push(core.d.lib.setPoolNewData(core.d, tx, core.conf.administration_id));
             }
             await Promise.all(pArr).then((rArr) => {
                 for (const ret of rArr) {
@@ -488,7 +479,7 @@ export class SystemModule {
         }
         // Prepare an array of txs in the pool with the delivery flag true
         // (However, the maximum payload size may not be exceeded)
-        const ret1 = await core.m.lib.getAllDeliveredPool(core.m, { constrainedSize: MAX_SAFE_PAYLOAD_SIZE });
+        const ret1 = await core.m.lib.getAllDeliveredPool(core.m, { constrainedSize: MAX_SAFE_PAYLOAD_SIZE, tenant: core.conf.administration_id });
         if (ret1.isFailure()) {
             core.serializationLocks.postAppendBlocks = false;
             return ret1;
@@ -548,7 +539,7 @@ export class SystemModule {
         for (const tx of txArr) {
             oids.push(tx._id);
         }
-        const ret = await core.d.lib.poolDeleteTransactions(core.d, oids, this.master_key);
+        const ret = await core.d.lib.poolDeleteTransactions(core.d, oids, core.conf.administration_id);
         if (ret.isFailure()) return ret;
 
         return this.sOK(ret.value);
@@ -591,7 +582,7 @@ export class SystemModule {
         }
 
         if (core.d !== undefined) {
-            const ret2 = await core.d.lib.setBlockNewData(core.d, bObj, this.master_key);
+            const ret2 = await core.d.lib.setBlockNewData(core.d, bObj, core.conf.administration_id);
             if (ret2.isFailure()) return ret2;
             if (ret2.value.status !== 0) {
                 LOG("Warning", ret2.value.status, "The data has not been added to the block. Use /sync/blocksync to fix it.");
@@ -641,7 +632,7 @@ export class SystemModule {
                 return this.sError("postGenesisBlock", "getAllBlock", "The main module is down");
             }
             // Confirmation that there is no data in block and pool on default tenant of own node
-            const ret1 = await core.m.lib.getAllBlock(core.m, {bareTransaction: false, ignoreGenesisBlockIsNotFound: true}, this.common_parsel);
+            const ret1 = await core.m.lib.getAllBlock(core.m, {bareTransaction: false, ignoreGenesisBlockIsNotFound: true, tenant: core.conf.default_tenant_id});
             if (ret1.isFailure()) {
                 core.serializationLocks.postGenesisBlock = false;
                 return ret1;
@@ -654,7 +645,7 @@ export class SystemModule {
 
             // Confirmation that there is no data in blocks and pools on default tenant of other nodes
             const request = "GetBlockHeight";
-            const data: inGetBlockHeightDataFormat = { tenantId: this.common_parsel };
+            const data: inGetBlockHeightDataFormat = { tenantId: core.conf.default_tenant_id };
             let results: rpcResultFormat[] = [];
             if (core.i !== undefined) {
                 const ret2 = await core.i.lib.runRpcs(core.i, core.i.conf.nodes, request, JSON.stringify(data));
@@ -742,7 +733,7 @@ export class SystemModule {
         const blockOptions: createBlockOptions = { type: "genesis" };
         let bObj: objBlock | undefined;
         if (core.b !== undefined) {
-            const ret3 = await core.b.lib.createBlock(core.b, txArr, this.common_parsel, blockOptions);
+            const ret3 = await core.b.lib.createBlock(core.b, txArr, core.conf.default_tenant_id, blockOptions);
             if (ret3.isFailure()) {
                 core.serializationLocks.postGenesisBlock = false;
                 return ret3;
@@ -762,18 +753,20 @@ export class SystemModule {
     /**
      * Request from a sibling, the original invoker, to make this node getting the count of transactions in the pool.
      * @param core - set ccSystemType instance
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the number of height if it's success, and gError if it's failure.
      */
-    public async requestToGetPoolHeight(core: ccSystemType, __t?: string): Promise<gResult<number, gError>> {
+    public async requestToGetPoolHeight(core: ccSystemType, tenantId?: string): Promise<gResult<number, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToGetPoolHeight");
+
         if (core.m === undefined) {
             return this.sError("requestToGetPoolHeight", "getAllPool", "The main module is down");
         }
 
-        if (__t === undefined) __t = this.common_parsel;
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        const ret = await core.m.lib.getAllPool(core.m, undefined, __t);
+        const ret = await core.m.lib.getAllPool(core.m, { tenant: tenantId });
         if (ret.isFailure()) return ret;
 
         return this.sOK(ret.value.length);
@@ -783,16 +776,17 @@ export class SystemModule {
      * @param core - set ccSystemType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains the number of height if it's success, and gError if it's failure.
      */    
-    public async requestToGetBlockHeight(core: ccSystemType, __t?: string): Promise<gResult<number, gError>> {
+    public async requestToGetBlockHeight(core: ccSystemType, tenantId?: string): Promise<gResult<number, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToGetBlockHeight");
+
         if (core.m === undefined) {
             return this.sError("requestToGetBlockHeight", "getAllPool", "The main module is down");
         }
+        
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        if (__t === undefined) __t = this.common_parsel;
-
-        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true }, __t);
+        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true, tenant: tenantId });
         if (ret.isFailure()) return ret;
 
         return this.sOK(ret.value.length);
@@ -915,7 +909,7 @@ export class SystemModule {
         if (core.m === undefined) {
             return this.sError("reportHealthOfChain", "getAllBlock", "The main module is down");
         }
-        const ret1 = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true }, this.master_key);
+        const ret1 = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true, tenant: core.conf.administration_id});
         if (ret1.isFailure()) return ret1;
 
         if (ret1.value.length === 0) {
@@ -1439,11 +1433,11 @@ export class SystemModule {
      * @param core - set the ccSystemType instance
      * @param oid - set oid that is searching to get
      * @param returnUndefinedIfFail - it can be set true when the result may return success with undefined instead of any errors with gError format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns return with gResult, that is wrapped by a Promise, that contains a block by objBlock or nothing with undefined if it's success, and gError if it's failure.
      * Note that a success status is returned even if no block with the target oid is found.
      */
-    public async requestToGetBlock(core: ccSystemType, oid: string, returnUndefinedIfFail: boolean | undefined, __t?: string): Promise<gResult<objBlock | undefined, gError>> {
+    public async requestToGetBlock(core: ccSystemType, oid: string, returnUndefinedIfFail: boolean | undefined, tenantId?: string): Promise<gResult<objBlock | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToGetBlock");
 
@@ -1451,9 +1445,9 @@ export class SystemModule {
             return this.sError("requestToGetBlock", "getSearchByOid", "The main module is down");
         }
 
-        if (__t === undefined) __t = this.common_parsel;
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        const ret = await core.m.lib.getSearchByOid<objBlock>(core.m, oid, { targetIsBlock: true }, __t);
+        const ret = await core.m.lib.getSearchByOid<objBlock>(core.m, oid, { targetIsBlock: true, tenant: tenantId });
         if (ret.isFailure()) {
             if ((returnUndefinedIfFail === undefined) || (returnUndefinedIfFail === false)) {
                 return ret;
@@ -1492,7 +1486,7 @@ export class SystemModule {
 
         // Do the replacement on DB and cache
         if (core.d !== undefined) {
-            const cnt = await core.d.lib.blockUpdateBlocks(core.d, ret2.value, this.master_key);
+            const cnt = await core.d.lib.blockUpdateBlocks(core.d, ret2.value, core.conf.administration_id);
         } else {
             this.sError("repairFalsifiedChain", "blockUpdateBlocks", "The datastore module is down.");
         }
@@ -1690,7 +1684,7 @@ export class SystemModule {
         let failcnt = 0;
         if (core.d !== undefined) {
             for (const bObj of examinedList.add) {
-                pArr.push(core.d.lib.setBlockNewData(core.d, bObj, this.master_key))
+                pArr.push(core.d.lib.setBlockNewData(core.d, bObj, core.conf.administration_id))
             }
             await Promise.all(pArr).then((rArr) => {
                 for (const ret of rArr) {
@@ -1717,7 +1711,7 @@ export class SystemModule {
             core.serializationLocks.postScanAndFixBlock = false;
             return this.sError("postScanAndFixBlock", "getAllBlock", "The main module is down");
         }
-        const ret8 = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true }, this.master_key);
+        const ret8 = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true, tenant: core.conf.administration_id });
         if (ret8.isFailure()) {
             core.serializationLocks.postScanAndFixBlock = false;
             return ret8;
@@ -1770,7 +1764,7 @@ export class SystemModule {
             let pArr: Promise<gResult<poolResultObject, gError>>[] = [];
             let failcnt = 0;
             for (const tx of pushBackTxArr) {
-                pArr.push(core.d.lib.setPoolNewData(core.d, tx, this.master_key));
+                pArr.push(core.d.lib.setPoolNewData(core.d, tx, core.conf.administration_id));
             }
             await Promise.all(pArr).then((rArr) => {
                 for (const ret9 of rArr) {
@@ -1793,7 +1787,7 @@ export class SystemModule {
 
         // Delete blocks enumerated by oid
         if (core.d !== undefined) {
-            const ret10 = await core.d.lib.blockDeleteBlocks(core.d, examinedList.del, this.master_key);
+            const ret10 = await core.d.lib.blockDeleteBlocks(core.d, examinedList.del, core.conf.administration_id);
             if (ret10.isFailure()) {
                 core.serializationLocks.postScanAndFixBlock = false;
                 return ret10;
@@ -1812,11 +1806,11 @@ export class SystemModule {
     /**
      * Get last hash and its height of the blockchain.
      * @param core - set ccSystemType instance
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @param failIfUnhealthy - check the health of the target and fail if it is not healthy 
      * @returns retruns with gResult, that is wrapped by a Promise, that contains digestDataFormat that has both values in one object if it's success, and gError if it's failure.
      */
-    private async getLastHashAndHeight(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
+    private async getLastHashAndHeight(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:getLastHashAndHeight");
 
@@ -1829,12 +1823,10 @@ export class SystemModule {
             }
         }
 
-        if (__t === undefined) __t = this.common_parsel;
-
         if (core.m === undefined) {
             return this.sError("getLastHashAndHeight", "getLastBlock", "The main module is down");
         }
-        const ret = await core.m.lib.getLastBlock(core.m, undefined, __t);
+        const ret = await core.m.lib.getLastBlock(core.m, { tenant: tenantId });
         if (ret.isFailure()) return ret;
         if (ret.value !== undefined) {
             return this.sOK<inDigestReturnDataFormat>({ hash: ret.value.hash, height: ret.value.height });
@@ -1845,10 +1837,10 @@ export class SystemModule {
     /**
      * Get all hashes of every blocks.
      * @param core - set CcSystemType instance
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns Promise\<examineHashes\>
      */
-    private async getAllBlockHashes(core: ccSystemType, __t?: string): Promise<gResult<examineHashes, gError>> {
+    private async getAllBlockHashes(core: ccSystemType, tenantId?: string): Promise<gResult<examineHashes, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:getAllBlockHashes");
 
@@ -1856,9 +1848,7 @@ export class SystemModule {
             return this.sError("getAllBlockHashes", "getAllBlock", "The main module is down");
         }
 
-        if (__t === undefined) __t = this.common_parsel;
-
-        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true }, __t);
+        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: true, tenant: tenantId });
         if (ret.isFailure()) return ret;
         let ownHashes: examineHashes = [];
         if (ret.value.length === 0) return this.sOK<examineHashes>(ownHashes);
@@ -1872,10 +1862,10 @@ export class SystemModule {
      * Examine differnce of blocks between the sent node and this node.
      * @param core - set CcSystemType instance
      * @param examineList - the list to be examined on this node
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result by examinedHashes if it's success, and gError if it's failure.
      */
-    private async examineBlockDifference(core: ccSystemType, examineList: examineHashes, __t?: string): Promise<gResult<examinedHashes, gError>> {
+    private async examineBlockDifference(core: ccSystemType, examineList: examineHashes, tenantId?: string): Promise<gResult<examinedHashes, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:examineBlockDifference");
 
@@ -1883,9 +1873,7 @@ export class SystemModule {
             return this.sError("examineBlockDifference", "getAllBlock", "The main module is down");
         }
 
-        if (__t === undefined) __t = this.common_parsel;
-
-        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: false }, __t);
+        const ret = await core.m.lib.getAllBlock(core.m, { bareTransaction: false, ignoreGenesisBlockIsNotFound: false, tenant: tenantId });
         if (ret.isFailure()) return ret;
         let bObj: any;
         let examinedList: examinedHashes = { add: [], del: [] };
@@ -1915,17 +1903,17 @@ export class SystemModule {
     /**
      * Request from a sibling, to get last hash value and height.
      * @param core - set ccSystemType instance
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @param failIfUnhealthy - fail if this node is not healthy as the result of checking
      * @returns returns with gResult, that is wrapped by a Promise, that contains digestDataFormat if it's success, and gError if it's failure.
      */
-    public async requestToGetLastHash(core: ccSystemType, __t?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
+    public async requestToGetLastHash(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToGetLastHash");
 
-        if (__t === undefined) __t = this.common_parsel;
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        const ret = await this.getLastHashAndHeight(core, __t, failIfUnhealthy);
+        const ret = await this.getLastHashAndHeight(core, tenantId, failIfUnhealthy);
         if (ret.isFailure()) return ret;
         return this.sOK<inDigestReturnDataFormat>(ret.value);
     }
@@ -1933,16 +1921,16 @@ export class SystemModule {
      * Request from a sibling, to examine the difference of blocks.
      * @param core - set ccSystemType instance
      * @param examineList - the list from a sibling to examine
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result by examinedHashes if it's success, and gError if it's failure.
      */
-    public async requestToExamineBlockDifference(core: ccSystemType, examineList: examineHashes, __t?: string): Promise<gResult<examinedHashes, gError>> {
+    public async requestToExamineBlockDifference(core: ccSystemType, examineList: examineHashes, tenantId?: string): Promise<gResult<examinedHashes, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToExamineBlockDifference");
 
-        if (__t === undefined) __t = this.common_parsel;
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        const ret = await this.examineBlockDifference(core, examineList, __t);
+        const ret = await this.examineBlockDifference(core, examineList, tenantId);
         if (ret.isFailure()) return ret;
         return this.sOK<examinedHashes>(ret.value);
     }
@@ -1972,12 +1960,12 @@ export class SystemModule {
             core.serializationLocks.postScanAndFixPool = false;
             return this.sError("postScanAndFixPool", "getAllBlock", "The main module is down");
         }
-        const ret1 = await core.m.lib.getAllBlock(core.m, { bareTransaction: true }, this.master_key);
+        const ret1 = await core.m.lib.getAllBlock(core.m, { bareTransaction: true, tenant: core.conf.administration_id });
         if (ret1.isFailure()) {
             core.serializationLocks.postScanAndFixPool = false;
             return ret1;
         }
-        const ret2 = await core.m.lib.getAllPool(core.m, undefined, this.master_key);
+        const ret2 = await core.m.lib.getAllPool(core.m, { tenant: core.conf.administration_id });
         if (ret2.isFailure()) {
             core.serializationLocks.postScanAndFixPool = false;
             return ret2;
@@ -2012,7 +2000,7 @@ export class SystemModule {
             }
             if (core.d !== undefined) {
                 LOG("Notice", 0, "deleting duplication of transactions:", {lf: false});
-                const ret3 = await core.d.lib.poolDeleteTransactions(core.d, removePoolIds, this.master_key);
+                const ret3 = await core.d.lib.poolDeleteTransactions(core.d, removePoolIds, core.conf.administration_id);
                 if (ret3.isFailure()) {
                     LOG("Error", -1, "postScanAndFixPool:removePoolIds: error in deleting transactions");
                     core.serializationLocks.postScanAndFixPool = false;
@@ -2135,7 +2123,7 @@ export class SystemModule {
             let pArr: Promise<gResult<poolResultObject, gError>>[] = [];
             let failcnt = 0;
             for (const tx of uniqedTxArr) {
-                pArr.push(core.d.lib.setPoolNewData(core.d, tx, this.master_key));
+                pArr.push(core.d.lib.setPoolNewData(core.d, tx, core.conf.administration_id));
             }
             await Promise.all(pArr).then((rArr) => {
                 for (const ret6 of rArr) {
@@ -2164,16 +2152,16 @@ export class SystemModule {
      * Request from a sibling, to examine the difference of pools between the sibling and this node.
      * @param core - set ccSystemType
      * @param examineList - set the list to be examined
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains transactions if it's success, and gError if it's failure.
      */
-    public async requestToExaminePoolDifference(core: ccSystemType, examineList: string[], __t?: string): Promise<gResult<objTx[], gError>> {
+    public async requestToExaminePoolDifference(core: ccSystemType, examineList: string[], tenantId?: string): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:requestToExaminePoolDifference");
 
-        if (__t === undefined) __t = this.common_parsel;
+        if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
-        const ret = await this.examinePoolDifference(core, examineList, __t);
+        const ret = await this.examinePoolDifference(core, examineList, tenantId);
         if (ret.isFailure()) return ret;
         return this.sOK<objTx[]>(ret.value);
     }
@@ -2181,20 +2169,18 @@ export class SystemModule {
      * Examine the difference of pools between the list and this node.
      * @param core - set ccSystemType
      * @param examineList - set the list to be examined
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains transactions if it's success, and gError if it's failure.
      */
-    public async examinePoolDifference(core: ccSystemType, examineList: string[], __t?: string): Promise<gResult<objTx[], gError>> {
+    public async examinePoolDifference(core: ccSystemType, examineList: string[], tenantId?: string): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "SystemModule:examinePoolDifference");
 
         if (core.m === undefined) {
             return this.sError("examinePoolDifference", "getAllPool", "The main module is down");
         }
-        
-        if (__t === undefined) __t = this.common_parsel;
 
-        const ret = await core.m.lib.getAllPool(core.m, undefined, __t);
+        const ret = await core.m.lib.getAllPool(core.m, { tenant: tenantId });
         if (ret.isFailure()) return ret;
         let txArr = ret.value;
         for (const id of examineList) {
@@ -2217,9 +2203,9 @@ export class SystemModule {
         LOG("Info", 0, "SystemModule:postSyncCaches");
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.setPoolNewData(core.d, undefined, this.master_key);
+            const ret1 = await core.d.lib.setPoolNewData(core.d, undefined, core.conf.administration_id);
             if (ret1.isFailure()) return ret1;
-            const ret2 = await core.d.lib.setBlockNewData(core.d, undefined, this.master_key);
+            const ret2 = await core.d.lib.setBlockNewData(core.d, undefined, core.conf.administration_id);
             if (ret2.isFailure()) return ret2;
             if ((ret1.isSuccess()) && (ret2.isSuccess())) {
                 if ((ret1.value.status !== 0) || (ret2.value.status !== 0)) {
@@ -2233,5 +2219,149 @@ export class SystemModule {
 
         return this.sOK<void>(undefined);
     }
+
+    /**
+     * Initialize one new parsel for the new tenant.
+     * @param core - set ccSystemType instance
+     * @param options - set options by postOpenParselOptions
+     * @returns returns new parsel ID.
+     */
+    public async postOpenParsel(core: ccSystemType, options: postOpenParselOptions): Promise<gResult<string, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "eSystemModule:postOpenParsel");
+
+        if (options.adminId !== core.conf.administration_id) {
+            return this.sError("postOpenParsel", "Check adminId", "The administration_id is required to create a new parsel");
+        }
+        if ((options.recallPhrase === undefined) || (options.recallPhrase === "")) {
+            return this.sError("postOpenParsel", "Check recallPhrase", "A valid recall phrase must be specified");
+        }
+
+        if (core.b === undefined) {
+            return this.sError("postOpenParsel", "createBlock", "The block module is down");
+        }
+        const blockOptions: createBlockOptions = { type: "parsel_open" };
+
+        if (core.m === undefined) return this.sError("postOpenParsel", "getSearchByJson", "The main module is down");
+        let newId: `${string}-${string}-${string}-${string}-${string}`;
+        while (true) {
+            newId = randomUUID(); // Critical at collision
+            const ret1 = await core.m.lib.getSearchByJson(core.m, {key: "tenant", value: newId, tenant: core.conf.administration_id});
+            if (ret1.isFailure()) return ret1;
+            if (ret1.value.length === 0) break;
+        }
+        const dateTime = new Date();
+        const data: objTx = {
+            _id: randomOid().byStr(),
+            type: "new",
+            tenant: newId,
+            settime: dateTime.toLocaleString(),
+            deliveryF: true,
+            data: { recallPhrase: options.recallPhrase }
+        }
+
+        let bObj: objBlock;
+        const ret2 = await core.b.lib.createBlock(core.b, [ data ], newId, blockOptions);
+        if (ret2.isFailure()) return ret2;
+        if (ret2.value === undefined) { return this.sError("postOpenParsel", "createBlock", "undefined object"); };
+        bObj = ret2.value;
+
+        LOG("Notice", 0, "SystemModule:postOpenParsel: new parsel that has id " + newId + " is created and enabled");
+
+        this.refreshParselList(core);
+
+        return this.sOK(bObj.tenant);
+    }
+
+    /**
+     * Disable one existing parsel to stop using by the tenant
+     * @param core - set ccSystemType instance
+     * @param adminId - set administration_id to disable
+     * @param tenantId - set the tenantId to close
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async postCloseParsel(core: ccSystemType, options: postCloseParselOptions): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "eSystemModule:postCloseParsel");
+
+        if (options.adminId !== core.conf.administration_id) {
+            return this.sError("postCloseParsel", "Check administration ID", "The administration_id is required to disable a parsel");
+        }
+
+        if (core.b === undefined) {
+            return this.sError("postCloseParsel", "createBlock", "The block module is down");
+        }
+        if (core.m === undefined) {
+            return this.sError("postCloseParsel", "createBlock", "The main module is down");
+        }
+        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_open", searchBlocks: true, tenant: core.conf.administration_id });
+        if (ret1.isFailure()) return ret1;
+        let found = false;
+        for (const blk of ret1.value) {
+            if (blk.tenant === options.tenantId) found = true
+        }
+        if (found === false) {
+            return this.sError("postCloseParsel", "Find target parsel", "Cannot find parsel with id " + options.tenantId);
+        }
+
+        const blockOptions: createBlockOptions = { type: "parsel_close" };
+        const ret2 = await core.b.lib.createBlock(core.b, [], options.tenantId, blockOptions);
+        if (ret2.isFailure()) return ret2;
+
+        LOG("Notice", 0, "SystemModule:postCloseParsel: the parsel that has id " + options.tenantId + " is disabled");
+        
+        this.refreshParselList(core);
+
+        return this.sOK(undefined);
+    }
+
+    /**
+     * Refresh active parsel list to check enabled tenants
+     * @param core - set ccSystemType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
+     * So there is no need to check the value of success.
+     */
+    public async refreshParselList(core: ccSystemType): Promise<gResult<void, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "eSystemModule:refreshParselList");
+
+        if (core.m === undefined) {
+            return this.sError("postCloseParsel", "createBlock", "The main module is down");
+        }
+        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_close" , searchBlocks: true, tenant: core.conf.administration_id });
+        if (ret1.isFailure()) return ret1;
+        const closeList: string[] = [];
+        for (const blk1 of ret1.value) {
+            closeList.push(blk1.tenant);
+        }
+        const ret2 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_open" , searchBlocks: true, tenant: core.conf.administration_id });
+        if (ret2.isFailure()) return ret2;
+        const openList: string[] = [];
+        for (const blk2 of ret2.value) {
+            if (closeList.includes(blk2.tenant) === false) openList.push(blk2.tenant);
+        }
+
+        core.activeTenants = openList;
+        return this.sOK(undefined);
+    }
+
+    /**
+     * Check specified parsel is active or not from the cache. It doesn't include default/system parsel.
+     * @param core - set ccSystemType instance
+     * @param tenantId - set the tenantId to check
+     * @returns returns with gResult that contains boolean if it's success, and unknown if it's failure.
+     * So there is no need to be concerned about the failure status.
+     */
+    public isOpenParsel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "eSystemModule:isOpenParsel");
+
+        for (const id of core.activeTenants) {
+            if (id === tenantId) return this.sOK(true);
+        }
+        return this.sOK(false)
+    }
+
 }
 
