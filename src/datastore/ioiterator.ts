@@ -19,15 +19,15 @@ export class cachedIoIterator<T extends object> {
     /**
      * The constructor of cachedIoIterator
      * @param array - set the target array with type T
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId to narrow down items. If undefined it treats all items.
      * @param constrainedSize - can set the maximum output size. When the set number is exceeded, this will force the return of the termination status
      */
-    constructor(array: Array<T>, __t?: string, constrainedSize?: number) {
+    constructor(array: Array<T>, tenantId?: string, constrainedSize?: number) {
         this.outputSizeMax = constrainedSize;
         this.outputSizeCurrent = 0;
-        if (__t !== undefined) {
+        if (tenantId !== undefined) {
             this.array = array.filter((tx: any) => {
-                return tx.tenant.toString() === __t
+                return tx.tenant.toString() === tenantId
             });
         } else {
             this.array = array;

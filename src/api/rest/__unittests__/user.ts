@@ -159,6 +159,51 @@ describe("Test of ListerV3UserApi", () => {
         })
     })
 
+    describe("API /get/lastblock", () => {
+        test("Success in getting", async () => {
+            acore.m = mcore;
+            const res = await request(api).get("/get/lastblock").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to get", async () => {
+            acore.m = undefined;
+            const res = await request(api).get("/get/lastblock").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
+    describe("API /get/poolingdelivered", () => {
+        test("Success in getting", async () => {
+            acore.m = mcore;
+            const res = await request(api).get("/get/poolingdelivered").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to get", async () => {
+            acore.m = undefined;
+            const res = await request(api).get("/get/poolingdelivered").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
+    describe("API /get/totalnumber", () => {
+        test("Success in getting", async () => {
+            acore.m = mcore;
+            const res = await request(api).get("/get/totalnumber").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to get", async () => {
+            acore.m = undefined;
+            const res = await request(api).get("/get/totalnumber").auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
     describe("API /get/history", () => {
         test("Success in getting", async () => {
             acore.m = mcore;

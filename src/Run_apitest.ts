@@ -21,7 +21,11 @@ try {
         mongo_password: nodeConfig.get("datastore.mongo_password"),
         mongo_authdb: nodeConfig.get("datastore.mongo_authdb"),
         mongo_blockcollection: nodeConfig.get("datastore.mongo_blockcollection"),
-        mongo_poolcollection: nodeConfig.get("datastore.mongo_poolcollection")
+        mongo_poolcollection: nodeConfig.get("datastore.mongo_poolcollection"),
+        queue_ondisk: nodeConfig.get("datastore.queue_ondisk"),
+        administration_id: nodeConfig.get("system.administration_id"),
+        default_tenant_id: nodeConfig.get("system.default_tenant_id"),
+        enable_default_tenant: nodeConfig.get("system.enable_default_tenant")
     }
     const mod = new ConfigModule();
     if (d.password_encryption === true) {

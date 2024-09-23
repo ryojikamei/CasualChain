@@ -10,7 +10,7 @@ import crypto from "crypto";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { systemConfigType, ccConfigType, logConfigType, logConfigInputType, mainConfigType, dsConfigType, eventConfigType, apiConfigType, inConfigType, blockConfigType, keyringConfigType, keyringConfigInputSchema, inConfigInputSchema, blockConfigInputSchema, systemConfigInputSchema, dsConfigInputSchema, apiConfigInputSchema, eventConfigInputSchema, logConfigInputSchema, wholeConfigType } from "./zod.js";
+import { systemConfigType, ccConfigType, logConfigType, logConfigInputType, mainConfigType, dsConfigType, eventConfigType, apiConfigType, inConfigType, blockConfigType, keyringConfigType, keyringConfigInputSchema, inConfigInputSchema, blockConfigInputSchema, systemConfigInputSchema, dsConfigInputSchema, apiConfigInputSchema, eventConfigInputSchema, logConfigInputSchema, mainConfigInputSchema, wholeConfigType } from "./zod.js";
 import { getConfigurationOptions, configCache } from "./index.js";
 import { moduleCondition } from "../index.js";
 
@@ -86,6 +86,7 @@ export class ConfigModule {
             li = logConfigInputSchema.parse({
                 console_output: nodeConfig.get("logger.console_output"),
                 console_level: nodeConfig.get("logger.console_level"),
+                console_color: nodeConfig.get("logger.console_color"),
                 file_output: nodeConfig.get("logger.file_output"),
                 file_path: nodeConfig.get("logger.file_path"),
                 file_rotation: nodeConfig.get("logger.file_rotation"),
@@ -171,21 +172,79 @@ export class ConfigModule {
                 file_level_number = 6;
                 break;
         }
+        let console_color_code = '\u001b[0m';
+        const console_color_string: string = li.console_color;
+        switch  (console_color_string.toLowerCase()) {
+            case "black":
+                console_color_code = '\u001b[30m';
+                break;
+            case "red":
+                console_color_code = '\u001b[31m';
+                break;
+            case "green":
+                console_color_code = '\u001b[32m';
+                break;
+            case "yellow":
+                console_color_code = '\u001b[33m';
+                break;
+            case "blue":
+                console_color_code = '\u001b[34m';
+                break;
+            case "magenta":
+                console_color_code = '\u001b[35m';
+                break;
+            case "cyan":
+                console_color_code = '\u001b[36m';
+                break;
+            case "white":
+                console_color_code = '\u001b[37m';
+                break;
+            default:
+                console_color_code = '\u001b[0m';
+                break;
+        }
         const l: logConfigType = {
             console_output: li.console_output,
             console_level: console_level_number,
+            console_color: li.console_color,
+            console_color_code: console_color_code,
             file_output: li.file_output,
             file_path: li.file_path,
             file_rotation: li.file_rotation,
             file_level: file_level_number,
             file_level_text: file_level_text
         }
+
+        let s: systemConfigType;
+        try {
+            s = systemConfigInputSchema.parse({
+                node_mode: nodeConfig.get("system.node_mode"),
+                events_internal: nodeConfig.get("system.events_internal"),
+                enable_default_tenant: nodeConfig.get("system.enable_default_tenant"),
+                administration_id: nodeConfig.get("system.administration_id"),
+                default_tenant_id: nodeConfig.get("system.default_tenant_id")
+            })
+        } catch (error: any) {
+            let detail: string;
+            try {
+                detail = error.toString();
+            } catch (error: any) {
+                detail = error.flatten();
+            }
+            return this.cError("init", "system", detail);
+        }
+
         let k: keyringConfigType;
         try {
             k = keyringConfigInputSchema.parse({
                 create_keys_if_no_sign_key_exists: nodeConfig.get("keyring.create_keys_if_no_sign_key_exists"),
                 sign_key_file: nodeConfig.get("keyring.sign_key_file"),
-                verify_key_file: nodeConfig.get("keyring.verify_key_file")
+                verify_key_file: nodeConfig.get("keyring.verify_key_file"),
+                tls_csr_file: nodeConfig.get("keyring.tls_csr_file"),
+                tls_crt_file: nodeConfig.get("keyring.tls_crt_file"),
+                tls_ca_key_file: nodeConfig.get("keyring.tls_ca_key_file"),
+                tls_ca_crt_file: nodeConfig.get("keyring.tls_ca_crt_file"),
+                default_tenant_id: s.default_tenant_id
             })
         } catch (error: any) {
             let detail: string;
@@ -202,10 +261,13 @@ export class ConfigModule {
             i = inConfigInputSchema.parse({
                 self: {
                     nodename: nodeConfig.get("internode.self.nodename"),
-                    rpc_port: nodeConfig.get("internode.self.rpc_port")
+                    rpc_port: nodeConfig.get("internode.self.rpc_port"),
+                    use_tls_internode: nodeConfig.get("internode.self.use_tls_internode")
                 },
                 abnormalCountForJudging: nodeConfig.get("internode.abnormalCountForJudging"),
-                nodes: nodeConfig.get("internode.nodes")
+                nodes: nodeConfig.get("internode.nodes"),
+                administration_id: s.administration_id,
+                default_tenant_id: s.default_tenant_id
             })
             if (i.abnormalCountForJudging > 0) {
                 for (const node of i.nodes) {
@@ -226,6 +288,8 @@ export class ConfigModule {
         try {
             b = blockConfigInputSchema.parse({
                 ca3: nodeConfig.get("block.ca3"),
+                administration_id: s.administration_id,
+                default_tenant_id: s.default_tenant_id
             })
         } catch (error: any) {
             let detail: string;
@@ -237,12 +301,11 @@ export class ConfigModule {
             return this.cError("init", "block", detail);
         }
 
-        let s: systemConfigType;
+        let m: mainConfigType;
         try {
-            s = systemConfigInputSchema.parse({
-                node_mode: nodeConfig.get("system.node_mode"),
-                events_internal: nodeConfig.get("system.events_internal")
-            })
+            m = mainConfigInputSchema.parse({
+                default_tenant_id: s.default_tenant_id
+            });
         } catch (error: any) {
             let detail: string;
             try {
@@ -252,9 +315,6 @@ export class ConfigModule {
             }
             return this.cError("init", "system", detail);
         }
-
-        let m: mainConfigType;
-        m = {};
 
         let d: dsConfigType;
         try {
@@ -267,7 +327,11 @@ export class ConfigModule {
                 mongo_password: nodeConfig.get("datastore.mongo_password"),
                 mongo_authdb: nodeConfig.get("datastore.mongo_authdb"),
                 mongo_blockcollection: nodeConfig.get("datastore.mongo_blockcollection"),
-                mongo_poolcollection: nodeConfig.get("datastore.mongo_poolcollection")
+                mongo_poolcollection: nodeConfig.get("datastore.mongo_poolcollection"),
+                queue_ondisk: nodeConfig.get("datastore.queue_ondisk"),
+                administration_id: s.administration_id,
+                default_tenant_id: s.default_tenant_id,
+                enable_default_tenant: s.enable_default_tenant
             })
             if (d.password_encryption === true) {
                 const ret1 = await this.getDecryptedPassword(d.mongo_password);
@@ -297,7 +361,8 @@ export class ConfigModule {
                     userapi_password: nodeConfig.get("api.rest.userapi_password"),
                     adminapi_port: nodeConfig.get("api.rest.adminapi_port"),
                     adminapi_user: nodeConfig.get("api.rest.adminapi_user"),
-                    adminapi_password: nodeConfig.get("api.rest.adminapi_password")
+                    adminapi_password: nodeConfig.get("api.rest.adminapi_password"),
+                    use_tls: nodeConfig.get("api.rest.use_tls")
                 }
             })
             if (a.rest.password_encryption === true) {

@@ -8,7 +8,7 @@
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { objBlock, objTx, poolResultObject, blockResultObject, getPoolCursorOptions, getBlockCursorOptions, poolCursor, blockCursor, ccCommonIoType } from ".";
-import { RUNTIME_MASTER_IDENTIFIER, DEFAULT_PARSEL_IDENTIFIER, getBlockResult } from "../system/index.js";
+import { getBlockResult } from "../system/index.js";
 import { dsConfigType } from "../config"
 import { ccLogType } from "../logger"
 import { BackendDbSubModule } from "./mongodb.js"
@@ -47,20 +47,10 @@ export class DirectIoSubModule {
     }
 
     /**
-     * Stub values for features not supported in the open source version
-     */
-    protected master_key: string
-    protected common_parsel: string
-    constructor() {
-        this.master_key = RUNTIME_MASTER_IDENTIFIER;
-        this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
-    }
-
-    /**
      * IoSubModule initialization
      * @param conf - set dsConfigType instance
      * @param log - set ccLogType instance
-     * @param backendDB  - can inject backendDB instance on testing
+     * @param backendDB - can inject backendDB instance on testing
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccDsType if it's success, and gError if it's failure.
      */
     public async init(conf: dsConfigType, log: ccLogType, backendDB?: BackendDbSubModule): Promise<gResult<ccDirectIoType, gError>> {
@@ -108,25 +98,34 @@ export class DirectIoSubModule {
     }
 
     /**
-     * Turn some the delivery flags true on the queue.
+     * Turn some the delivery flags true on the db and queue.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async poolModifyReadsFlag(core: ccDirectIoType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolModifyReadsFlag(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:poolModifyReadsFlag");
 
-        if (__t !== this.master_key) {
-            LOG("Debug", 0, "DirectIoSubModule:poolModifyReadsFlag:IncorrectAuthorization:" + __t);
-            return this.ioError("poolModifyReadsFlag", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        if (tenantId !== core.conf.administration_id) {
+            LOG("Debug", 0, "DirectIoSubModule:poolModifyReadsFlag:IncorrectAuthorization:" + tenantId);
+            return this.ioError("poolModifyReadsFlag", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
-        for (const tx of core.queue) {
-            for (const oid of oids) {
-                if (tx._id === oid) tx.deliveryF = true;
+        if (core.conf.queue_ondisk === true) {
+            if (core.db.obj !== undefined) {
+                const ret2 = await core.db.lib.poolUpdateFlagsByOid(core, core.db.obj, core.conf, oids, tenantId);
+                if (ret2.isFailure()) return ret2;
+            } else {
+                return this.ioError("poolModifyReadsFlag", "poolUpdateFlagsByOid", "DB connection may be lost");
+            }
+        } else {
+            for (const tx of core.queue) {
+                for (const oid of oids) {
+                    if (tx._id === oid) tx.deliveryF = true;
+                }
             }
         }
 
@@ -137,27 +136,36 @@ export class DirectIoSubModule {
      * Danger: delete some transactions of pool on the queue.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async poolDeleteTransactions(core: ccDirectIoType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolDeleteTransactions(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:poolDeleteTransactions");
 
-        if (__t !== this.master_key) {
-            LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:IncorrectAuthorization:" + __t);
-            return this.ioError("poolDeleteTransactions", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        if (tenantId !== core.conf.administration_id) {
+            LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:IncorrectAuthorization:" + tenantId);
+            return this.ioError("poolDeleteTransactions", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
-        for (const oid of oids) {
-            let index = 0;
-            for (const qItem of core.queue) {
-                if (qItem._id === oid) {
-                    core.queue.splice(index, 1);
-                    continue;
-                } else {
-                    index++;
+        if (core.conf.queue_ondisk === true) {
+            if (core.db.obj !== undefined) {
+                const ret2 = await core.db.lib.poolDeleteByOid(core, core.db.obj, core.conf, oids, tenantId);
+                if (ret2.isFailure()) return ret2;
+            } else {
+                return this.ioError("poolDeleteTransactions", "poolDeleteByOid", "DB connection may be lost");
+            }
+        } else {
+            for (const oid of oids) {
+                let index = 0;
+                for (const qItem of core.queue) {
+                    if (qItem._id === oid) {
+                        core.queue.splice(index, 1);
+                        continue;
+                    } else {
+                        index++;
+                    }
                 }
             }
         }
@@ -169,21 +177,21 @@ export class DirectIoSubModule {
      * Danger: delete some blocks on the db.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async blockDeleteBlocks(core: ccDirectIoType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async blockDeleteBlocks(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:blockDeleteBlocks");
 
-        if (__t !== this.master_key) {
-            LOG("Debug", 0, "DirectIoSubModule:blockDeleteBlocks:IncorrectAuthorization:" + __t);
-            return this.ioError("blockDeleteBlocks", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        if (tenantId !== core.conf.administration_id) {
+            LOG("Debug", 0, "DirectIoSubModule:blockDeleteBlocks:IncorrectAuthorization:" + tenantId);
+            return this.ioError("blockDeleteBlocks", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
         if (core.db.obj !== undefined) {
-            const ret2 = await core.db.lib.blockDeleteByOid(core, core.db.obj, core.conf, oids, __t);
+            const ret2 = await core.db.lib.blockDeleteByOid(core, core.db.obj, core.conf, oids, tenantId);
             if (ret2.isFailure()) return ret2;
         } else {
             return this.ioError("blockDeleteBlocks", "blockDeleteByOid", "DB connection may be lost");
@@ -196,23 +204,23 @@ export class DirectIoSubModule {
      * Update blocks with specified blocks.
      * @param core - set ccDirectIoType instance
      * @param blocks - a legitimate block of blocks.
-     * @param __t - in open source version, it must be equal to RUNTIME_MASTER_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async blockUpdateBlocks(core: ccDirectIoType, blocks: getBlockResult[], __t: string): Promise<gResult<void, gError>> {
+    public async blockUpdateBlocks(core: ccDirectIoType, blocks: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:blockUpdateBlocks");
 
         if (blocks.length === 0) return this.ioOK<void>(undefined);
 
-        if (__t !== this.master_key) {
-            LOG("Debug", 0, "DirectIoSubModule:blockUpdateBlocks:IncorrectAuthorization:" + __t);
-            return this.ioError("blockUpdateBlocks", "CheckAuthorization", "IncorrectAuthorization:" + __t);
+        if (tenantId !== core.conf.administration_id) {
+            LOG("Debug", 0, "DirectIoSubModule:blockUpdateBlocks:IncorrectAuthorization:" + tenantId);
+            return this.ioError("blockUpdateBlocks", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
         if (core.db.obj !== undefined) {
-            const ret2 = await core.db.lib.blockReplaceByBlocks(core, core.db.obj, core.conf, blocks, __t);
+            const ret2 = await core.db.lib.blockReplaceByBlocks(core, core.db.obj, core.conf, blocks, tenantId);
             if (ret2.isFailure()) return ret2;
         } else {
             return this.ioError("blockUpdateBlocks", "blockReplaceByBlocks", "DB connection may be lost");
@@ -225,53 +233,82 @@ export class DirectIoSubModule {
      * Return the cursor that points pooling transactions. Several functions that use pool depend on it.
      * @param core - set ccDirectIoType instanc
      * @param options - set options that is listed in getPoolCursorOptions
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getPoolCursor(core: ccDirectIoType, options?: getPoolCursorOptions, __t?: string): Promise<gResult<poolCursor, gError>> {
+    public async getPoolCursor(core: ccDirectIoType, options?: getPoolCursorOptions, tenantId?: string): Promise<gResult<poolCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:getPoolCursor");
 
         let filter_key: string | undefined;
-        if (__t !== this.master_key) {
-            filter_key = __t;
+        if (tenantId === undefined) {
+            if (core.conf.enable_default_tenant === false) {
+                LOG("Debug", -1, "getPoolCursor:default parcel is disabled");
+                return this.ioError("getPoolCursor", "tenantId", "Default parcel is disabled");
+            }
+            filter_key = core.conf.default_tenant_id;
+        } else {
+            if (tenantId.length === 0) {
+                LOG("Debug", -1, "getPoolCursor:tenantId is invalid");
+                return this.ioError("getPoolCursor", "tenantId", "The tenatId is invalid");
+            }
+            filter_key = tenantId;
         }
-        if (options?.sortOrder === -1) {
-            core.queue.sort(function(a: any, b: any) {
-                if (a._id < b._id) {
-                    return 1;
-                } else {
-                    return -1;
-                }
-            })
-        } else if (options?.sortOrder === 1) {
-            core.queue.sort(function(a: any, b: any) {
-                if (a._id > b._id) {
-                    return 1;
-                } else {
-                    return -1;
-                }
-            })
+        if (core.conf.queue_ondisk === true) {
+            if (core.db.obj !== undefined) {
+                const ret1 = await core.db.lib.poolGetFromDbToCursor(core, core.db.obj, core.conf, filter_key, options?.sortOrder, options?.constrainedSize);
+                if (ret1.isFailure()) return ret1;
+                return this.ioOK<poolCursor>(ret1.value);
+            } else {
+                return this.ioError("getPoolCursor", "poolGetFromDbToCursor", "DB connection may be lost");
+            }
+        } else {
+            if (options?.sortOrder === -1) {
+                core.queue.sort(function(a: any, b: any) {
+                    if (a._id < b._id) {
+                        return 1;
+                    } else {
+                        return -1;
+                    }
+                })
+            } else if (options?.sortOrder === 1) {
+                core.queue.sort(function(a: any, b: any) {
+                    if (a._id > b._id) {
+                        return 1;
+                    } else {
+                        return -1;
+                    }
+                })
+            }
+            if (tenantId === core.conf.administration_id) { filter_key = undefined; }
+            return this.ioOK<poolCursor>({ session: undefined, cursor: new cachedIoIterator(core.queue, filter_key, options?.constrainedSize)});
         }
-        return this.ioOK<poolCursor>({ session: undefined, cursor: new cachedIoIterator(core.queue, filter_key, options?.constrainedSize)});
     }
 
     /**
      * Return the cursor that points specified tenant's blockchained transactions. Several functions that use blockchain depend on it.
      * @param core - set ccDirectIoType instance
      * @param options - set options that is listed in getBlockCursorOptions
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can be set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not. To get a value across tenants, you must specify the administration_id for this node.
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getBlockCursor(core: ccDirectIoType, options?: getBlockCursorOptions, __t?: string): Promise<gResult<blockCursor, gError>> {
+    public async getBlockCursor(core: ccDirectIoType, options?: getBlockCursorOptions, tenantId?: string): Promise<gResult<blockCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:getBlockCursor");
 
-        let filter_key: string
-        if (__t === undefined) {
-            filter_key = this.common_parsel;
+        let filter_key: string | undefined
+        if (tenantId === undefined) {
+            if (core.conf.enable_default_tenant === false) {
+                LOG("Debug", -1, "getBlockCursor:default parcel is disabled");
+                return this.ioError("getBlockCursor", "tenantId", "Default parcel is disabled");
+            }
+            filter_key = core.conf.default_tenant_id;
         } else {
-            filter_key = __t;
+            if (tenantId.length === 0) {
+                LOG("Debug", -1, "getBlockCursor:tenantId is invalid");
+                return this.ioError("getBlockCursor", "tenantId", "The tenatId is invalid");
+            }
+            filter_key = tenantId;
         }
         if (core.db.obj !== undefined) {
             const ret1 = await core.db.lib.blockGetFromDbToCursor(core, core.db.obj, core.conf, filter_key, options?.sortOrder, options?.constrainedSize);
@@ -303,47 +340,61 @@ export class DirectIoSubModule {
      * Add new data into pool
      * @param core  - set ccDirectIoType instance
      * @param wObj  - set a object to register
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async setPoolNewData(core: ccDirectIoType, wObj: objTx | undefined, __t: string): Promise<gResult<poolResultObject, gError>> {
+    public async setPoolNewData(core: ccDirectIoType, wObj: objTx | undefined, tenantId: string): Promise<gResult<poolResultObject, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:setPoolNewData");
 
         if (wObj === undefined) return this.ioOK<poolResultObject>({id: "", status: 0, cache: []});
 
-        if (__t !== this.master_key) {
-            if (wObj.tenant !== __t) {
+        if (tenantId !== core.conf.administration_id) {
+            if (wObj.tenant !== tenantId) {
                 return this.ioError("setPoolNewData", "Check tenant ID", "Transaction tenant ID does not match authorization ID to write")
             }
         }
-
-        core.queue.push(wObj);
-        const ret3: poolResultObject = {
-            id: "",
-            status: 0,
-            cache: [wObj]
+        if (core.conf.queue_ondisk === true) {
+            if (core.db.obj !== undefined) {
+                const ret1 = await core.db.lib.poolAppendToDb(core, core.db.obj, core.conf, [wObj], tenantId);
+                if (ret1.isFailure()) return ret1;
+                const ret2: poolResultObject = {
+                    id: "",
+                    status: ret1.value.insertedCount - 1,
+                    cache: [wObj]
+                }
+                return this.ioOK<poolResultObject>(ret2);
+            } else {
+                return this.ioError("setPoolNewData", "poolAppendToDb", "DB connection may be lost");
+            }
+        } else {
+            core.queue.push(wObj);
+            const ret3: poolResultObject = {
+                id: "",
+                status: 0,
+                cache: [wObj]
+            }
+            return this.ioOK<poolResultObject>(ret3);
         }
-        return this.ioOK<poolResultObject>(ret3);
     }
 
     /**
      * Add new data into block
      * @param core  - set ccDirectIoType instance
      * @param wObj  - set a object to register
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async setBlockNewData(core: ccDirectIoType, wObj: objBlock | undefined, __t: string): Promise<gResult<blockResultObject, gError>> {
+    public async setBlockNewData(core: ccDirectIoType, wObj: objBlock | undefined, tenantId: string): Promise<gResult<blockResultObject, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DirectIoSubModule:setBlockNewData");
 
         if (wObj === undefined) return this.ioOK<blockResultObject>({id: "", status: 0, cache: []});
 
         if (core.db.obj !== undefined) {
-            const ret1 = await core.db.lib.blockAppendToDb(core, core.db.obj, core.conf, [wObj], __t);
+            const ret1 = await core.db.lib.blockAppendToDb(core, core.db.obj, core.conf, [wObj], tenantId);
             if (ret1.isFailure()) return ret1;
             const ret2: blockResultObject = {
                 id: "",

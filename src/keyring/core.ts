@@ -17,13 +17,17 @@ import { ccLogType } from "../logger";
 
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
-import { DEFAULT_PARSEL_IDENTIFIER } from "../system/index.js";
 import { moduleCondition } from "../index.js";
 
 /**
  * The tag string for the transaction of public keys
  */
 export const tag_pubkey_data = "system.v3.keyring.config.pubkey";
+
+/**
+ * The tag string for the transaction of tls cetificates
+ */
+export const tag_tlscrt_data = "system.v3.keyring.config.tlscrt";
 
 /**
  * KeyringModule, it manages keys provide functions to sign and verify
@@ -67,14 +71,6 @@ export class KeyringModule {
         this.coreCondition = condition;
     }
 
-    /**
-     * Stub values for features not supported in the open source version
-     */
-    protected common_parsel: string
-    constructor() {
-        this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
-    }
-
     private configPath = "config/";
 
     /**
@@ -113,12 +109,27 @@ export class KeyringModule {
         const private_cache = await readFile(this.configPath + conf.sign_key_file, "utf-8");
         const public_cache = await readFile(this.configPath + conf.verify_key_file, "utf-8");
 
+        const CertificateSigningRequest = this.configPath + conf.tls_csr_file;
+        if (existsSync(CertificateSigningRequest) === false) {
+            if (conf.create_keys_if_no_sign_key_exists === true) {
+                LOG("Notice", 0, "Certificate files are not found. Generate certificates");
+                await core.lib.generateCertificates(core, this.configPath);
+            } else {
+                LOG("Error", -1, "Certificate files are not found");
+                return this.kError("init", "generateCertificates", "The certificate files are not found");
+            }
+        }
+
+        //const csr_cache = await readFile(this.configPath + conf.tls_csr_file, "utf-8");
+        const crt_cache = await readFile(this.configPath + conf.tls_crt_file, "utf-8");
+
         core.cache.push({
             nodename: "self",
             sign_key: private_cache,
             sign_key_hex: Buffer.from(private_cache.split(/\n/)[1].slice(0,32)).toString("hex"),
             verify_key: public_cache,
-            verify_key_hex: Buffer.from(public_cache.split(/\n/)[1]).toString("hex")
+            verify_key_hex: Buffer.from(public_cache.split(/\n/)[1]).toString("hex"),
+            tls_crt: crt_cache
         });
         // noble-curves doen't accept pubkey from openssl
         // AND grpc doesn't accept keys from noble-curves
@@ -196,6 +207,45 @@ export class KeyringModule {
         return this.kOK<void>(undefined);
     }
 
+    public async generateCertificates(core: ccKeyringType, keypath: string): Promise<gResult<boolean, gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "eKeyringModule:generateCertificates");
+
+        const bin: string = "openssl";
+
+        const csr_args: string[] = ['req', '-new', '-key', keypath + core.conf.sign_key_file, '-subj', 
+        '/CN=localhost', '-config', keypath + "SANconfig.txt",
+        '-out', keypath + core.conf.tls_csr_file ];
+        const csr_ret = await execa(bin, csr_args, { shell: false });
+        if (csr_ret.exitCode !== 0) {
+            let code = 0;
+            if (csr_ret.exitCode === undefined) {
+                code = -100;
+            } else {
+                code = csr_ret.exitCode;
+            }
+            LOG("Warning", code, csr_ret.stderr);
+            return this.kError("generateCertificates", "csr_ret:" + code.toString(), csr_ret.stderr);
+        }
+
+        const crt_args: string[] = ['x509', '-days', '3652', '-req', '-sha256', '-in', keypath + core.conf.tls_csr_file, 
+        '-CA', keypath + core.conf.tls_ca_crt_file, '-CAkey', keypath + core.conf.tls_ca_key_file, '-set_serial', '01', 
+        '-extensions', 'SAN', '-extfile', keypath + "SANconfig.txt", '-out', keypath + core.conf.tls_crt_file];
+        const crt_ret = await execa(bin, crt_args, { shell: false });
+        if (crt_ret.exitCode !== 0) {
+            let code = 0;
+            if (crt_ret.exitCode === undefined) {
+                code = -100;
+            } else {
+                code = crt_ret.exitCode;
+            }
+            LOG("Warning", code, crt_ret.stderr);
+            return this.kError("generateCertificates", "crt_ret:" + code.toString(), crt_ret.stderr);
+        }
+
+        return this.kOK<boolean>(true);
+    }
+
     /**
      * Store owning public keys and certificates into the blockchain.
      * @param core - set ccKeyringType instance
@@ -210,18 +260,27 @@ export class KeyringModule {
             LOG("Error", -1, "The modules is not initialized properly!");
             return this.kError("postSelfPublicKeys", "prerequisite", "The modules is not initialized properly!");
         }
-        
-        // Search if previous data is exist or not.
-        if ((core.m !== undefined) && (core.s !== undefined) && (core.i !== undefined)) {
-            const ret1 = await core.m.lib.getSearchByJson<objTx>(core.m, {key: "cc_tx", value: tag_pubkey_data, ignoreGenesisBlockIsNotFound: true, matcherType: "strict"});
-            if (ret1.isFailure()) return ret1;
-            let data: any;
-            for (data of ret1.value) {
-                if (data.data.nodename === core.cache[0].nodename) {
+
+        if ((core.m === undefined) || (core.s === undefined) || (core.i === undefined)) {
+            return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
+        }
+
+        // public key
+        const ret1 = await core.m.lib.getSearchByJson<objTx>(core.m, {key: "cc_tx", value: tag_pubkey_data, ignoreGenesisBlockIsNotFound: true, matcherType: "strict", tenant: core.conf.default_tenant_id});
+        if (ret1.isFailure()) return ret1;
+        let skipPubkey: boolean = false;
+        for (const tx of ret1.value) {
+            if (tx.data === undefined) {
+                continue;
+            } else {
+                const data: any = tx.data;
+                if (data.nodename === core.cache[0].nodename) {
                     LOG("Warning", 1, "Public key for " + data.nodename + " is already posted. Skip.");
-                    return this.kOK<void>(undefined);
+                    skipPubkey = true;
                 }
             }
+        }
+        if (skipPubkey === false) {
             const register_data: postJsonOptions = {
                 type: "new",
                 data: {
@@ -230,16 +289,49 @@ export class KeyringModule {
                     verify_key: core.cache[0].verify_key,
                     verify_key_hex: core.cache[0].verify_key_hex
                 },
-                compatDateTime: true
+                compatDateTime: true,
+                tenant: core.conf.default_tenant_id
             }
-            const ret2 = await core.m.lib.postByJson(core.m, register_data, this.common_parsel);
+            const ret2 = await core.m.lib.postByJson(core.m, register_data);
             if (ret2.isFailure()) return ret2;
-
+    
             // immediately deliver to other node
             const ret3 = await core.s.lib.postDeliveryPool(core.s, true);
             if (ret3.isFailure()) return ret3;
-        } else {
-            return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
+        }
+
+        // tls cert
+        const ret4 = await core.m.lib.getSearchByJson<objTx>(core.m, {key: "cc_tx", value: tag_tlscrt_data, ignoreGenesisBlockIsNotFound: true, matcherType: "strict", tenant: core.conf.default_tenant_id});
+        if (ret4.isFailure()) return ret4;
+        let skipTlscrt: boolean = false;
+        for (const tx of ret4.value) {
+            if (tx.data === undefined) {
+                continue;
+            } else {
+                const data: any = tx.data;
+                if (data.nodename === core.cache[0].nodename) {
+                    LOG("Warning", 1, "Certificate for " + data.nodename + " is already posted. Skip.");
+                    skipTlscrt = true;
+                }
+            }
+        }
+        if (skipTlscrt === false) {
+            const register_data: postJsonOptions = {
+                type: "new",
+                data: {
+                    cc_tx: tag_tlscrt_data,
+                    nodename: core.i.conf.self.nodename,
+                    payload: core.cache[0].tls_crt
+                },
+                compatDateTime: true,
+                tenant: core.conf.default_tenant_id
+            }
+            const ret5 = await core.m.lib.postByJson(core.m, register_data);
+            if (ret5.isFailure()) return ret5;
+    
+            // immediately deliver to other node
+            const ret6 = await core.s.lib.postDeliveryPool(core.s, true);
+            if (ret6.isFailure()) return ret6;
         }
 
         this.coreCondition = "active";
@@ -260,19 +352,19 @@ export class KeyringModule {
         let ret1;
         while (true) {
             if (core.m !== undefined) {
-                ret1 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_pubkey_data, sortOrder: -1, excludeBlocked: true});
+                ret1 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_pubkey_data, sortOrder: -1, excludeBlocked: true, tenant: core.conf.default_tenant_id});
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.length === 0) {
                     LOG("Notice", -1, "No verify keys have been published yet");
-                    return this.kError("refreshPublicKeyCache", "getSearchByJson_pubkey", "No verify keys have been published yet");
+                    return this.kError("refreshPublicKeyCache", "getSearchByJson", "No verify keys have been published yet");
                 } else {
                     let ring_bc: any;
+                    // NOTE: at last the oldest one is cached
                     for (ring_bc of ret1.value) {
                         let found: boolean = false;
                         for (let index = 0; index < core.cache.length; index++) {
                             if ((ring_bc.data.nodename !== undefined) && (ring_bc.data.nodename === core.cache[index].nodename)) {
                                 found = true;
-                                core.cache[index].nodename = ring_bc.data.nodename;
                                 core.cache[index].verify_key = ring_bc.data.verify_key;
                                 core.cache[index].verify_key_hex = ring_bc.data.verify_key_hex;
                             }
@@ -289,6 +381,41 @@ export class KeyringModule {
                 break;
             } else {
                 LOG("Notice", 0, "Waiting for initial key is published.");
+                setTimeout(() => {
+                    // Do nothing
+                }, 1000);
+            }
+        };
+
+        let ret2;
+        while (true) {
+            if (core.m !== undefined) {
+                ret2 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_tlscrt_data, sortOrder: -1, excludeBlocked: true, tenant: core.conf.default_tenant_id});
+                if (ret2.isFailure()) return ret2;
+                if (ret2.value.length === 0) {
+                    LOG("Notice", -1, "No tls certs have been published yet");
+                    return this.kError("refreshPublicKeyCache", "getSearchByJson", "No tls certs have been published yet");
+                } else {
+                    let ring_bc: any;
+                    // NOTE: at last the oldest one is cached
+                    for (ring_bc of ret2.value) {
+                        for (let index = 0; index < core.cache.length; index++) {
+                            if  ((ring_bc.data.nodename !== undefined) && (ring_bc.data.nodename === core.cache[index].nodename)) {
+                                core.cache[index].tls_crt = ring_bc.data.payload;
+                            }
+                        }
+                    }
+                }
+            } else {
+                return this.kError("refreshPublicKeyCache", "getSearchByJson_tlscrt", "The main module is down");
+            }
+            if ((waitOnStartUp !== true) || (ret2.value.length !== 0)) {
+                break;
+            } else {
+                LOG("Notice", 0, "Waiting for initial crt is published.");
+                setTimeout(() => {
+                    // Do nothing
+                }, 1000);
             }
         };
         return this.kOK<void>(undefined);

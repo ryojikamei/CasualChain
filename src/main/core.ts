@@ -12,7 +12,7 @@ import { ccMainType, getTransactionOptions, getTransactionHeightOptions, getAllB
 import { objTx, objBlock, getPoolCursorOptions, getBlockCursorOptions, poolIoIterator, blockIoIterator, ccDsType } from "../datastore/index.js";
 import { randomOid } from "../utils.js";
 import { MAX_SAFE_PAYLOAD_SIZE } from "../datastore/mongodb.js";
-import { DEFAULT_PARSEL_IDENTIFIER, ccSystemType } from "../system/index.js";
+import { ccSystemType } from "../system/index.js";
 import { moduleCondition } from "../index.js";
 
 /**
@@ -71,14 +71,6 @@ export class MainModule {
      */
     public setCondition(condition: moduleCondition): void {
         this.coreCondition = condition;
-    }
-
-    /**
-     * Stub values for features not supported in the open source version
-     */
-    protected common_parsel: string
-    constructor() {
-        this.common_parsel = DEFAULT_PARSEL_IDENTIFIER;
     }
 
     /**
@@ -209,10 +201,9 @@ export class MainModule {
      * Pick pooling transactions up that have been already delivered to other node.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getAllDeliveredPool(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
+    public async getAllDeliveredPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllDeliveredPool");
 
@@ -223,7 +214,7 @@ export class MainModule {
         const optConv: convIteratorOptions = {}
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, __t);
+            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, options?.tenant);
             if (ret1.isSuccess()) {
                 let tx: any;
                 let txArr: objTx[] = [];
@@ -237,7 +228,7 @@ export class MainModule {
                 await core.d.lib.closeCursor(core.d, ret1.value);
                 return this.mOK(this.convA<objTx>(txArr, optConv));
             }
-            return this.mError("getAllDeliveredPool", "getPoolCursor", "unknown error");
+            return ret1;
         } else {
             return this.mError("getAllDeliveredPool", "getPoolCursor", "The datastore module is down");
         }
@@ -247,10 +238,9 @@ export class MainModule {
      * Pick pooling transactions up that have NOT been delivered to other node yet.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getAllUndeliveredPool(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
+    public async getAllUndeliveredPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllUndeliveredPool");
 
@@ -263,7 +253,7 @@ export class MainModule {
         const optConv: convIteratorOptions = {}
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, __t);
+            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, options?.tenant);
             if (ret1.isSuccess()) {
                 let tx: any;
                 let txArr: objTx[] = [];
@@ -277,7 +267,7 @@ export class MainModule {
                 await core.d.lib.closeCursor(core.d, ret1.value);
                 return this.mOK(this.convA<objTx>(txArr, optConv));
             }
-            return this.mError("getAllDeliveredPool", "getPoolCursor", "unknown error");
+            return ret1;
         } else {
             return this.mError("getAllDeliveredPool", "getPoolCursor", "The datastore module is down");
         }
@@ -287,14 +277,13 @@ export class MainModule {
      * Pick all pooling transactions. Several functions that use pool depend on it.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getAllPool(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
+    public async getAllPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllPool");
 
-        if (options?.excludeNonpropergate === true) { return await core.lib.getAllDeliveredPool(core, options, __t) };
+        if (options?.excludeNonpropergate === true) { return await core.lib.getAllDeliveredPool(core, options) };
 
         const optCursor: getPoolCursorOptions = {
             sortOrder: options?.sortOrder,
@@ -303,13 +292,13 @@ export class MainModule {
         const optConv: convIteratorOptions = {}
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, __t);
+            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor, options?.tenant);
             if (ret1.isSuccess()) {
                 const ret2 = await this.convI<objTx>(ret1.value.cursor, optConv);
                 await core.d.lib.closeCursor(core.d, ret1.value);
                 return this.mOK(ret2);
             }
-            return this.mError("getAllPool", "getPoolCursor", "unknown error:" + JSON.stringify(ret1.value.origin));
+            return ret1;
         } else {
             return this.mError("getAllPool", "getPoolCursor", "The datastore module is down");
         }
@@ -321,10 +310,9 @@ export class MainModule {
      * Use bareTransaction option if you need to get a bare array of transactions.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns  returns with gResult, that is wrapped by a Promise, that contains corresponding blocks or transactions if the bareTransaction option is set if it's success, and gError if it's failure.
      */
-    public async getAllBlock(core: ccMainType, options?: getAllBlockOptions, __t?: string): Promise<gResult<objBlock[] | objTx[], gError>> {
+    public async getAllBlock(core: ccMainType, options?: getAllBlockOptions): Promise<gResult<objBlock[] | objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAllBlock");
 
@@ -348,14 +336,14 @@ export class MainModule {
         }
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getBlockCursor(core.d, optCursor, __t);
+            const ret1 = await core.d.lib.getBlockCursor(core.d, optCursor, options?.tenant);
             if (ret1.isSuccess()) { 
                 if (ret1.value.cursor === undefined) return this.mError("getAllBlock", "getBlockCursor", "unknown error");
                 const ret2 = await this.convI<objBlock>(ret1.value.cursor, optConv);
                 await core.d.lib.closeCursor(core.d, ret1.value);
                 return this.mOK(ret2);
             }
-            return this.mError("getAllBlock", "getBlockCursor", "unknown error:" + JSON.stringify(ret1.value.origin));
+            return ret1;
         } else {
             return this.mError("getAllBlock", "getBlockCursor", "The datastore module is down");
         }
@@ -365,10 +353,9 @@ export class MainModule {
      * Pick all transactions both pooling and blockchained. Functions that need to treat all transactions use it.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getAll(core: ccMainType, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
+    public async getAll(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getAll");
 
@@ -385,7 +372,7 @@ export class MainModule {
         // ToDo: reduce memory consumption
         let all: objTx[] = [];
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
+            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, options?.tenant);
             if (ret1.isFailure()) return ret1;
             let ret2: any[] = [];
             if (ret1.value.cursor !== undefined) {
@@ -399,7 +386,7 @@ export class MainModule {
                     ret2 = await ret1.value.cursor.toArray();
                 }
             }
-            const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
+            const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, options?.tenant);
             if (ret3.isFailure()) return ret3;
             const ret4: objTx[] = await this.convI<objTx>(ret3.value.cursor, optConv1);
             all = ret2.concat(ret4);
@@ -419,10 +406,9 @@ export class MainModule {
      * Pick the last block. Mainly it uses to know last hash or height for constructing the chain.
      * @param core - set ccMainType or ccSystemType
      * @param options - can set options with getBlockOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the corresponding block if it's success, and gError if it's failure.
      */
-    public async getLastBlock(core: ccMainType, options?: getBlockOptions, __t?: string): Promise<gResult<objBlock | undefined, gError>> {
+    public async getLastBlock(core: ccMainType, options?: getBlockOptions): Promise<gResult<objBlock | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getLastBlock");
 
@@ -433,7 +419,7 @@ export class MainModule {
         }
 
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getBlockCursor(core.d, optCursor, __t);
+            const ret1 = await core.d.lib.getBlockCursor(core.d, optCursor, options?.tenant);
             if (ret1.isFailure()) return ret1;
             let topTx: any = null;
             if (ret1.value.cursor !== undefined) {
@@ -464,10 +450,9 @@ export class MainModule {
      * @param core - set ccMainType instance
      * @param oid - set the starting oid to the past
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the corresponding block if the targetIsBlock option is set or the corresponding transaction or undefined if there is no object that has the oid if it's success, and gError if it's failure.
      */
-    public async getSearchByOid<T>(core: ccMainType, oid: string, options?: getTransactionOrBlockOptions, __t?: string): Promise<gResult<T | undefined, gError>> {
+    public async getSearchByOid<T>(core: ccMainType, oid: string, options?: getTransactionOrBlockOptions): Promise<gResult<T | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getSearchByOid");
 
@@ -476,7 +461,7 @@ export class MainModule {
                 const optCursor1: getPoolCursorOptions = { 
                     constrainedSize: options?.constrainedSize
                 };
-                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
+                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, options?.tenant);
                 if (ret1.isFailure()) return ret1;
                 let tx: any;
                 if (ret1.value.cursor !== undefined) {
@@ -489,7 +474,7 @@ export class MainModule {
                 }
                 await core.d.lib.closeCursor(core.d, ret1.value);
                 const optCursor2: getBlockCursorOptions = {};
-                const ret2 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
+                const ret2 = await core.d.lib.getBlockCursor(core.d, optCursor2, options?.tenant);
                 if (ret2.isFailure()) return ret2;
                 let blk: any;
                 if (ret2.value.cursor !== undefined) {
@@ -514,7 +499,7 @@ export class MainModule {
                 const optCursor: getBlockCursorOptions = {
                     constrainedSize: options?.constrainedSize
                 };
-                const ret = await core.d.lib.getBlockCursor(core.d, optCursor, __t);
+                const ret = await core.d.lib.getBlockCursor(core.d, optCursor, options.tenant);
                 if (ret.isFailure()) return ret;
                 let blk: any;
                 if (ret.value.cursor !== undefined) {
@@ -569,13 +554,14 @@ export class MainModule {
      * Searching data of transactions by a pair of key and value with JSON format.
      * @param core - set ccMainType instance
      * @param options - can set options with getJsonOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getSearchByJson<T>(core: ccMainType, options: getJsonOptions, __t?:string): Promise<gResult<T[], gError>> {
+    public async getSearchByJson<T>(core: ccMainType, options: getJsonOptions): Promise<gResult<T[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getSearchByJson");
     
+        if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
+        
         const txArr: objTx[] = [];
         const blockArr: objBlock[] = [];
 
@@ -584,12 +570,11 @@ export class MainModule {
             constrainedSize: options.constrainedSize
         };
 
-        if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
 
         if (core.d !== undefined) {
             if (options.excludePooling !== true) {
                 const optCursor1: getPoolCursorOptions = {};
-                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
+                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, options.tenant);
                 if (ret1.isFailure()) return ret1;
                 let tx: IteratorResult<objTx | undefined>;
                 if (ret1.value.cursor !== undefined) { 
@@ -610,11 +595,18 @@ export class MainModule {
                 const optCursor2: getBlockCursorOptions = {
                     ignoreGenesisBlockIsNotFound : options.ignoreGenesisBlockIsNotFound
                 };
-                const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
+                const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, options.tenant);
                 if (ret3.isFailure()) return ret3;
                 let blk: IteratorResult<objBlock | undefined>;
                 if (ret3.value.cursor !== undefined) {
                     if (options.searchBlocks === true) {
+                        for await(blk of ret3.value.cursor) {
+                            const ret5 = await this.searchTxData(core, blk.value, options);
+                            if (ret5.isSuccess()) {
+                                if (ret5.value !== undefined) blockArr.push(blk.value)
+                            }
+                        }
+                    } else {
                         for await(blk of ret3.value.cursor) {
                             if (blk.value.data === undefined) continue;
                             let tx: objTx;
@@ -627,13 +619,6 @@ export class MainModule {
                                 }
                                 if (ret4.isFailure()) return ret4;
                                 if (ret4.value !== undefined) txArr.push(tx);
-                            }
-                        }
-                    } else {
-                        for await(blk of ret3.value.cursor) {
-                            const ret5 = await this.searchTxData(core, blk.value, options);
-                            if (ret5.isSuccess()) {
-                                if (ret5.value !== undefined) blockArr.push(blk.value)
                             }
                         }
                     }
@@ -654,17 +639,41 @@ export class MainModule {
      * Send a data to the transaction pool in JSON format with key/value pairs, with adding required fields for data management.
      * @param core - set ccMainType 
      * @param options - can set options in postJsonOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the transaction's oid if it's success, and gError if it's failure.
      */
-    public async postByJson(core: ccMainType, options: postJsonOptions, __t?: string): Promise<gResult<string, gError>> {
+    public async postByJson(core: ccMainType, options: postJsonOptions): Promise<gResult<string, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:postByJson:options:" + JSON.stringify(options));
 
-        let t: string = this.common_parsel;
         let compatDateTime: boolean = false;
-        if (__t !== undefined) t = __t;
-        if (options?.compatDateTime !== undefined) compatDateTime = options.compatDateTime;
+        if (options.compatDateTime !== undefined) compatDateTime = options.compatDateTime;
+        let tenantId: string;
+        if (options.tenant === undefined) {
+            if ((core.s !== undefined) && (core.s.conf.enable_default_tenant === false)) {
+                return this.mError("postByJson", "tenantId", "Default parcel is disabled")
+            } else {
+                tenantId = core.conf.default_tenant_id;
+            }
+        } else {
+            if ((core.s !== undefined) && (options.tenant === core.s.conf.administration_id)) {
+                tenantId = core.conf.default_tenant_id;
+            } else {
+                tenantId = options.tenant;
+            }
+        }
+
+        // check if parcel is active
+        if (tenantId !== core.conf.default_tenant_id) {
+            if (core.s === undefined) {
+                return this.mError("postByJson", "isOpenParcel", "Unable to post data to the specified tenant because SystemModule is down")
+            } else {
+                const ret = core.s.lib.isOpenParcel(core.s, tenantId);
+                if (ret.isFailure() === true) { this.mError("postByJson", "isOpenParcel", "unknown error"); }
+                if (ret.value === false) {
+                    this.mError("postByJson", "isOpenParcel", "The specified parcel, " + tenantId + ", is not active.");
+                }
+            }
+        }
 
         // check keys
         if (options.hasOwnProperty("data") === false) return this.mError("postByJson", "CheckKeys", "The data property is not found");
@@ -676,9 +685,6 @@ export class MainModule {
                 LOG("Warning", -2, "The update or delete type must have prev_id property also. Skip");
                 return this.mError("postByJson", "CheckKeys", "The update or delete type must have prev_id property also");
             }
-        }
-        if (options.data.tenant === undefined) {
-            options.data.tenant = t;
         }
         if (options.data === undefined) {
             LOG("Warning", -4, "The data is not found. Skip");
@@ -709,7 +715,7 @@ export class MainModule {
             tx = {
                 _id: randomOid().byStr(),
                 type: options.type,
-                tenant: t,
+                tenant: tenantId,
                 settime: stringDateTime,
                 prev_id: options.prev_id,
                 deliveryF: false,
@@ -719,7 +725,7 @@ export class MainModule {
             tx = {
                 _id: randomOid().byStr(),
                 type: options.type,
-                tenant: t,
+                tenant: tenantId,
                 settime: stringDateTime,
                 deliveryF: false,
                 data: options.data
@@ -727,7 +733,7 @@ export class MainModule {
         }
 
         if (core.d !== undefined) { 
-            const ret1 = await core.d.lib.setPoolNewData(core.d, tx, t);
+            const ret1 = await core.d.lib.setPoolNewData(core.d, tx, tenantId);
             if (ret1.isFailure()) return ret1;
             return this.mOK<string>(tx._id);
         } else {
@@ -768,10 +774,9 @@ export class MainModule {
      * @param core - set ccMainType instance 
      * @param oid - set the starting oid to the past
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains a chain of transactions if it's success, and gError if it's failure.
      */
-    public async getHistoryByOid(core: ccMainType, oid: string, options?: getTransactionOptions, __t?: string): Promise<gResult<objTx[], gError>> {
+    public async getHistoryByOid(core: ccMainType, oid: string, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getHistoryByOid");
 
@@ -790,7 +795,7 @@ export class MainModule {
         // ToDo: reduce memory consumption
         let all: objTx[] = [];
         if (core.d !== undefined) {
-            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
+            const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, options?.tenant);
             if (ret1.isFailure()) return ret1;
             let ret2: any[] = [];
             if (ret1.value.cursor !== undefined) {
@@ -804,7 +809,7 @@ export class MainModule {
                     ret2 = await ret1.value.cursor.toArray();
                 }
             }
-            const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
+            const ret3 = await core.d.lib.getBlockCursor(core.d, optCursor2, options?.tenant);
             if (ret3.isFailure()) return ret3;
             const ret4: objTx[] = await this.convI<objTx>(ret3.value.cursor, optConv1);
             all = this.convA(ret2.concat(ret4), optConv2);
@@ -828,10 +833,9 @@ export class MainModule {
      * Obtains the number of transaction count
      * @param core - set ccMainType instance
      * @param options - can set options with getTransactionOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the value of height if it's success, and gError if it's failure.
      */
-    public async getTransactionHeight(core: ccMainType, options?: getTransactionHeightOptions, __t?: string): Promise<gResult<number, gError>> {
+    public async getTransactionHeight(core: ccMainType, options?: getTransactionHeightOptions): Promise<gResult<number, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getBlockHeight");
 
@@ -843,7 +847,7 @@ export class MainModule {
 
         if (options?.excludePooling !== true) {
             if (core.d !== undefined) {
-                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, __t);
+                const ret1 = await core.d.lib.getPoolCursor(core.d, optCursor1, options?.tenant);
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.cursor !== undefined) {
                     if (options?.excludeNonpropergate === true) {
@@ -861,7 +865,7 @@ export class MainModule {
         }
         if (options?.excludeBlocked !== true) {
             if (core.d !== undefined) {
-                const ret2 = await core.d.lib.getBlockCursor(core.d, optCursor2, __t);
+                const ret2 = await core.d.lib.getBlockCursor(core.d, optCursor2, options?.tenant);
                 if (ret2.isFailure()) return ret2;
                 let blk: any;
                 if (ret2.value.cursor !== undefined) {

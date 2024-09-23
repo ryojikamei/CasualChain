@@ -285,6 +285,60 @@ export class ListnerV3AdminApi {
             }
         })
         
+        this.api.post("/sys/opentenant", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-opentenant");
+            if (acore.s !== undefined) {
+                this.runcounter++;
+                acore.s.lib.postOpenParcel(acore.s, req.body).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/opentenant"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "System Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postOpenParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/opentenant"));
+            }
+        });
+
+        this.api.post("/sys/closetenant", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-closetenant");
+            if (acore.s !== undefined) {
+                this.runcounter++;
+                acore.s.lib.postCloseParcel(acore.s, req.body).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/closetenant"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "System Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postCloseParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/closetenant"));
+            }
+        });
+
+        this.api.post("/sys/synccache", (req: express.Request, res: express.Response) => {
+            LOG("Info", 0, "Api:sys-synccache");
+            if (acore.s !== undefined) {
+                this.runcounter++;
+                acore.s.lib.postSyncCaches(acore.s).then((data) => {
+                    this.runcounter--;
+                    if (data.isFailure()) {
+                        return res.status(503).json(this.craftErrorResponse(data.value, "/sys/synccache"));
+                    }
+                    return res.status(200).json(data.value);
+                })
+            } else {
+                LOG("Warning", 1, "System Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postSyncCaches", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/synccache"));
+            }
+        });
+
         return this.adminOK<express.Express>(this.api);
     }
 
@@ -340,6 +394,15 @@ export class ListnerV3AdminApi {
         });
         this.api.post("/sys/resetconf", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
+        });
+        this.api.post("/sys/opentenant", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/opentenant"));
+        });
+        this.api.post("/sys/closetenant", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/closetenant"));
+        });
+        this.api.post("/sys/synccache", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/synccache"));
         });
 
         let retry: number = 60;

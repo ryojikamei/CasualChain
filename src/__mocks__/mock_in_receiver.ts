@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import ic from "../../grpc/interconnect_pb.js"
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { objTx } from "../datastore";
-import { DEFAULT_PARSEL_IDENTIFIER, examinedHashes } from "../system";
+import { examinedHashes } from "../system";
 import { inAddBlockDataFormat, inHeightReturnDataFormat, inGetPoolHeightDataFormat, inGetBlockHeightDataFormat, inGetBlockDigestDataFormat, inDigestReturnDataFormat, inGetBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat } from "../internode";
 import { getBlockResult } from "../system";
 import { generateSamples } from "../__testdata__/generator.js";

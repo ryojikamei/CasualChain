@@ -15,28 +15,39 @@ import { BlockModuleMock } from "../../__mocks__/mock_block";
 import { KeyringModuleMock } from "../../__mocks__/mock_keyring";
 import { logMock } from "../../__mocks__/mock_logger";
 import { nodeProperty, inConfigType, ccConfigType, ConfigModule } from "../../config";
+import { randomUUID } from "crypto";
+
+const administration_id = randomUUID();
+const defafult_tenant_id = randomUUID();
 
 const myNode: nodeProperty = {
     allow_outgoing: true,
     nodename: "test_node2",
     host: "127.0.0.1",
-    rpc_port: 7001
+    rpc_port: 7001,
+    use_tls_internode: false,
+    administration_id: administration_id
 }
 
 const anotherNode: nodeProperty = {
     allow_outgoing: true,
     nodename: "test_node1",
     host: "127.0.0.1",
-    rpc_port: 7002
+    rpc_port: 7002,
+    use_tls_internode: false,
+    administration_id: administration_id
 }
 
 const confMock: inConfigType = {
     self: {
         nodename: "test_node2",
-        rpc_port: 7001
+        rpc_port: 7001,
+        use_tls_internode: false
     },
     abnormalCountForJudging: 2,
-    nodes: [anotherNode]
+    nodes: [anotherNode],
+    administration_id: administration_id,
+    default_tenant_id: defafult_tenant_id
 }
 
 const clientSuccess = ic_grpc.interconnectClient_Success;
@@ -66,7 +77,7 @@ describe("Test of InModule", () => {
         const clib = new ConfigModule();
         const ret4 = await clib.init();
         if (ret4.isSuccess()) ccore = ret4.value;
-        const lib = new InModule(confMock, new logMock(), score, bcore, kcore, new Server(0, 0, 0));
+        const lib = new InModule(confMock, new logMock(), score, bcore, new Server(0, 0, 0));
         // right core
         const ret5 = await lib.init(confMock, new logMock(), score, bcore, kcore, ccore, new Server(0, 0, 0));
         if (ret5.isFailure()) { throw new Error("FAIL"); }

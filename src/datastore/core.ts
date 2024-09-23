@@ -137,15 +137,15 @@ export class DsModule {
      * Return the cursor that points specified tenant's pooling transactions. Several functions that use pool depend on it.
      * @param core - set ccCachedIoType instance
      * @param options - set options with getPoolCursorOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the itertor of corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getPoolCursor(core: ccDsType, options: getPoolCursorOptions, __t?: string): Promise<gResult<poolCursor, gError>> {
+    public async getPoolCursor(core: ccDsType, options: getPoolCursorOptions, tenantId?: string): Promise<gResult<poolCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:getPoolCursor");
 
         if (core.io !== undefined) {
-            return await core.io.lib.getPoolCursor(core.io, options, __t);
+            return await core.io.lib.getPoolCursor(core.io, options, tenantId);
         } else {
             return this.dError("getPoolCursor", "return", "The io sub module is down");
         }
@@ -155,15 +155,15 @@ export class DsModule {
      * Return the cursor that points specified tenant's blockchained transactions. Several functions that use blockchain depend on it.
      * @param core - set ccCachedIoType instance
      * @param options - set options with getBlockCursorOptions format
-     * @param __t - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - can set tenantId. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not.
      * @returns returns with gResult, that is wrapped by a Promise, that contains the itertor of corresponding transactions if it's success, and gError if it's failure.
      */
-    public async getBlockCursor(core: ccDsType, options: getBlockCursorOptions, __t?: string): Promise<gResult<blockCursor, gError>> {
+    public async getBlockCursor(core: ccDsType, options: getBlockCursorOptions, tenantId?: string): Promise<gResult<blockCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:getBlockCursor");
         
         if (core.io !== undefined) {
-            return await core.io.lib.getBlockCursor(core.io, options, __t);
+            return await core.io.lib.getBlockCursor(core.io, options, tenantId);
         } else {
             return this.dError("getBlockCursor", "return", "The io sub module is down");
         }
@@ -191,16 +191,16 @@ export class DsModule {
      * Add new data into pool
      * @param core  - set ccCachedIoType instance
      * @param wObj  - set a object to register
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async setPoolNewData(core: ccDsType, wObj: objTx | undefined, __t: string): Promise<gResult<poolResultObject, gError>> {
+    public async setPoolNewData(core: ccDsType, wObj: objTx | undefined, tenantId: string): Promise<gResult<poolResultObject, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:setPoolNewData");
 
         if (core.io !== undefined) {
-            return await core.io.lib.setPoolNewData(core.io, wObj, __t);
+            return await core.io.lib.setPoolNewData(core.io, wObj, tenantId);
         } else {
             return this.dError("setPoolNewData", "return", "The io sub module is down");
         }
@@ -210,16 +210,16 @@ export class DsModule {
      * Add new data into block
      * @param core  - set ccCachedIoType instance
      * @param wObj  - set a object to register
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async setBlockNewData(core: ccDsType, wObj: objBlock | undefined, __t: string): Promise<gResult<blockResultObject, gError>> {
+    public async setBlockNewData(core: ccDsType, wObj: objBlock | undefined, tenantId: string): Promise<gResult<blockResultObject, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:setBlockNewData");
 
         if (core.io !== undefined) {
-            return await core.io.lib.setBlockNewData(core.io, wObj, __t);
+            return await core.io.lib.setBlockNewData(core.io, wObj, tenantId);
         } else {
             return this.dError("setBlockNewData", "return", "The io sub module is down");
         }
@@ -229,16 +229,16 @@ export class DsModule {
      * Turn some the delivery flags true on both the read cache and the db.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async poolModifyReadsFlag(core: ccDsType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolModifyReadsFlag(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:poolModifyReadsFlag");
 
         if (core.io !== undefined) {
-            return await core.io.lib.poolModifyReadsFlag(core.io, oids, __t);
+            return await core.io.lib.poolModifyReadsFlag(core.io, oids, tenantId);
         } else {
             return this.dError("poolModifyReadsFlag", "return", "The io sub module is down");
         }
@@ -248,16 +248,16 @@ export class DsModule {
      * Danger: delete some transactions of pool on both the read cache and the db.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async poolDeleteTransactions(core: ccDsType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolDeleteTransactions(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:poolDeleteTransactions");
 
         if (core.io !== undefined) {
-            return await core.io.lib.poolDeleteTransactions(core.io, oids, __t);
+            return await core.io.lib.poolDeleteTransactions(core.io, oids, tenantId);
         } else {
             return this.dError("poolModifyReadsFlag", "return", "The io sub module is down");
         }
@@ -267,16 +267,16 @@ export class DsModule {
      * Update blocks with specified blocks.
      * @param core - set ccCachedIoType instance
      * @param blocks - a legitimate block of blocks.
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async blockUpdateBlocks(core: ccDsType, blocks: getBlockResult[], __t: string): Promise<gResult<void, gError>> {
+    public async blockUpdateBlocks(core: ccDsType, blocks: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:blockUpdateBlocks");
 
         if (core.io !== undefined) {
-            return await core.io.lib.blockUpdateBlocks(core.io, blocks, __t);
+            return await core.io.lib.blockUpdateBlocks(core.io, blocks, tenantId);
         } else {
             return this.dError("blockUpdateBlocks", "return", "The io sub module is down");
         }
@@ -286,16 +286,16 @@ export class DsModule {
      * Danger: delete some blocks on both the read cache and the db.
      * @param core - set ccCachedIoType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async blockDeleteBlocks(core: ccDsType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async blockDeleteBlocks(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "DsModule:blockDeleteBlocks");
 
         if (core.io !== undefined) {
-            return await core.io.lib.blockDeleteBlocks(core.io, oids, __t);
+            return await core.io.lib.blockDeleteBlocks(core.io, oids, tenantId);
         } else {
             return this.dError("blockDeleteBlocks", "return", "The io sub module is down");
         }

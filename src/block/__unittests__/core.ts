@@ -18,6 +18,7 @@ import { MainModuleMock } from "../../__mocks__/mock_main"
 import { objTx } from "../../datastore"
 
 const default_tenant_id = randomUUID();
+const administration_id = randomUUID();
 
 const confMock3: blockConfigType = {
     ca3: {
@@ -25,7 +26,9 @@ const confMock3: blockConfigType = {
         maxLifeTime: 360,
         minSignNodes: 0,
         maxSignNodes: 0
-    }
+    },
+    administration_id: administration_id,
+    default_tenant_id: default_tenant_id
 }
 
 const tx3: objTx = {

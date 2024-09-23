@@ -4,13 +4,10 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
-import { randomUUID } from "crypto"
-
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
 import { ccDsType, poolResultObject, blockResultObject, poolCursor, blockCursor, getPoolCursorOptions, getBlockCursorOptions } from "../datastore";
 import { randomOid } from "../utils";
-import { ObjectId, Condition } from "mongodb";
 import { getBlockResult } from "../system";
 import { objTx, objBlock } from "../datastore";
 import { generateSamples } from "../__testdata__/generator";

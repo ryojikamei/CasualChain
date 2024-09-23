@@ -26,7 +26,11 @@ let confMock: dsConfigType = {
     mongo_password: "bcpass_" + rand,
     mongo_poolcollection: "pool_" + rand,
     mongo_port: -1, // get later
-    mongo_authdb: "admin"
+    mongo_authdb: "admin",
+    queue_ondisk: false,
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID(),
+    enable_default_tenant: true
 };
 const masterKey = "46f06284-6d1b-460a-b0cc-fc6d6d45fe6e" // admin
 const testId = "d1c24145-b7b5-452e-b197-4a2388698788"

@@ -19,6 +19,7 @@ import { randomOid } from "../../utils";
 import { randomUUID } from "crypto";
 import { objTx } from "../../datastore";
 
+const administration_id = randomUUID();
 const default_tenant_id = randomUUID()
 
 let confMock: systemConfigType = {
@@ -28,7 +29,10 @@ let confMock: systemConfigType = {
         postScanAndFixPoolMinInterval: 300,
         postDeliveryPoolMinInterval: 300,
         postAppendBlocksMinInterval: 300
-    }
+    },
+    enable_default_tenant: true,
+    administration_id: administration_id,
+    default_tenant_id: default_tenant_id
 }
 
 const tx3: objTx = {

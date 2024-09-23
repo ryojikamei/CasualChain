@@ -5,6 +5,7 @@ import ic from "../../grpc/interconnect_pb.js"
 import { inConfigType } from "../config/zod.js";
 
 import { InReceiverSubModuleMock } from "./mock_in_receiver.js";
+import { randomUUID } from "crypto";
 
 export class ServerMock {
     //constructor(options?: grpc.ServerOptions) {}
@@ -81,25 +82,32 @@ class interconnectClient_Base {
 }
 
 const InConf: inConfigType = {
-    "self": {
-        "nodename": "node1",
-        "rpc_port": 7000
+    self: {
+        nodename: "node1",
+        rpc_port: 7000,
+        use_tls_internode: false
     },
-    "abnormalCountForJudging": 2,
-    "nodes": [
+    abnormalCountForJudging: 2,
+    nodes: [
         {
-            "allow_outgoing": true,
-            "nodename": "node2",
-            "host": "192.168.1.51",
-            "rpc_port": 7000
+            allow_outgoing: true,
+            nodename: "node2",
+            host: "192.168.1.51",
+            rpc_port: 7000,
+            use_tls_internode: false,
+            administration_id: randomUUID()
         },
         {
-            "allow_outgoing": true,
-            "nodename": "node3",
-            "host": "192.168.1.52",
-            "rpc_port": 7000
+            allow_outgoing: true,
+            nodename: "node3",
+            host: "192.168.1.52",
+            rpc_port: 7000,
+            use_tls_internode: false,
+            administration_id: randomUUID()
         }
-    ]
+    ],
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID()
 }
 
 export class interconnectClient_Success extends interconnectClient_Base {

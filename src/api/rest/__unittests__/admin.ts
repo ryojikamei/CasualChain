@@ -140,6 +140,59 @@ describe("Test of ListerV3AdminApi", () => {
         })
     })
 
+    describe("API /sys/opentenant", () => {
+        test("Success in posting", async () => {
+            acore.s = score;
+            const data: string = '{ "adminId": "8e921d59-00b4-48c2-9ed2-b9f2a90030d6", "recallPhrase": "unittest" }' 
+            const res = await request(api).post("/sys/opentenant").set("Content-Type", "application/JSON").send(data).auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to post", async () => {
+            acore.s = score;
+            const res = await request(api).post("/sys/opentenant").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+
+    describe("API /sys/closetenant", () => {
+        test("Success in posting", async () => {
+            acore.s = score;
+            const data: string = '{ "adminId": "8e921d59-00b4-48c2-9ed2-b9f2a90030d6", "tenantId": "fake" }'
+            const res = await request(api).post("/sys/closetenant").set("Content-Type", "application/JSON").send(data).auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to post", async () => {
+            acore.s = score;
+            const res = await request(api).post("/sys/closetenant").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+    })
+    
+    describe("API /sys/synccache", () => {
+        test("Success in posting", async () => {
+            acore.s = score;
+            const res = await request(api).post("/sys/synccache").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(200);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to post", async () => {
+            acore.s = undefined;
+            const res = await request(api).post("/sys/synccache").auth(acore.conf.rest.adminapi_user, acore.conf.rest.adminapi_password);
+            expect(res.status).toBe(503);
+            expect(res.body).toBeDefined();
+        })
+        test("Failed to authorize", async () => {
+            acore.s = undefined;
+            const res = await request(api).post("/sys/synccache");
+            expect(res.status).toBe(401);
+            expect(res.body).toBeDefined();
+        })
+    })
+
     describe("API /unknown", () => {
         test("Failed to get", async () => {
             acore.s = score;

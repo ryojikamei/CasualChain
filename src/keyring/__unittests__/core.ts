@@ -18,10 +18,17 @@ import { SystemModuleMock } from "../../__mocks__/mock_system";
 import { MainModuleMock } from "../../__mocks__/mock_main";
 import { InModuleMock } from "../../__mocks__/mock_in";
 
+const default_tenant_id = randomUUID();
+
 const confMock: keyringConfigType = {
     create_keys_if_no_sign_key_exists: true,
     sign_key_file: "demo_node1.key",
-    verify_key_file: "demo_node1.pub"
+    verify_key_file: "demo_node1.pub",
+    tls_crt_file: "demo_node1.crt",
+    tls_csr_file: "demo_node1.csr",
+    tls_ca_key_file: "example_ca.key",
+    tls_ca_crt_file: "example_ca.crt",
+    default_tenant_id: default_tenant_id
 }
 
 describe("Test of KeyringModule", () => {
@@ -40,7 +47,7 @@ describe("Test of KeyringModule", () => {
         // block0 case0
         const oidVal0 = { _id: randomOid().byStr() };
         const hObj0 = {
-            tenant: randomUUID(),
+            tenant: default_tenant_id,
             version: 1,
             height: 0,
             size: 0,

@@ -12,29 +12,35 @@ import { SystemModuleMock } from "./mock_system";
 import { ccLogType, LogModule } from "../logger";
 import { inConfigType, logConfigType, nodeProperty } from "../config";
 import { randomUUID } from "crypto";
-import ic from "../../grpc/interconnect_pb.js";
 import { InReceiverSubModuleMock } from "./mock_in_receiver";
 
 const InConf: inConfigType = {
-    "self": {
-        "nodename": "node1",
-        "rpc_port": 7000
+    self: {
+        nodename: "node1",
+        rpc_port: 7000,
+        use_tls_internode: false
     },
-    "abnormalCountForJudging": 2,
-    "nodes": [
+    abnormalCountForJudging: 2,
+    nodes: [
         {
-            "allow_outgoing": true,
-            "nodename": "node2",
-            "host": "192.168.1.51",
-            "rpc_port": 7000
+            allow_outgoing: true,
+            nodename: "node2",
+            host: "192.168.1.51",
+            rpc_port: 7000,
+            use_tls_internode: false,
+            administration_id: randomUUID()
         },
         {
-            "allow_outgoing": true,
-            "nodename": "node3",
-            "host": "192.168.1.52",
-            "rpc_port": 7000
+            allow_outgoing: true,
+            nodename: "node3",
+            host: "192.168.1.52",
+            rpc_port: 7000,
+            use_tls_internode: false,
+            administration_id: randomUUID()
         }
-    ]
+    ],
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID()
 }
 
 function iOK<T>(response: T): gResult<T, never> {
@@ -110,10 +116,12 @@ export class InModuleMock {
                 async runRpcs(core: ccInType, targets: nodeProperty[], request: inRequestType, dataAsString: string, maxRetryCount?: number, resetLevel?: inConnectionResetLevel, clientImpl?: any): Promise<gResult<rpcResultFormat[], gError>> {
                     console.log("Using half-mocked runRpcs for " + request)
                     const ic_grpc = await import("./mock_ic_grpc.js");
-                    const originalLib = new InModule(InConf, core.log, core.s, core.b, core.k, new ic_grpc.ServerMock(0, 0, 0), new InReceiverSubModuleMock());
+                    const originalLib = new InModule(InConf, core.log, core.s, core.b, new ic_grpc.ServerMock(0, 0, 0), new InReceiverSubModuleMock());
                     const logConf: logConfigType = {
                         console_output: false,
                         console_level: 6,
+                        console_color: "None",
+                        console_color_code: "\u001b[0m",
                         file_output: false,
                         file_path: "",
                         file_rotation: false,

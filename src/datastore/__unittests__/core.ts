@@ -12,7 +12,6 @@ import { ccDsType } from "..";
 import { IoSubModuleMock } from "../../__mocks__/mock_io";
 
 import { logMock } from "../../__mocks__/mock_logger";
-import { DEFAULT_PARSEL_IDENTIFIER } from "../../system";
 import { generateSamples } from "../../__testdata__/generator";
 
 const confMock: dsConfigType = { // example
@@ -24,7 +23,11 @@ const confMock: dsConfigType = { // example
     mongo_password: "rablock-pass-20230123",
     mongo_poolcollection: "pool_" + randomUUID(),
     mongo_port: 27017,
-    mongo_authdb: "admin"
+    mongo_authdb: "admin",
+    queue_ondisk: false,
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID(),
+    enable_default_tenant: true
 }
 const wrongConfMock = {
     password_encryption: false,
@@ -35,7 +38,11 @@ const wrongConfMock = {
     mongo_password: "",
     mongo_poolcollection: "",
     mongo_port: -1,
-    mongo_authdb: ""
+    mongo_authdb: "",
+    queue_ondisk: false,
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID(),
+    enable_default_tenant: true
 };
 
 
@@ -146,12 +153,12 @@ describe("Test of DsModule()", () => {
     describe("Method setPoolNewData()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setPoolNewData(d, tx3, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setPoolNewData(d, tx3, d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setPoolNewData(d, undefined, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setPoolNewData(d, undefined, d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success3", async () => {
@@ -161,12 +168,12 @@ describe("Test of DsModule()", () => {
         });
         test("Failure1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setPoolNewData(dWrong, tx3, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setPoolNewData(dWrong, tx3, d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError1";
-            const ret = await dlib.setPoolNewData(d, tx3, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setPoolNewData(d, tx3, d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });
@@ -174,12 +181,12 @@ describe("Test of DsModule()", () => {
     describe("Method setBlockNewData()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setBlockNewData(d, block0, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setBlockNewData(d, block0, d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setBlockNewData(d, undefined, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setBlockNewData(d, undefined, d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success3", async () => {
@@ -189,12 +196,12 @@ describe("Test of DsModule()", () => {
         });
         test("Failure1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.setBlockNewData(dWrong, block0, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setBlockNewData(dWrong, block0, d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError1";
-            const ret = await dlib.setBlockNewData(d, block0, DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.setBlockNewData(d, block0, d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });
@@ -202,7 +209,7 @@ describe("Test of DsModule()", () => {
     describe("Method poolModifyReadsFlag()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.poolModifyReadsFlag(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.poolModifyReadsFlag(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
@@ -212,7 +219,7 @@ describe("Test of DsModule()", () => {
         });
         test("Failure", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.poolModifyReadsFlag(dWrong, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.poolModifyReadsFlag(dWrong, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });
@@ -220,7 +227,7 @@ describe("Test of DsModule()", () => {
     describe("Method poolDeleteTransactions()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.poolDeleteTransactions(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.poolDeleteTransactions(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
@@ -230,7 +237,7 @@ describe("Test of DsModule()", () => {
         });
         test("Failure", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.poolDeleteTransactions(dWrong, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.poolDeleteTransactions(dWrong, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });
@@ -238,7 +245,7 @@ describe("Test of DsModule()", () => {
     describe("Method blockUpdateBlocks()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
@@ -248,22 +255,22 @@ describe("Test of DsModule()", () => {
         });
         test("Failure1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.blockUpdateBlocks(dWrong, [{oid:"12345678", block: undefined}], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockUpdateBlocks(dWrong, [{oid:"12345678", block: undefined}], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError1";
-            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure3", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError2";
-            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure4", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError3";
-            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockUpdateBlocks(d, [{oid:"12345678", block: undefined}], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });
@@ -271,7 +278,7 @@ describe("Test of DsModule()", () => {
     describe("Method blockDeleteBlocks()", () => {
         test("Success1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("success");
         });
         test("Success2", async () => {
@@ -281,22 +288,22 @@ describe("Test of DsModule()", () => {
         });
         test("Failure1", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnOK";
-            const ret = await dlib.blockDeleteBlocks(dWrong, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockDeleteBlocks(dWrong, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure2", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError1";
-            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure3", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError2";
-            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
         test("Failure4", async () => {
             if (d.io !== undefined) d.io.conf.mongo_dbname = "returnError3";
-            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], DEFAULT_PARSEL_IDENTIFIER);
+            const ret = await dlib.blockDeleteBlocks(d, ["12345678"], d.conf.default_tenant_id);
             expect(ret.type).toBe("failure");
         });
     });

@@ -15,7 +15,6 @@ import { BackendDbSubModule } from "../mongodb";
 import { dsConfigType } from "../../config";
 import { MongoClient, FindCursor, WithId, Document } from "mongodb";
 import { installResult, installSamples } from "../../__testdata__/installer";
-import { DEFAULT_PARSEL_IDENTIFIER } from "../../system";
 
 let dbLib: BackendDbSubModule = new BackendDbSubModule();
 
@@ -28,7 +27,11 @@ let confMock: dsConfigType = {
     mongo_password: "bcpass_" + rand,
     mongo_poolcollection: "pool_node1",
     mongo_port: -1, // get later
-    mongo_authdb: "admin"
+    mongo_authdb: "admin",
+    queue_ondisk: false,
+    administration_id: randomUUID(),
+    default_tenant_id: randomUUID(),
+    enable_default_tenant: true
 };
 
 type StorageEngine = "ephemeralForTest" | "wiredTiger";
@@ -57,19 +60,19 @@ describe("Test of CachedIoIterator()", () => {
     let arrTxs: objTx[];
     let arrBlks: objBlock[];
     beforeEach(async () => {
-        ds = await generateSamples(DEFAULT_PARSEL_IDENTIFIER);
+        ds = await generateSamples(confMock.default_tenant_id);
         arrTxs = [];
         for (const entry of ds.txs.entries()) {
             arrTxs.push(entry[1]);
         }
         iterTx = new cachedIoIterator(arrTxs);
-        iterTxS = new cachedIoIterator(arrTxs, DEFAULT_PARSEL_IDENTIFIER, 0);
+        iterTxS = new cachedIoIterator(arrTxs, confMock.default_tenant_id, 0);
         arrBlks = [];
         for (const entry of ds.blks.entries()) {
             arrBlks.push(entry[1]);
         }
         iterBlk = new cachedIoIterator(arrBlks);
-        iterBlkS = new cachedIoIterator(arrBlks, DEFAULT_PARSEL_IDENTIFIER, 0);
+        iterBlkS = new cachedIoIterator(arrBlks, confMock.default_tenant_id, 0);
     });
     describe("Method next()", () => {
         test("Success1", async() => {

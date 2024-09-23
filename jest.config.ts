@@ -158,7 +158,7 @@ export default {
   //  "**/?(*.)+(spec|test).[tj]s?(x)"
   //],
   testMatch: [
-    "**/__unittests__/**/*.js?(x)",
+    "**/__unittests1__/**/*.js?(x)",
     "**/?(*.)+(spec|test).js?(x)"
   ],
 

@@ -159,9 +159,14 @@ export async function generateSamples(__t?: string, hostname?: string): Promise<
     txmap.set("tx9", tx9);
 
     kconf = {
-        "create_keys_if_no_sign_key_exists": false,
-        "sign_key_file": "apitest_node1.key",
-        "verify_key_file": "apitest_node1.pub"
+        create_keys_if_no_sign_key_exists: false,
+        sign_key_file: "apitest_node1.key",
+        verify_key_file: "apitest_node1.pub",
+        tls_crt_file: "apitest_node1.crt",
+        tls_csr_file: "apitest_node1.csr",
+        tls_ca_key_file: "example_ca.key",
+        tls_ca_crt_file: "example_ca.crt",
+        default_tenant_id: "8e921d59-00b4-48c2-9ed2-b9f2a90030d6"
     }
     const ret0 = await(new KeyringModule().init(kconf, new logMock()));
     if (ret0.isFailure()) { throw new Error("beforeAll failed in init of KeyringModule"); };

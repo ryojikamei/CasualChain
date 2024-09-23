@@ -4,6 +4,8 @@
  * https://opensource.org/licenses/mit-license.php
  */
 
+import { randomUUID } from "crypto";
+
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 
 import { blockConfigType } from "../config";
@@ -16,13 +18,16 @@ import { generateSamples } from "../__testdata__/generator";
 
 import * as ca3 from "./mock_ca3";
 
+const defafult_tenant_id = randomUUID()
 const blockConf: blockConfigType = {
     ca3: {
         minLifeTime: 40,
         maxLifeTime: 360,
         minSignNodes: 2,
         maxSignNodes: 2
-    }
+    },
+    administration_id: randomUUID(),
+    default_tenant_id: defafult_tenant_id
 }
 
 function bOK<T>(response: T): gResult<T, never> {

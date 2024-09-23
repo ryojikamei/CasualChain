@@ -1,9 +1,10 @@
+import { randomUUID } from "crypto";
+
 import { gResult, gSuccess, gFailure, gError } from "../utils";
 import { ccEventType } from "../event";
 import { ccLogType } from "../logger";
 import { ccType } from "..";
 import { internalEventFormat } from "../event";
-import { randomUUID } from "crypto";
 
 export function eOK<T>(response: T): gResult<T, never> {
     return new gSuccess(response)

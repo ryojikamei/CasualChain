@@ -23,6 +23,8 @@ import { LogModule } from "../core";
 const confMock: logConfigType = {
     console_level: 7,
     console_output: true,
+    console_color: "None",
+    console_color_code: "",
     file_level: 7,
     file_output: true,
     file_level_text: "",

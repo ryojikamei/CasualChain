@@ -23,7 +23,7 @@ import { MainModuleMock } from "../../../__mocks__/mock_main";
 import { existsSync } from "fs";
 
 const default_tenant_id = randomUUID();
-const administation_id = randomUUID();
+const administration_id = randomUUID();
 
 const ca3ConfMock: Ca3Property = {
     minLifeTime: 40,
@@ -32,7 +32,9 @@ const ca3ConfMock: Ca3Property = {
     maxSignNodes: 1
 }
 const confMock: blockConfigType = {
-    ca3: ca3ConfMock
+    ca3: ca3ConfMock,
+    administration_id: administration_id,
+    default_tenant_id: default_tenant_id
 }
 
 
@@ -48,9 +50,14 @@ describe("Test of CA3 functions", () => {
     let tx3: objTx;
     beforeAll(async () => {
         kconf = {
-            "create_keys_if_no_sign_key_exists": true,
-            "sign_key_file": "demo_node1.key",
-            "verify_key_file": "demo_node1.pub"
+            create_keys_if_no_sign_key_exists: true,
+            sign_key_file: "demo_node1.key",
+            verify_key_file: "demo_node1.pub",
+            tls_crt_file: "demo_node1.crt",
+            tls_csr_file: "demo_node1.csr",
+            tls_ca_key_file: "example_ca.key",
+            tls_ca_crt_file: "example_ca.crt",
+            default_tenant_id: default_tenant_id
         }
         const ret0 = await(new KeyringModule().init(kconf, new logMock()));
         if (ret0.isFailure()) { throw new Error("beforeAll failed in init of KeyringModule"); };

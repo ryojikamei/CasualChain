@@ -16,7 +16,6 @@ import { ccDirectIoType } from "./directio.js";
 import { directIoIterator } from "./ioiterator.js";
 import { getBlockResult } from "../system/index.js";
 import { SignedBy } from "../block/algorithm/ca3.js";
-import { RUNTIME_MASTER_IDENTIFIER } from "../system/index.js";
 
 export type backendDbClient = MongoClient;
 
@@ -66,14 +65,6 @@ export class BackendDbSubModule {
      */
     protected dbError(func: string, pos?: string, message?: string): gResult<any, gError> {
         return new gFailure(new gError("mongodb", func, pos, message));
-    }
-
-    /**
-     * Stub values for features not supported in the open source version
-     */
-    protected master_key: string
-    constructor() {
-        this.master_key = RUNTIME_MASTER_IDENTIFIER;
     }
 
     /**
@@ -130,11 +121,11 @@ export class BackendDbSubModule {
      * @param core - set ccDirectIoType instance
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId. To get a value across tenants, you must specify the administration_id for this node.
      * @param sortOrder - can set -1 for descending order, 1 for ascending order
      * @returns returns with gResult, that is wrapped by a Promise, that contains objPool[] if it's success, and gError if it's failure.
      */
-    public async poolGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, __t: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<poolCursor, gError>> {
+    public async poolGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, tenantId: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<poolCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:poolGetFromDbToCursor");
 
@@ -153,13 +144,13 @@ export class BackendDbSubModule {
             await session.withTransaction(async () => {
                 const dbObj = client.db();
                 const pool = dbObj.collection(conf.mongo_poolcollection);
-                if ((__t !== this.master_key) && (sortOrder !== undefined)) {
-                    cur = pool.find({ tenant: __t }).sort("_id", sortOrder);
-                } else if ((__t !== this.master_key) && (sortOrder === undefined)) {
-                    cur = pool.find({ tenant: __t });
-                } else if ((__t === this.master_key) && (sortOrder !== undefined)) {
+                if ((tenantId !== core.conf.administration_id) && (sortOrder !== undefined)) {
+                    cur = pool.find({ tenant: tenantId }).sort("_id", sortOrder);
+                } else if ((tenantId !== core.conf.administration_id) && (sortOrder === undefined)) {
+                    cur = pool.find({ tenant: tenantId });
+                } else if ((tenantId === core.conf.administration_id) && (sortOrder !== undefined)) {
                     cur = pool.find({}).sort("_id", sortOrder);
-                } else { // __t === this.master_key, sortOrder === undefined
+                } else { // tenantId === core.conf.administration_id, sortOrder === undefined
                     cur = pool.find({});
                 }
             })
@@ -180,15 +171,15 @@ export class BackendDbSubModule {
     }
     
     /**
-     * Get a cursor of specified __t from block collection data to read.
+     * Get a cursor of specified tenantId from block collection data to read.
      * @param core - set ccDirectIoType instance
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId. To get a value across tenants, you must specify the administration_id for this node.
      * @param sortOrder - can set -1 for descending order, 1 for ascending order
      * @returns returns with gResult, that is wrapped by a Promise, that contains objBlock[] if it's success, and gError if it's failure.
      */
-    public async blockGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, __t: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<blockCursor, gError>> {
+    public async blockGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, tenantId: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<blockCursor, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:blockGetFromDbToCursor");
 
@@ -207,13 +198,13 @@ export class BackendDbSubModule {
             await session.withTransaction(async () => {
                 const dbObj = client.db();
                 const blocks = dbObj.collection(conf.mongo_blockcollection);
-                if ((__t !== this.master_key) && (sortOrder !== undefined)) {
-                    cur = blocks.find({ tenant: __t }).sort("_id", sortOrder);
-                } else if ((__t !== this.master_key) && (sortOrder === undefined)) {
-                    cur = blocks.find({ tenant: __t });
-                } else if ((__t === this.master_key) && (sortOrder !== undefined)) {
+                if ((tenantId !== core.conf.administration_id) && (sortOrder !== undefined)) {
+                    cur = blocks.find({ tenant: tenantId }).sort("_id", sortOrder);
+                } else if ((tenantId !== core.conf.administration_id) && (sortOrder === undefined)) {
+                    cur = blocks.find({ tenant: tenantId });
+                } else if ((tenantId === core.conf.administration_id) && (sortOrder !== undefined)) {
                     cur = blocks.find({}).sort("_id", sortOrder);
-                } else { // __t === this.master_key, sortOrder === undefined
+                } else { // tenantId === core.conf.administration_id, sortOrder === undefined
                     cur = blocks.find({});
                 }
             })
@@ -270,12 +261,12 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param wcache - source of data to transfer. set objTx_in[] instance
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @param retryWithNonExistent - recommend to set true to care rare cases
      * @returns returns with gResult, that is wrapped by a Promise, that contains InsertManyResult if it's success, and gError if it's failure.
      */
     public async poolAppendToDb(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, 
-        wcache: objTx[], __t: string, retryWithNonExistent?: boolean): Promise<gResult<InsertManyResult, gError>> {
+        wcache: objTx[], tenantId: string, retryWithNonExistent?: boolean): Promise<gResult<InsertManyResult, gError>> {
         // Investigation is needed whether retry is needed or not
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:poolAppendToDb");
@@ -290,9 +281,9 @@ export class BackendDbSubModule {
         }
         if (retryWithNonExistent === undefined) retryWithNonExistent = false;
 
-        if (__t !== this.master_key) {
+        if (tenantId !== core.conf.administration_id) {
             for (const tx of wcache) {
-                if (tx.tenant !== __t) {
+                if (tx.tenant !== tenantId) {
                     return this.dbError("poolAppendToDb", "Check tenant ID", "There are transactions whose tenant IDs do not match those specified");
                 }
             }
@@ -366,11 +357,11 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param wcache - source of data to transfer. set objBlock[] instance
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains InsertManyResult if it's success, and gError if it's failure.
      */
     public async blockAppendToDb(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, 
-        wcache: objBlock[], __t: string): Promise<gResult<InsertManyResult, gError>> {
+        wcache: objBlock[], tenantId: string): Promise<gResult<InsertManyResult, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:blockAppendToDb");
         LOG("Debug", 0, "mongodb:blockAppendToDb:" + JSON.stringify(wcache));
@@ -386,9 +377,9 @@ export class BackendDbSubModule {
 
         if (wcache.length === 0) { return this.dbOK<InsertManyResult>(res.result); }
 
-        if (__t !== this.master_key) {
+        if (tenantId !== core.conf.administration_id) {
             for (const blk of wcache) {
-                if (blk.tenant !== __t) {
+                if (blk.tenant !== tenantId) {
                     return this.dbError("blockAppendToDb", "Check tenant ID", "There are blocks whose tenant IDs do not match those specified");
                 }
             }
@@ -434,13 +425,15 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success. Note it returns success even if no update at all.
      */
-    public async poolUpdateFlagsByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolUpdateFlagsByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:poolUpdateFlagsByOid");
+
+        if (oids.length === 0) { return this.dbOK<void>(undefined); }
 
         let ret: number = 0;
         let errStr: string = "";
@@ -453,8 +446,8 @@ export class BackendDbSubModule {
                 // ToDo: return UpdateResult by dbUpdateResult like poolAppendFromCacheToDb()
                 for (const oid of oids) {
                     let condition: object;
-                    if (__t !== this.master_key) {
-                        condition = { _id: new ObjectId(oid), tenant: __t };
+                    if (tenantId !== core.conf.administration_id) {
+                        condition = { _id: new ObjectId(oid), tenant: tenantId };
                     } else {
                         condition = { _id: new ObjectId(oid) };
                     }
@@ -497,11 +490,11 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success. Note it returns success even if no deletion at all.
      */
-    public async poolDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async poolDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:poolDeleteByOid");
 
@@ -516,8 +509,8 @@ export class BackendDbSubModule {
                 // ToDo: return DeleteResult by dbUpdateResult like poolAppendFromCacheToDb()
                 for (const oid of oids) {
                     let condition: object;
-                    if (__t !== this.master_key) {
-                        condition = { _id: new ObjectId(oid), tenant: __t };
+                    if (tenantId !== core.conf.administration_id) {
+                        condition = { _id: new ObjectId(oid), tenant: tenantId };
                     } else {
                         condition = { _id: new ObjectId(oid) };
                     }
@@ -558,11 +551,11 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param oids - set target oids
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success. Note it returns success even if no deletion at all.
      */
-    public async blockDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], __t: string): Promise<gResult<void, gError>> {
+    public async blockDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:blockDeleteByOid");
 
@@ -576,8 +569,8 @@ export class BackendDbSubModule {
                 const block = dbObj.collection(conf.mongo_blockcollection);
                 for (const oid of oids) {
                     let condition: object;
-                    if (__t !== this.master_key) {
-                        condition = { _id: new ObjectId(oid), tenant: __t };
+                    if (tenantId !== core.conf.administration_id) {
+                        condition = { _id: new ObjectId(oid), tenant: tenantId };
                     } else {
                         condition = { _id: new ObjectId(oid) };
                     }
@@ -619,11 +612,11 @@ export class BackendDbSubModule {
      * @param client - set MongoClient instance
      * @param conf - set dsConfigType instance
      * @param blockResults - set the new blocks
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenantId
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success. Note it returns success even if no updates at all.
      */
-    public async blockReplaceByBlocks(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, blockResults: getBlockResult[], __t: string): Promise<gResult<void, gError>> {
+    public async blockReplaceByBlocks(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, blockResults: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:blockReplaceByBlocks");
 
@@ -650,8 +643,8 @@ export class BackendDbSubModule {
                     if (blockResult.block !== undefined) {
                         const blk = {...ca3Specific, ...blockResult.block }
                         let condition: object;
-                        if (__t !== this.master_key) {
-                            condition = { _id: new ObjectId(blockResult.oid), tenant: __t };
+                        if (tenantId !== core.conf.administration_id) {
+                            condition = { _id: new ObjectId(blockResult.oid), tenant: tenantId };
                         } else {
                             condition = { _id: new ObjectId(blockResult.oid) };
                         }
@@ -698,5 +691,113 @@ export class BackendDbSubModule {
             default:
                 return this.dbError("blockDeleteByOid", "other", errStr);
         }
+    }
+
+    /**
+     * Transfer all pool collection data from db to read cache.
+     * @param core - set ccCommonIoType instance
+     * @param client - set MongoClient instance
+     * @param conf - set dsConfigType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains objPool[] if it's success, and gError if it's failure.
+     */
+    public async poolSyncFromDbToCache(core: ccCommonIoType, client: MongoClient, conf: dsConfigType): Promise<gResult<objTx[], gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "mongodb:poolSyncFromDbToCache");
+
+        let ret: objTx[] = [];
+
+        const session: ClientSession = client.startSession();
+        try {
+            await session.withTransaction(async () => {
+                const dbObj = client.db();
+                const txs = dbObj.collection(conf.mongo_poolcollection);
+                for (const tx of (await txs.find({}).toArray())) {
+                    if (tx.hasOwnProperty("prev_id")) {
+                        ret.push({
+                            _id: tx._id.toString(),
+                            type: tx.type,
+                            tenant: tx.tenant,
+                            settime: tx.settime,
+                            prev_id: tx.prev_id,
+                            deliveryF: tx.deliveryF,
+                            data: tx.data
+                        })
+                    } else {
+                        ret.push({
+                            _id: tx._id.toString(),
+                            type: tx.type,
+                            tenant: tx.tenant,
+                            settime: tx.settime,
+                            deliveryF: tx.deliveryF,
+                            data: tx.data
+                        })
+                    }
+                }
+            })
+            await session.commitTransaction();
+        } catch (error: any) {
+            try {
+                await session.abortTransaction();
+            } catch (error: any) {
+                return this.dbError("poolSyncFromDbToCache", "abortTransaction", error.toString());
+            }
+            ret = [];
+            return this.dbError("poolSyncFromDbToCache", "commitTransaction", error.toString());
+        }
+        await session.endSession();
+
+        return this.dbOK<objTx[]>(ret);
+    }
+
+    /**
+     * Transfer all block collection data from db to read cache.
+     * @param core - set ccCommonIoType instance
+     * @param client - set MongoClient instance
+     * @param conf - set dsConfigType instance
+     * @returns returns with gResult, that is wrapped by a Promise, that contains objBlock[] if it's success, and gError if it's failure.
+     */
+    public async blockSyncFromDbToCache(core: ccCommonIoType, client: MongoClient, conf: dsConfigType): Promise<gResult<objBlock[], gError>> {
+        const LOG = core.log.lib.LogFunc(core.log);
+        LOG("Info", 0, "mongodb:blockSyncFromDbToCache");
+
+        let ret: objBlock[] = [];
+
+        const session: ClientSession = client.startSession();
+        try {
+            await session.withTransaction(async () => {
+                const dbObj = client.db();
+                const blocks = dbObj.collection(conf.mongo_blockcollection);
+                for (const block of (await blocks.find({}).toArray())) {
+                    ret.push({
+                        _id: block._id.toString(),
+                        tenant: block.tenant,
+                        version: block.version ?? undefined,
+                        height: block.height,
+                        size: block.size,
+                        data: block.data ?? undefined,
+                        type: block.type ?? undefined,
+                        settime: block.settime,
+                        timestamp: block.timestamp,
+                        miner: block.miner ?? undefined,
+                        prev_hash: block.prev_hash,
+                        hash: block.hash,
+                        signedby: block.signedby ?? undefined,
+                        signcounter: block.signcounter ?? undefined
+                    })
+                }
+            })
+            await session.commitTransaction();
+        } catch (error: any) {
+            try {
+                await session.abortTransaction();
+            } catch (error: any) {
+                return this.dbError("blockSyncFromDbToCache", "abortTransaction", error.toString());
+            }
+            ret = [];
+            return this.dbError("blockSyncFromDbToCache", "commitTransaction", error.toString());
+        }
+        await session.endSession();
+
+        return this.dbOK<objBlock[]>(ret);
     }
 }
