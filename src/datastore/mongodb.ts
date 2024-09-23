@@ -433,6 +433,8 @@ export class BackendDbSubModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "mongodb:poolUpdateFlagsByOid");
 
+        if (oids.length === 0) { return this.dbOK<void>(undefined); }
+
         let ret: number = 0;
         let errStr: string = "";
 

@@ -52,6 +52,7 @@ export class InReceiverSubModule {
     public async generalReceiver(req: ic.icGeneralPacket): Promise<gResult<ic.icGeneralPacket, gError>> {
         const LOG = this.log.lib.LogFunc(this.log);
         LOG("Info", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver");
+        LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:" + JSON.stringify(req.toObject()));
 
         // parse: TODO: should use zod to parse
         let payload: ic.icPacketPayload.AsObject;

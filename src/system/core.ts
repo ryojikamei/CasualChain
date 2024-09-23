@@ -10,7 +10,7 @@ import { setInterval } from "timers/promises";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
-import { ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes, postOpenParselOptions, postCloseParselOptions } from "./index.js";
+import { ccSystemType, postGenesisBlockOptions, postScanAndFixOptions, getBlockResult, examineHashes, examinedHashes, postOpenParcelOptions, postCloseParcelOptions } from "./index.js";
 import { systemConfigType } from "../config/index.js";
 import { ccLogType } from "../logger/index.js";
 import { objTx, objBlock, poolResultObject, blockResultObject, ccDsType } from "../datastore/index.js";
@@ -1055,7 +1055,7 @@ export class SystemModule {
 
         // Get digest of own node (but only if it is healthy)
         if (localCondition === 0) {
-            const ret1 = await core.lib.getLastHashAndHeight(core);
+            const ret1 = await core.lib.getLastHashAndHeight(core, core.conf.administration_id);
             if (ret1.isFailure()) { return ret1 };
             if (ret1.value.hash === "") {
                 LOG("Error", -1, "Unable to obtain hash value");
@@ -2221,28 +2221,28 @@ export class SystemModule {
     }
 
     /**
-     * Initialize one new parsel for the new tenant.
+     * Initialize one new parcel for the new tenant.
      * @param core - set ccSystemType instance
-     * @param options - set options by postOpenParselOptions
-     * @returns returns new parsel ID.
+     * @param options - set options by postOpenParcelOptions
+     * @returns returns new parcel ID.
      */
-    public async postOpenParsel(core: ccSystemType, options: postOpenParselOptions): Promise<gResult<string, gError>> {
+    public async postOpenParcel(core: ccSystemType, options: postOpenParcelOptions): Promise<gResult<string, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "eSystemModule:postOpenParsel");
+        LOG("Info", 0, "SystemModule:postOpenParcel");
 
         if (options.adminId !== core.conf.administration_id) {
-            return this.sError("postOpenParsel", "Check adminId", "The administration_id is required to create a new parsel");
+            return this.sError("postOpenParcel", "Check adminId", "The administration_id is required to create a new parcel");
         }
         if ((options.recallPhrase === undefined) || (options.recallPhrase === "")) {
-            return this.sError("postOpenParsel", "Check recallPhrase", "A valid recall phrase must be specified");
+            return this.sError("postOpenParcel", "Check recallPhrase", "A valid recall phrase must be specified");
         }
 
         if (core.b === undefined) {
-            return this.sError("postOpenParsel", "createBlock", "The block module is down");
+            return this.sError("postOpenParcel", "createBlock", "The block module is down");
         }
-        const blockOptions: createBlockOptions = { type: "parsel_open" };
+        const blockOptions: createBlockOptions = { type: "parcel_open" };
 
-        if (core.m === undefined) return this.sError("postOpenParsel", "getSearchByJson", "The main module is down");
+        if (core.m === undefined) return this.sError("postOpenParcel", "getSearchByJson", "The main module is down");
         let newId: `${string}-${string}-${string}-${string}-${string}`;
         while (true) {
             newId = randomUUID(); // Critical at collision
@@ -2263,79 +2263,86 @@ export class SystemModule {
         let bObj: objBlock;
         const ret2 = await core.b.lib.createBlock(core.b, [ data ], newId, blockOptions);
         if (ret2.isFailure()) return ret2;
-        if (ret2.value === undefined) { return this.sError("postOpenParsel", "createBlock", "undefined object"); };
+        if (ret2.value === undefined) { return this.sError("postOpenParcel", "createBlock", "undefined object"); };
         bObj = ret2.value;
 
-        LOG("Notice", 0, "SystemModule:postOpenParsel: new parsel that has id " + newId + " is created and enabled");
+        LOG("Notice", 0, "SystemModule:postOpenParcel: new parcel that has id " + newId + " is created and enabled");
 
-        this.refreshParselList(core);
+        this.refreshParcelList(core);
 
         return this.sOK(bObj.tenant);
     }
 
     /**
-     * Disable one existing parsel to stop using by the tenant
+     * Disable one existing parcel to stop using by the tenant
      * @param core - set ccSystemType instance
      * @param adminId - set administration_id to disable
      * @param tenantId - set the tenantId to close
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async postCloseParsel(core: ccSystemType, options: postCloseParselOptions): Promise<gResult<void, gError>> {
+    public async postCloseParcel(core: ccSystemType, options: postCloseParcelOptions): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "eSystemModule:postCloseParsel");
+        LOG("Info", 0, "SystemModule:postCloseParcel");
 
         if (options.adminId !== core.conf.administration_id) {
-            return this.sError("postCloseParsel", "Check administration ID", "The administration_id is required to disable a parsel");
+            return this.sError("postCloseParcel", "Check administration ID", "The administration_id is required to disable a parcel");
+        }
+        if ((options.tenantId === undefined) || (options.tenantId === "")) {
+            return this.sError("postOpenParcel", "Check recallPhrase", "A valid tenantId must be specified");
         }
 
         if (core.b === undefined) {
-            return this.sError("postCloseParsel", "createBlock", "The block module is down");
+            return this.sError("postCloseParcel", "createBlock", "The block module is down");
         }
         if (core.m === undefined) {
-            return this.sError("postCloseParsel", "createBlock", "The main module is down");
+            return this.sError("postCloseParcel", "createBlock", "The main module is down");
         }
-        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_open", searchBlocks: true, tenant: core.conf.administration_id });
+        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parcel_open", searchBlocks: true, tenant: options.tenantId });
         if (ret1.isFailure()) return ret1;
+        console.log(ret1.value.length)
         let found = false;
         for (const blk of ret1.value) {
+            console.log("===============================")
+            console.log(blk.tenant)
+            console.log("===============================")
             if (blk.tenant === options.tenantId) found = true
         }
         if (found === false) {
-            return this.sError("postCloseParsel", "Find target parsel", "Cannot find parsel with id " + options.tenantId);
+            return this.sError("postCloseParcel", "Find target parcel", "Cannot find parcel with id " + options.tenantId);
         }
 
-        const blockOptions: createBlockOptions = { type: "parsel_close" };
+        const blockOptions: createBlockOptions = { type: "parcel_close" };
         const ret2 = await core.b.lib.createBlock(core.b, [], options.tenantId, blockOptions);
         if (ret2.isFailure()) return ret2;
 
-        LOG("Notice", 0, "SystemModule:postCloseParsel: the parsel that has id " + options.tenantId + " is disabled");
+        LOG("Notice", 0, "SystemModule:postCloseParcel: the parcel that has id " + options.tenantId + " is disabled");
         
-        this.refreshParselList(core);
+        this.refreshParcelList(core);
 
         return this.sOK(undefined);
     }
 
     /**
-     * Refresh active parsel list to check enabled tenants
+     * Refresh active parcel list to check enabled tenants
      * @param core - set ccSystemType instance
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      * So there is no need to check the value of success.
      */
-    public async refreshParselList(core: ccSystemType): Promise<gResult<void, gError>> {
+    public async refreshParcelList(core: ccSystemType): Promise<gResult<void, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "eSystemModule:refreshParselList");
+        LOG("Info", 0, "SystemModule:refreshParcelList");
 
         if (core.m === undefined) {
-            return this.sError("postCloseParsel", "createBlock", "The main module is down");
+            return this.sError("postCloseParcel", "createBlock", "The main module is down");
         }
-        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_close" , searchBlocks: true, tenant: core.conf.administration_id });
+        const ret1 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parcel_close" , searchBlocks: true, tenant: core.conf.administration_id });
         if (ret1.isFailure()) return ret1;
         const closeList: string[] = [];
         for (const blk1 of ret1.value) {
             closeList.push(blk1.tenant);
         }
-        const ret2 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parsel_open" , searchBlocks: true, tenant: core.conf.administration_id });
+        const ret2 = await core.m.lib.getSearchByJson<objBlock>(core.m, { key: "type", value: "parcel_open" , searchBlocks: true, tenant: core.conf.administration_id });
         if (ret2.isFailure()) return ret2;
         const openList: string[] = [];
         for (const blk2 of ret2.value) {
@@ -2347,15 +2354,15 @@ export class SystemModule {
     }
 
     /**
-     * Check specified parsel is active or not from the cache. It doesn't include default/system parsel.
+     * Check specified parcel is active or not from the cache. It doesn't include default/system parcel.
      * @param core - set ccSystemType instance
      * @param tenantId - set the tenantId to check
      * @returns returns with gResult that contains boolean if it's success, and unknown if it's failure.
      * So there is no need to be concerned about the failure status.
      */
-    public isOpenParsel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
+    public isOpenParcel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
         const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "eSystemModule:isOpenParsel");
+        LOG("Info", 0, "SystemModule:isOpenParcel");
 
         for (const id of core.activeTenants) {
             if (id === tenantId) return this.sOK(true);

@@ -132,24 +132,24 @@ export class SystemModuleMock {
                 async postSyncCaches(core: ccSystemType): Promise<gResult<void, gError>> {
                     return sOK(undefined);
                 },
-                async postOpenParsel(core: ccSystemType, options: any): Promise<gResult<string, gError>> {
+                async postOpenParcel(core: ccSystemType, options: any): Promise<gResult<string, gError>> {
                     if (options.adminId === undefined) {
-                        return sError("postOpenParsel", "Check adminId", "The administration_id is required to create a new parsel");
+                        return sError("postOpenParcel", "Check adminId", "The administration_id is required to create a new parcel");
                     } else {
                         return sOK(randomUUID());
                     }
                 },
-                async postCloseParsel(core: ccSystemType, options: any): Promise<gResult<void, gError>> {
+                async postCloseparcel(core: ccSystemType, options: any): Promise<gResult<void, gError>> {
                     if (options.adminId === undefined) {
-                        return sError("postCloseParsel", "Check administration ID", "The administration_id is required to disable a parsel");
+                        return sError("postCloseparcel", "Check administration ID", "The administration_id is required to disable a parcel");
                     } else {
                         return sOK(undefined);
                     }
                 },
-                async refreshParselList(core: ccSystemType): Promise<gResult<void, gError>> {
+                async refreshparcelList(core: ccSystemType): Promise<gResult<void, gError>> {
                     return sOK(undefined);
                 },
-                isOpenParsel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
+                isOpenParcel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
                     if (tenantId === "") {
                         return sOK(false);
                     } else {

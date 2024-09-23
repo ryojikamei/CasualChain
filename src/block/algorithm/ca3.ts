@@ -297,7 +297,7 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
  * @param pObj - set previous block
  * @param data - set transaction data to block 
  * @param trackingId - set the tracking ID to trace
- * @param tenantId -  in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId -  in open source version, it must be equal to DEFAULT_parcel_IDENTIFIER
  * @param blockOptions - can set options by createBlockOptions
  * @returns returns with gResult, that is wrapped by a Promise, that contains the result with Ca3BlockFormat if it's success, and gError if it's failure.
  */
@@ -348,9 +348,9 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
                 signcounter: core.conf.ca3.maxSignNodes
             }
             break;
-        case "parsel_open":
+        case "parcel_open":
             if (pObj === undefined) {
-                return ca3Error("packTxsToANewBlockObject", "createBlock", "Creating parsel_open block must requires previous block information");
+                return ca3Error("packTxsToANewBlockObject", "createBlock", "Creating parcel_open block must requires previous block information");
             }
             hObj = {
                 version: 2,
@@ -358,7 +358,7 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
                 height: pObj.height + 1,
                 size: 1,
                 data: data,
-                type: "parsel_open",
+                type: "parcel_open",
                 settime: stringDateTime,
                 timestamp: timestamp,
                 prev_hash: pObj.hash,
@@ -366,16 +366,16 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
                 signcounter: core.conf.ca3.maxSignNodes
             }
             break;
-        case "parsel_close":
+        case "parcel_close":
             if (pObj === undefined) {
-                return ca3Error("packTxsToANewBlockObject", "createBlock", "Creating parsel_close block must requires previous block information");
+                return ca3Error("packTxsToANewBlockObject", "createBlock", "Creating parcel_close block must requires previous block information");
             }
             hObj = {
                 version: 2,
                 tenant: tenantId,
                 height: pObj.height + 1,
                 size: 0,
-                type: "parsel_close",
+                type: "parcel_close",
                 settime: stringDateTime,
                 timestamp: timestamp,
                 prev_hash: pObj.hash,
@@ -862,15 +862,14 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @param core - set ccBlockType instance
  * @param type - set block type
  * @param data - set target transactions
- * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId - in open source version, it must be equal to DEFAULT_parcel_IDENTIFIER
  * @param startTimeMs - set starting time in ms
  * @param lifeTimeMs - set life time against starting time in ms
  * @param trackingId - set trackingId to trace
- * @param commonId - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
- * @returns returns with gResult type that contains the trackingId of the starting process if it's success, and unknown if it's failure.
- * So there is no need to be concerned about the failure status.
+ * @param commonId - in open source version, it must be undefined or equal to DEFAULT_parcel_IDENTIFIER
+ * @returns returns with gResult type that contains the trackingId of the starting process if it's success, and gError if it's failure.
  */
-export function setupCreator(core: ccBlockType, type: string, data: objTx[], tenantId: string, startTimeMs: number, lifeTimeMs: number, trackingId: string): gResult<string, unknown> {
+export function setupCreator(core: ccBlockType, type: string, data: objTx[], tenantId: string, startTimeMs: number, lifeTimeMs: number, trackingId: string): gResult<string, gError> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:setupCreator");
     
@@ -949,7 +948,7 @@ export function stopCreator(core: ccBlockType, trackingId: string): gResult<void
  * @param pObj - set the provous block to get some information
  * @param data - set the target transactions for blocking
  * @param trackingId - set trackingId to trace
- * @param tenantId - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+ * @param tenantId - in open source version, it must be equal to DEFAULT_parcel_IDENTIFIER
  * @param blockOptions - can set blocking options with createBlockOptions
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
@@ -957,6 +956,10 @@ export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | u
     trackingId: string, tenantId: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
     const LOG = core.log.lib.LogFunc(core.log);
     LOG("Info", 0, "CA3:proceedCreator");
+
+    if (travelingIds[trackingId] === undefined) {
+        return ca3Error("proceedCreator", "Invalid", trackingId + " is invalid or has been stopped already");
+    }
     
     let ret1: Ca3ReturnFormat = {
         status: 0,

@@ -142,12 +142,11 @@ export class BlockModule {
      * The function for creating one new block from an array of transactions.
      * @param core - set ccSystemType instance
      * @param txArr - set the source for creating a block with a objPool[] instance
-     * @param __t - in open source version, it must be equal to DEFAULT_PARSEL_IDENTIFIER
+     * @param tenantId - set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
      * @param blockOptions - can set options with createBlockOptions format
-     * @param commonId - in open source version, it must be undefined or equal to DEFAULT_PARSEL_IDENTIFIER
      * @returns returns with gResult, that is wrapped by a Promise, that contains the created block with blockFormat if it's success, and gError if it's failure.
      */
-    public async createBlock(core: ccBlockType, txArr: objTx[], __t: string, blockOptions?: createBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
+    public async createBlock(core: ccBlockType, txArr: objTx[], tenantId: string, blockOptions?: createBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "BlockModule:createBlock");
         if (blockOptions === undefined) {
@@ -157,7 +156,7 @@ export class BlockModule {
         let pObj: any = {};
         if (blockOptions.type !== "genesis") {
             if (core.m !== undefined) {
-                const ret1 = await core.m.lib.getLastBlock(core.m);
+                const ret1 = await core.m.lib.getLastBlock(core.m, { tenant: core.conf.administration_id });
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value === undefined) {
                     return this.bError("createBlock", "getLastBlock" ,"getLastBlock returns empty block. It cannot proceed.");
@@ -184,8 +183,9 @@ export class BlockModule {
             if ((core.algorithm.travelingIds[trackingId] === undefined) || 
             ((core.algorithm.travelingIds[trackingId] !== undefined) && 
             (core.algorithm.travelingIds[trackingId].timeoutMs <= currentTimeMs))) {
-                core.algorithm.setupCreator(core, blockOptions.type, txArr, __t, currentTimeMs, lifeTimeMs, trackingId);
-                const ret1: gResult<Ca3ReturnFormat, gError> = await core.algorithm.proceedCreator(core, pObj, txArr, trackingId, __t, blockOptions);
+                const ret0: gResult<string, gError> = core.algorithm.setupCreator(core, blockOptions.type, txArr, tenantId, currentTimeMs, lifeTimeMs, trackingId);
+                if (ret0.isFailure()) { return ret0; }
+                const ret1: gResult<Ca3ReturnFormat, gError> = await core.algorithm.proceedCreator(core, pObj, txArr, trackingId, tenantId, blockOptions);
                 if (ret1.isFailure()) {
                     if (ret1.value.origin.pos === "Timeout") {
                         lifeTime = lifeTime * 1.5;

@@ -124,21 +124,21 @@ export type examinedHashes = {
 }
 
 /**
- * The options for postOpenParsel
+ * The options for postOpenParcel
  * - adminId: administration_id to initialize
  * - recallPhrase: phrase to recall tenantId
  */
-export type postOpenParselOptions = {
+export type postOpenParcelOptions = {
     adminId: string,
     recallPhrase: string
 }
 
 /**
- * The options for postCloseParsel
+ * The options for postCloseParcel
  * - adminId: administration_id to disable
  * - tenantId: target tenant id to close
  */
-export type postCloseParselOptions = {
+export type postCloseParcelOptions = {
     adminId: string,
     tenantId: string
 }

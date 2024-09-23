@@ -243,11 +243,15 @@ export class DirectIoSubModule {
         let filter_key: string | undefined;
         if (tenantId === undefined) {
             if (core.conf.enable_default_tenant === false) {
-                return this.ioError("getPoolCursor", "tenantId", "Default parsel is disabled");
-            } else {
-                filter_key = core.conf.default_tenant_id
+                LOG("Debug", -1, "getPoolCursor:default parcel is disabled");
+                return this.ioError("getPoolCursor", "tenantId", "Default parcel is disabled");
             }
+            filter_key = core.conf.default_tenant_id;
         } else {
+            if (tenantId.length === 0) {
+                LOG("Debug", -1, "getPoolCursor:tenantId is invalid");
+                return this.ioError("getPoolCursor", "tenantId", "The tenatId is invalid");
+            }
             filter_key = tenantId;
         }
         if (core.conf.queue_ondisk === true) {
@@ -295,11 +299,15 @@ export class DirectIoSubModule {
         let filter_key: string | undefined
         if (tenantId === undefined) {
             if (core.conf.enable_default_tenant === false) {
-                return this.ioError("getBlockCursor", "tenantId", "Default parsel is disabled");
-            } else {
-                filter_key = core.conf.default_tenant_id
+                LOG("Debug", -1, "getBlockCursor:default parcel is disabled");
+                return this.ioError("getBlockCursor", "tenantId", "Default parcel is disabled");
             }
+            filter_key = core.conf.default_tenant_id;
         } else {
+            if (tenantId.length === 0) {
+                LOG("Debug", -1, "getBlockCursor:tenantId is invalid");
+                return this.ioError("getBlockCursor", "tenantId", "The tenatId is invalid");
+            }
             filter_key = tenantId;
         }
         if (core.db.obj !== undefined) {

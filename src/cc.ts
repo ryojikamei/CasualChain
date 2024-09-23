@@ -239,7 +239,7 @@ export class CC {
             process.exit(14); 
         }
         if (core.s.conf.node_mode.endsWith("+init") === true) {
-            const ret15 = await core.m.lib.getLastBlock(core.m);
+            const ret15 = await core.m.lib.getLastBlock(core.m, { tenant: core.s.conf.administration_id });
             if (ret15.value === undefined) {
                 LOG("Notice", 0, "Initializing the blockchain: ", {lf: false});
                 const ret16 = await core.s.lib.postGenesisBlock(core.s);
@@ -251,7 +251,7 @@ export class CC {
                 }
             }
         }
-        const ret17 = await core.s.lib.refreshParselList(core.s);
+        const ret17 = await core.s.lib.refreshParcelList(core.s);
         if (ret17.isFailure()) { 
             LOG("Error", 0, JSON.stringify(ret17.value));
             process.exit(17); 

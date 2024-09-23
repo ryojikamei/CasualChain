@@ -560,6 +560,8 @@ export class MainModule {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "MainModule:getSearchByJson");
     
+        if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
+        
         const txArr: objTx[] = [];
         const blockArr: objBlock[] = [];
 
@@ -568,7 +570,6 @@ export class MainModule {
             constrainedSize: options.constrainedSize
         };
 
-        if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
 
         if (core.d !== undefined) {
             if (options.excludePooling !== true) {
@@ -600,6 +601,13 @@ export class MainModule {
                 if (ret3.value.cursor !== undefined) {
                     if (options.searchBlocks === true) {
                         for await(blk of ret3.value.cursor) {
+                            const ret5 = await this.searchTxData(core, blk.value, options);
+                            if (ret5.isSuccess()) {
+                                if (ret5.value !== undefined) blockArr.push(blk.value)
+                            }
+                        }
+                    } else {
+                        for await(blk of ret3.value.cursor) {
                             if (blk.value.data === undefined) continue;
                             let tx: objTx;
                             for (tx of blk.value.data) {
@@ -611,13 +619,6 @@ export class MainModule {
                                 }
                                 if (ret4.isFailure()) return ret4;
                                 if (ret4.value !== undefined) txArr.push(tx);
-                            }
-                        }
-                    } else {
-                        for await(blk of ret3.value.cursor) {
-                            const ret5 = await this.searchTxData(core, blk.value, options);
-                            if (ret5.isSuccess()) {
-                                if (ret5.value !== undefined) blockArr.push(blk.value)
                             }
                         }
                     }
@@ -645,27 +646,31 @@ export class MainModule {
         LOG("Info", 0, "MainModule:postByJson:options:" + JSON.stringify(options));
 
         let compatDateTime: boolean = false;
-        if (options?.compatDateTime !== undefined) compatDateTime = options.compatDateTime;
+        if (options.compatDateTime !== undefined) compatDateTime = options.compatDateTime;
         let tenantId: string;
-        if (options.tenant !== undefined) {
-            tenantId = options.tenant;
+        if (options.tenant === undefined) {
+            if ((core.s !== undefined) && (core.s.conf.enable_default_tenant === false)) {
+                return this.mError("postByJson", "tenantId", "Default parcel is disabled")
+            } else {
+                tenantId = core.conf.default_tenant_id;
+            }
         } else {
-            if (core.conf.default_tenant_id !== "") {
+            if ((core.s !== undefined) && (options.tenant === core.s.conf.administration_id)) {
                 tenantId = core.conf.default_tenant_id;
             } else {
-                return this.mError("postByJson", "CheckTenantId", "TenantId is invalid");
+                tenantId = options.tenant;
             }
         }
 
-        // check if parsel is active
+        // check if parcel is active
         if (tenantId !== core.conf.default_tenant_id) {
             if (core.s === undefined) {
-                return this.mError("postByJson", "isOpenParsel", "Unable to post data to the specified tenant because SystemModule is down")
+                return this.mError("postByJson", "isOpenParcel", "Unable to post data to the specified tenant because SystemModule is down")
             } else {
-                const ret = core.s.lib.isOpenParsel(core.s, tenantId);
-                if (ret.isFailure() === true) { this.mError("postByJson", "isOpenParsel", "unknown error"); }
+                const ret = core.s.lib.isOpenParcel(core.s, tenantId);
+                if (ret.isFailure() === true) { this.mError("postByJson", "isOpenParcel", "unknown error"); }
                 if (ret.value === false) {
-                    this.mError("postByJson", "isOpenParsel", "The specified parsel, " + tenantId + ", is not active.");
+                    this.mError("postByJson", "isOpenParcel", "The specified parcel, " + tenantId + ", is not active.");
                 }
             }
         }
@@ -693,9 +698,6 @@ export class MainModule {
                 const maxSizeMiB = MAX_SAFE_PAYLOAD_SIZE / 1024 / 1024;
                 LOG("Warning", -6, "The data exceeds the maximum payload size. It must be less than " + maxSizeMiB + " MiB. Skip.");
                 return this.mError("postByJson", "CheckData", "The data exceeds the maximum payload size.  It must be less than " + maxSizeMiB + " MiB.");
-            }
-            if (options.data.tenant === undefined) {
-                options.data.tenant = tenantId;
             }
         }
 

@@ -289,7 +289,7 @@ export class ListnerV3AdminApi {
             LOG("Info", 0, "Api:sys-opentenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postOpenParsel(acore.s, req.body).then((data) => {
+                acore.s.lib.postOpenParcel(acore.s, req.body).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/opentenant"));
@@ -298,7 +298,7 @@ export class ListnerV3AdminApi {
                 })
             } else {
                 LOG("Warning", 1, "System Module is currently down.");
-                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postOpenParsel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postOpenParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/opentenant"));
             }
         });
@@ -307,7 +307,7 @@ export class ListnerV3AdminApi {
             LOG("Info", 0, "Api:sys-closetenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postCloseParsel(acore.s, req.body).then((data) => {
+                acore.s.lib.postCloseParcel(acore.s, req.body).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/closetenant"));
@@ -316,7 +316,7 @@ export class ListnerV3AdminApi {
                 })
             } else {
                 LOG("Warning", 1, "System Module is currently down.");
-                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postCloseParsel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postCloseParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/closetenant"));
             }
         });
