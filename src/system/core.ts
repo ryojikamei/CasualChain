@@ -2303,9 +2303,6 @@ export class SystemModule {
         console.log(ret1.value.length)
         let found = false;
         for (const blk of ret1.value) {
-            console.log("===============================")
-            console.log(blk.tenant)
-            console.log("===============================")
             if (blk.tenant === options.tenantId) found = true
         }
         if (found === false) {
