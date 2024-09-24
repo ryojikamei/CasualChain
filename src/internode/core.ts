@@ -8,7 +8,7 @@ import { Server, ServerCredentials, ChannelCredentials, ServerDuplexStream, Unty
 import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
 import ic from "../../grpc/interconnect_pb.js";
 
-import { inConnectionResetLevel, inRequestType, inConnection } from "./index.js";
+import { inConnectionResetLevel, inRequestType, inConnection, inCall } from "./index.js";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 import { moduleCondition } from "../index.js";
@@ -35,6 +35,7 @@ const inResultsType = { "yet": 0, "success": 1, "failure": 2 } as const;
 type inResults = {
     [requestId: string]: {
         state: number,
+        callId: string,
         installationtime: number,
         result: gResult<ic.icGeneralPacket, gError>
     }
@@ -550,11 +551,11 @@ export class InModule {
         LOG("Info", 0, "In:" + this.conf.self.nodename + ":sendOnePacket");
 
         const call = core.lib.generalConnections[packet.getReceiver()].call;
-        call.write(packet, () => {
-            LOG("Debug", 0, "In object: " + this.debugId)
-            LOG("Debug", 0, "Make a reply box for id: " + packet.getPacketId());
+        call.conn.write(packet, () => {
+            LOG("Debug", 0, "In callId: " + call.id + ":Make a reply box for packetId: " + packet.getPacketId());
             core.lib.generalResults[packet.getPacketId()] = {
                 state: inResultsType.yet,
+                callId: call.id,
                 installationtime: new Date().valueOf(),
                 result: this.iError("undefined")
             }
@@ -567,22 +568,39 @@ export class InModule {
      * @param channel - set channel instance for the target node
      * @returns returns ClientDuplexStream
      */
-    protected makeNewCallWithListener(core: ccInType, channel: ic_grpc.interconnectClient): ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket> {
+    protected makeNewCallWithListener(core: ccInType, channel: ic_grpc.interconnectClient, targetName: string): inCall {
         const LOG = core.log.lib.LogFunc(core.log);
         LOG("Info", 0, "InModule:makeNewCallWithListener");
 
-        const newcall = channel.ccGeneralIc();
+        const call: inCall = {
+            conn: channel.ccGeneralIc(),
+            id: randomUUID()
+        }
 
-        newcall.on("error", async (req: ic.icGeneralPacket) => {
-            LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":getConnection:data error to " + req.getReceiver());
-            core.lib.generalResults[req.getPacketId()] = {
-                state: inResultsType.failure,
-                installationtime: new Date().valueOf(),
-                result: core.lib.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
+        call.conn.on("error", async (req: ic.icGeneralPacket) => {
+            try {
+                LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":makeNewCallWithListener:call_" + call.id + ":data error to " + req.getReceiver());
+                core.lib.generalResults[req.getPacketId()] = {
+                    state: inResultsType.failure,
+                    callId: call.id,
+                    installationtime: new Date().valueOf(),
+                    result: core.lib.iError("sendRequest", "writeRequest", "Failed sending a packet to: " + req.getReceiver())
+                }
+            } catch (error) {
+                const err = JSON.stringify(req)
+                LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":makeNewCallWithListener:call_" + call.id + ":" + err);
+                for (const item of Object.keys(core.lib.generalResults)) {
+                    const result = core.lib.generalResults[item];
+                    if ((result.callId === call.id) && (result.state === inResultsType.yet)) {
+                        core.lib.generalResults[item].state = inResultsType.failure;
+                        core.lib.generalResults[item].result = core.lib.iError("sendRequest", "writeRequest", err)
+                        LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":makeNewCallWithListener:call_" + call.id + ":Error saved");
+                    }
+                }
             }
         })
-        newcall.on("data", async (req: ic.icGeneralPacket) => {
-            LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":getConnection:dataArrived from " + req.getSender());
+        call.conn.on("data", async (req: ic.icGeneralPacket) => {
+            LOG("Debug", 0, "In:" + core.lib.conf.self.nodename + ":makeNewCallWithListener:call_" + call.id+ ":dataArrived from " + req.getSender());
             /**
              * The return packet:
              * 1. isFailure() === true: parsing itself is failed, drop.
@@ -606,9 +624,9 @@ export class InModule {
                 if (ret.isSuccess()) {
                     if (ret.value.getPayload()?.getPayloadType() === ic.payload_type.REQUEST) {
                         if (ret.value.getPacketId() !== "") {
-                            newcall.write(ret.value);
-                            newcall.on("error", () => {
-                                LOG("Notice", 0, "In:" + this.conf.self.nodename + ":getConnection:Failed sending a packet to: " + ret.value.getReceiver());
+                            call.conn.write(ret.value);
+                            call.conn.on("error", () => {
+                                LOG("Notice", 0, "In:" + this.conf.self.nodename + ":makeNewCallWithListener:Failed sending a packet to: " + ret.value.getReceiver());
                             })
                         }
                     } else {
@@ -630,7 +648,7 @@ export class InModule {
             })
         });
 
-        return newcall;
+        return call;
     }
     /**
      * Make a new connection from creating the channel
@@ -653,9 +671,11 @@ export class InModule {
             } else {
                 newchannel = new clientImpl(targetHostPort, creds);
             }
-            const newcall = this.makeNewCallWithListener(core, newchannel);
+            const channelId = randomUUID();
+            LOG("Debug", 0, "InModule:makeNewChannelAndCall:" + targetName + ":channel " + channelId + "is created");
+            const newcall = this.makeNewCallWithListener(core, newchannel, targetName);
             core.lib.generalConnections[targetName] = {
-                channel: newchannel,
+                channel: { conn: newchannel, id: channelId },
                 call: newcall
             }
             return this.iOK(undefined);
@@ -696,7 +716,7 @@ export class InModule {
         // AS-IS first
         if ((resetLevel === undefined) || (resetLevel === "no") || (resetLevel === "never")) {
             if (core.lib.generalConnections[nodename] !== undefined) {
-                return this.iOK({ call: core.lib.generalConnections[nodename].call, newcall: false });
+                return this.iOK({ call: core.lib.generalConnections[nodename].call.conn, newcall: false });
             }
             if (resetLevel === "never") {
                 return this.iError("getConnection", "generalConnections", "There is no connection for nodename " + nodename);
@@ -705,20 +725,20 @@ export class InModule {
         // Recover-call-only second
         if ((resetLevel === "call") || (resetLevel === "check")) {
             if (core.lib.generalConnections[nodename] !== undefined) {
-                core.lib.generalConnections[nodename].call.end();
-                core.lib.generalConnections[nodename].call = this.makeNewCallWithListener(core, core.lib.generalConnections[nodename].channel);
-                return this.iOK({ call: core.lib.generalConnections[nodename].call, newcall: true });
+                core.lib.generalConnections[nodename].call.conn.end();
+                core.lib.generalConnections[nodename].call = this.makeNewCallWithListener(core, core.lib.generalConnections[nodename].channel.conn, nodename);
+                return this.iOK({ call: core.lib.generalConnections[nodename].call.conn, newcall: true });
             }
         }
         // Otherwise, full creation
         try {
-            core.lib.generalConnections[nodename].call.end();
+            core.lib.generalConnections[nodename].call.conn.end();
         } catch (error) {
             
         }
         const ret = this.makeNewChannelAndCall(core, nodename, target, clientImpl);
         if (ret.isSuccess()) {
-            return this.iOK({ call: core.lib.generalConnections[nodename].call, newcall: true });
+            return this.iOK({ call: core.lib.generalConnections[nodename].call.conn, newcall: true });
         } else {
             return ret;
         }

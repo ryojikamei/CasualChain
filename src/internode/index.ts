@@ -13,7 +13,6 @@ import { ccBlockType } from "../block/index.js"
 import { ccKeyringType } from "../keyring/index.js"
 
 import { Ca3TravelingFormat } from "../block/algorithm/ca3.js"
-import { InReceiverSubModule } from "./receiver.js"
 
 import * as core from "./core.js"
 export import InModule = core.InModule
@@ -120,9 +119,19 @@ export type rpcResultFormat = {
  */
 export type inConnectionResetLevel = "no" | "call" | "channel" | "check" | "never";
 
+export type inChannel = {
+    conn: ic_grpc.interconnectClient,
+    id: string
+}
+
+export type inCall = {
+    conn: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>,
+    id: string
+}
+
 export type inConnection = {
-    channel: ic_grpc.interconnectClient,
-    call: ClientDuplexStream<ic.icGeneralPacket, ic.icGeneralPacket>
+    channel: inChannel,
+    call: inCall
 }
 
 /**
