@@ -616,6 +616,13 @@ export class MainModule {
                 if (ret3.value.cursor !== undefined) {
                     if (options.searchBlocks === true) {
                         for await(blk of ret3.value.cursor) {
+                            const ret5 = await this.searchTxData(core, blk.value, options);
+                            if (ret5.isSuccess()) {
+                                if (ret5.value !== undefined) blockArr.push(blk.value)
+                            }
+                        }
+                    } else {
+                        for await(blk of ret3.value.cursor) {
                             if (blk.value.data === undefined) continue;
                             let tx: objTx;
                             for (tx of blk.value.data) {
@@ -627,13 +634,6 @@ export class MainModule {
                                 }
                                 if (ret4.isFailure()) return ret4;
                                 if (ret4.value !== undefined) txArr.push(tx);
-                            }
-                        }
-                    } else {
-                        for await(blk of ret3.value.cursor) {
-                            const ret5 = await this.searchTxData(core, blk.value, options);
-                            if (ret5.isSuccess()) {
-                                if (ret5.value !== undefined) blockArr.push(blk.value)
                             }
                         }
                     }
