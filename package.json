@@ -1,6 +1,6 @@
 {
   "name": "casualchain",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Typescript/Javascript version of blockchain engine without any insentive features",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
