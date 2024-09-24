@@ -270,15 +270,15 @@ export class KeyringModule {
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.length === 0) {
                     LOG("Notice", -1, "No verify keys have been published yet");
-                    return this.kError("refreshPublicKeyCache", "getSearchByJson_pubkey", "No verify keys have been published yet");
+                    return this.kError("refreshPublicKeyCache", "getSearchByJson", "No verify keys have been published yet");
                 } else {
                     let ring_bc: any;
+                    // NOTE: at last the oldest one is cached
                     for (ring_bc of ret1.value) {
                         let found: boolean = false;
                         for (let index = 0; index < core.cache.length; index++) {
                             if ((ring_bc.data.nodename !== undefined) && (ring_bc.data.nodename === core.cache[index].nodename)) {
                                 found = true;
-                                core.cache[index].nodename = ring_bc.data.nodename;
                                 core.cache[index].verify_key = ring_bc.data.verify_key;
                                 core.cache[index].verify_key_hex = ring_bc.data.verify_key_hex;
                             }
@@ -289,12 +289,15 @@ export class KeyringModule {
                     }
                 }
             } else {
-                return this.kError("refreshPublicKeyCache", "getSearchByJson_pubkey", "The main module is down");
+                return this.kError("refreshPublicKeyCache", "getSearchByJson", "The main module is down");
             }
             if ((waitOnStartUp !== true) || (ret1.value.length !== 0)) {
                 break;
             } else {
                 LOG("Notice", 0, "Waiting for initial key is published.");
+                setTimeout(() => {
+                    // Do nothing
+                }, 1000);
             }
         };
         return this.kOK<void>(undefined);
