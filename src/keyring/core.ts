@@ -210,18 +210,26 @@ export class KeyringModule {
             LOG("Error", -1, "The modules is not initialized properly!");
             return this.kError("postSelfPublicKeys", "prerequisite", "The modules is not initialized properly!");
         }
-        
+
         // Search if previous data is exist or not.
-        if ((core.m !== undefined) && (core.s !== undefined) && (core.i !== undefined)) {
-            const ret1 = await core.m.lib.getSearchByJson<objTx>(core.m, {key: "cc_tx", value: tag_pubkey_data, ignoreGenesisBlockIsNotFound: true, matcherType: "strict"});
-            if (ret1.isFailure()) return ret1;
-            let data: any;
-            for (data of ret1.value) {
-                if (data.data.nodename === core.cache[0].nodename) {
-                    LOG("Warning", 1, "Public key for " + data.nodename + " is already posted. Skip.");
-                    return this.kOK<void>(undefined);
+        if ((core.m === undefined) || (core.s === undefined) || (core.i === undefined)) {
+            return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
+        }
+        const ret1 = await core.m.lib.getSearchByJson<objTx>(core.m, {key: "cc_tx", value: tag_pubkey_data, ignoreGenesisBlockIsNotFound: true, matcherType: "strict"});
+        if (ret1.isFailure()) return ret1;
+        let skipPubkey: boolean = false;
+        for (const tx of ret1.value) {
+            if (tx.data === undefined) {
+                continue;
+            } else {
+                const data: any = tx.data;
+                if (data.nodename === core.cache[0].nodename) {
+                     LOG("Warning", 1, "Public key for " + data.nodename + " is already posted. Skip.");
+                    skipPubkey = true;
                 }
             }
+        }
+        if (skipPubkey === false) {
             const register_data: postJsonOptions = {
                 type: "new",
                 data: {
@@ -238,8 +246,6 @@ export class KeyringModule {
             // immediately deliver to other node
             const ret3 = await core.s.lib.postDeliveryPool(core.s, true);
             if (ret3.isFailure()) return ret3;
-        } else {
-            return this.kError("postSelfPublicKeys", "getSearchByJson", "The system module or main module or internode module is down");
         }
 
         this.coreCondition = "active";
