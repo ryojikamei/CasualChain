@@ -106,8 +106,8 @@ export class MainModule {
      * So there is no need to be concerned about the failure status.
      */
     public restart(core: ccMainType, log: ccLogType, d: ccDsType, s: ccSystemType): gResult<ccMainType, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:restart");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "restart");
+        LOG("Info", "start");
 
         this.coreCondition = "unloaded";
         const ret1 = this.init(core.conf, log);
@@ -204,8 +204,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getAllDeliveredPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getAllDeliveredPool");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getAllDeliveredPool");
+        LOG("Info", "start");
 
         const optCursor: getPoolCursorOptions = {
             sortOrder: options?.sortOrder,
@@ -241,8 +241,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getAllUndeliveredPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getAllUndeliveredPool");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getAllUndeliveredPool");
+        LOG("Info", "start");
 
         if (options?.excludeNonpropergate === true) { return this.mOK([]) };
 
@@ -280,8 +280,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getAllPool(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getAllPool");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getAllPool");
+        LOG("Info", "MainModule:start");
 
         if (options?.excludeNonpropergate === true) { return await core.lib.getAllDeliveredPool(core, options) };
 
@@ -313,8 +313,8 @@ export class MainModule {
      * @returns  returns with gResult, that is wrapped by a Promise, that contains corresponding blocks or transactions if the bareTransaction option is set if it's success, and gError if it's failure.
      */
     public async getAllBlock(core: ccMainType, options?: getAllBlockOptions): Promise<gResult<objBlock[] | objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getAllBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getAllBlock");
+        LOG("Info", "start");
 
         let optCursor: getBlockCursorOptions;
         let optConv: convIteratorOptions;
@@ -356,8 +356,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getAll(core: ccMainType, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getAll");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getAll");
+        LOG("Info", "start");
 
         const optCursor1: getPoolCursorOptions = {}
         const optCursor2: getBlockCursorOptions = {}
@@ -409,8 +409,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the corresponding block if it's success, and gError if it's failure.
      */
     public async getLastBlock(core: ccMainType, options?: getBlockOptions): Promise<gResult<objBlock | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getLastBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getLastBlock");
+        LOG("Info", "start");
 
         const optCursor: getBlockCursorOptions = {
             sortOrder: options?.sortOrder ?? -1,
@@ -424,7 +424,7 @@ export class MainModule {
             let topTx: any = null;
             if (ret1.value.cursor !== undefined) {
                 topTx = await ret1.value.cursor.next();
-                LOG("Debug", 0, "MainModule:getLastBlock::" + JSON.stringify(topTx));
+                LOG("Debug", JSON.stringify(topTx));
             }
             if ((topTx === null) || (topTx === undefined)) {
                 await core.d.lib.closeCursor(core.d, ret1.value);
@@ -453,8 +453,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the corresponding block if the targetIsBlock option is set or the corresponding transaction or undefined if there is no object that has the oid if it's success, and gError if it's failure.
      */
     public async getSearchByOid<T>(core: ccMainType, oid: string, options?: getTransactionOrBlockOptions): Promise<gResult<T | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getSearchByOid");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getSearchByOid");
+        LOG("Info", "start");
 
         if (options?.targetIsBlock !== true) { // oid of all transactions
             if (core.d !== undefined) {
@@ -527,9 +527,9 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result object or undefined if it's success, and gError if it's failure.
      */
     private async searchTxData(core: ccMainType, data: any, options: getJsonOptions): Promise<gResult<object | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:searchTxData");
-        LOG("Debug", 0, "MainModule:searchTxData:" + JSON.stringify(data));
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "searchTxData");
+        LOG("Info", "start");
+        LOG("Debug", JSON.stringify(data));
 
         let dataObj: object | undefined;
         let matcherType: string = "";
@@ -557,8 +557,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getSearchByJson<T>(core: ccMainType, options: getJsonOptions): Promise<gResult<T[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getSearchByJson");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getSearchByJson");
+        LOG("Info", "start");
     
         if ((options.excludeBlocked === true) && (options.excludePooling === true)) { return this.mOK<T[]>([]) }
         
@@ -642,8 +642,9 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the transaction's oid if it's success, and gError if it's failure.
      */
     public async postByJson(core: ccMainType, options: postJsonOptions): Promise<gResult<string, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:postByJson:options:" + JSON.stringify(options));
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "postByJson");
+        LOG("Info", "start");
+        LOG("Debug", "options:" + JSON.stringify(options));
 
         let compatDateTime: boolean = false;
         if (options.compatDateTime !== undefined) compatDateTime = options.compatDateTime;
@@ -678,25 +679,25 @@ export class MainModule {
         // check keys
         if (options.hasOwnProperty("data") === false) return this.mError("postByJson", "CheckKeys", "The data property is not found");
         if (options.hasOwnProperty("type") === false) {
-            LOG("Warning", -1, "The type property is not found. Skip");
+            LOG("Warning", "The type property is not found. Skip");
             return this.mError("postByJson", "CheckKeys", "The type property is not found");
         } else {
             if ((options.hasOwnProperty("prev_id") === false) && ((options.type === "update") || (options.type === "delete"))) {
-                LOG("Warning", -2, "The update or delete type must have prev_id property also. Skip");
+                LOG("Warning", "The update or delete type must have prev_id property also. Skip");
                 return this.mError("postByJson", "CheckKeys", "The update or delete type must have prev_id property also");
             }
         }
         if (options.data === undefined) {
-            LOG("Warning", -4, "The data is not found. Skip");
+            LOG("Warning", "The data is not found. Skip");
             return this.mError("postByJson", "CheckData", "The data is not found");
         } else {
             if (typeof(options.data) !== "object") {
-                LOG("Warning", -5, "The data is not an object. Skip");
+                LOG("Warning", "The data is not an object. Skip");
                 return this.mError("postByJson", "CheckData", "The data is not an object");
             }
             if (Buffer.from(JSON.stringify(options.data)).length > MAX_SAFE_PAYLOAD_SIZE) {
                 const maxSizeMiB = MAX_SAFE_PAYLOAD_SIZE / 1024 / 1024;
-                LOG("Warning", -6, "The data exceeds the maximum payload size. It must be less than " + maxSizeMiB + " MiB. Skip.");
+                LOG("Warning", "The data exceeds the maximum payload size. It must be less than " + maxSizeMiB + " MiB. Skip.");
                 return this.mError("postByJson", "CheckData", "The data exceeds the maximum payload size.  It must be less than " + maxSizeMiB + " MiB.");
             }
         }
@@ -777,8 +778,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains a chain of transactions if it's success, and gError if it's failure.
      */
     public async getHistoryByOid(core: ccMainType, oid: string, options?: getTransactionOptions): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getHistoryByOid");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getHistoryByOid");
+        LOG("Info", "start");
 
         const optCursor1: getPoolCursorOptions = {}
         const optCursor2: getBlockCursorOptions = {}
@@ -836,8 +837,8 @@ export class MainModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the value of height if it's success, and gError if it's failure.
      */
     public async getTransactionHeight(core: ccMainType, options?: getTransactionHeightOptions): Promise<gResult<number, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:getBlockHeight");
+        const LOG = core.log.lib.LogFunc(core.log, "Main", "getTransactionHeight");
+        LOG("Info", "start");
 
         if ((options?.excludeBlocked === true) && (options?.excludePooling === true)) { return this.mOK(0); }
         

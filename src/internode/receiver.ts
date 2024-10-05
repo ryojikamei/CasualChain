@@ -50,9 +50,9 @@ export class InReceiverSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result with icGeneralPacket format if it's success, and gError if it's failure.
      */
     public async generalReceiver(req: ic.icGeneralPacket): Promise<gResult<ic.icGeneralPacket, gError>> {
-        const LOG = this.log.lib.LogFunc(this.log);
-        LOG("Info", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver");
-        LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:" + JSON.stringify(req.toObject()));
+        const LOG = this.log.lib.LogFunc(this.log, "In", "generalReceiver");
+        LOG("Info", "Ir:" + this.conf.self.nodename + ":generalReceiver");
+        LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:" + JSON.stringify(req.toObject()));
 
         // parse: TODO: should use zod to parse
         let payload: ic.icPacketPayload.AsObject;
@@ -60,15 +60,15 @@ export class InReceiverSubModule {
             // Not very meaningful. Consider universal identifier/discovery in the network
             const reqObj: ic.icGeneralPacket.AsObject = req.toObject();
             if (reqObj.version !== 4) {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Version is incorrect, drop");
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Version is incorrect, drop");
                 return this.irError("generalReceiver", "parse", "Version is incorrect");
             }
             if (reqObj.receiver !== this.conf.self.nodename) {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver is incorrect, drop");
-                LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver:got:" + reqObj.receiver);
-                LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver:set:" + this.conf.self.nodename);
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver is incorrect, drop");
+                LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver:got:" + reqObj.receiver);
+                LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver:set:" + this.conf.self.nodename);
                 return this.irError("generalReceiver", "parse", "Receiver is incorrect");
             }
             // curently static
@@ -82,33 +82,33 @@ export class InReceiverSubModule {
                 }
             }
             if (allow_communication !== true) {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Sender is in deny list, drop");
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Sender is in deny list, drop");
                 return this.irError("generalReceiver", "parse", "Sender is in deny list");
             }
             if (reqObj.payload === undefined) {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Payload is undefined, drop");
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Payload is undefined, drop");
                 return this.irError("generalReceiver", "parse", "Payload is undefined");
             }
             payload = reqObj.payload;
         } catch (error: any) {
             try {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + req.getPacketId());
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Error in parsing the packet, drop: " + error.toString());
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + req.getPacketId());
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Error in parsing the packet, drop: " + error.toString());
             } catch (ignore) {
-                LOG("Notice", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Error in parsing a packet, drop: " + error.toString());
+                LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Error in parsing a packet, drop: " + error.toString());
             }
             return this.irError("generalReceiver", "parse", error.toString());
         }
-        LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:OK:" + req.getPacketId());
+        LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:OK:" + req.getPacketId());
 
 
         // ic.payload_type.RESULT_*
         // Receive a result, return As-Is
         if (payload.payloadType !== ic.payload_type.REQUEST) {
-            LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:isResult:result of msg " + req.getPrevId() + ",by " + req.getPacketId());
-            LOG("Info", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:isResult:" + payload.request);
+            LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:isResult:result of msg " + req.getPrevId() + ",by " + req.getPacketId());
+            LOG("Info", "Ir:" + this.conf.self.nodename + ":generalReceiver:isResult:" + payload.request);
             return this.irOK(req);
         }
 
@@ -123,8 +123,8 @@ export class InReceiverSubModule {
             return this.irError("generalReceiver", "response", "Request is undefined");
         }
         // NOTE: the failure response may be blocked by the upper layer
-        LOG("Debug", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:isRequest:response to msg " + req.getPacketId());
-        LOG("Info", 0, "Ir:" + this.conf.self.nodename + ":generalReceiver:isRequest:" + payload.request);
+        LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:isRequest:response to msg " + req.getPacketId());
+        LOG("Info", "Ir:" + this.conf.self.nodename + ":generalReceiver:isRequest:" + payload.request);
         const result = new ic.icPacketPayload();
         result.setRequest(payload.request);
         switch (payload.request) {
@@ -397,7 +397,7 @@ export class InReceiverSubModule {
                 break;
             default:
                 resultType = "terminate";
-                LOG("Warning", 1, "Ir:" + this.conf.self.nodename + ":generalReciever:IllegalRequest:" + payload.request);
+                LOG("Warning", "Ir:" + this.conf.self.nodename + ":generalReciever:IllegalRequest:" + payload.request);
                 break;
         }
         if (resultType === "response") {

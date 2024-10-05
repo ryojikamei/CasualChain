@@ -141,8 +141,8 @@ export function cleanup() {
  * @returns returns with gResult, that is wrapped by a Promise, that contains ccBlockType if it's success, and gError if it's failure.
  */
 async function declareCreation(core: ccBlockType, trackingId: string): Promise<gResult<ccBlockType, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:declareCreation:" + trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "declareCreation");
+    LOG("Info", "start:" + trackingId);
 
     // Time out checking
     const currentTimeMs = new Date().valueOf();
@@ -175,7 +175,7 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
     if (ret.isFailure()) { return ret }
     results = ret.value;
 
-    LOG("Debug", 0, "CA3:declareCreation:results:" + JSON.stringify(results));
+    LOG("Debug", "results:" + JSON.stringify(results));
     let errorNodes: string[] = [];
     let returnError: gResult<never, gError> | undefined;
     for (const result of results) {
@@ -201,7 +201,7 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
                         case ic.payload_type.RESULT_FAILURE:
                             // It will be occured when the other node cannot interpret a packets sent by this node or a node impersonating this node.
                             // It should be ignored.
-                            LOG("Info", 0, "CA3:declareCreation:an unknown packet is delivered to " + result.node.nodename + " or this node.");
+                            LOG("Info", "an unknown packet is delivered to " + result.node.nodename + " or this node.");
                             break;
                         default:
                             errorNodes.push(result.node.nodename);
@@ -231,8 +231,8 @@ async function declareCreation(core: ccBlockType, trackingId: string): Promise<g
  * 
  */
 export async function requestToDeclareBlockCreation(core: ccBlockType, packet: Ca3TravelingIdFormat2): Promise<gResult<number, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:requestToDeclareBlockCreation:" + packet.trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "requestToDeclareBlockCreation");
+    LOG("Info", "start:" + packet.trackingId);
 
     // Except new (first time) and timeout
     // Checks to see if the sent oid does not exist in the list of oids (idList) that has already been started.
@@ -249,9 +249,9 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
                 }
                 for (const id of idList) {
                     if (packet.txOids.includes(id)) {
-                        LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Cancelled due to duplication of some oids");
-                        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:txOids:" + JSON.stringify(packet.txOids));
-                        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:duplicate:idList:" + JSON.stringify(idList));
+                        LOG("Info", "Cancelled due to duplication of some oids");
+                        LOG("Debug", "duplicate:txOids:" + JSON.stringify(packet.txOids));
+                        LOG("Debug", "duplicate:idList:" + JSON.stringify(idList));
                         return ca3OK<number>(-101);
                     }
                 }
@@ -262,13 +262,13 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
                 for (const traveling of travelings) {
                     if (travelingIds[traveling].type !== packet.type) { continue };
                     if ((travelingIds[traveling].state !== "preparation") && (travelingIds[traveling].tenant === packet.tenant)) {
-                        LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Cancelled due to collision of " + packet.type +  " block creation");
+                        LOG("Info", "Cancelled due to collision of " + packet.type +  " block creation");
                         return ca3OK<number>(-102);
                     }
                 }
                 break;
             default:
-                LOG("Info", 0, "CA3:requestToDeclareBlockCreation:Unknown packet type " + packet.type);
+                LOG("Info", "Unknown packet type " + packet.type);
                 return ca3Error("requestToDeclareBlockCreation", "packetType", "Unknown packet type " + packet.type);
         }
         // register
@@ -281,10 +281,10 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
             txOids: packet.txOids,
             block: packet.block
         }
-        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:register:" + JSON.stringify(travelingIds[packet.trackingId]));
+        LOG("Debug", "register:" + JSON.stringify(travelingIds[packet.trackingId]));
         return ca3OK<number>(101);
     } else { // For retry request, from same node with same trackingId, update the timeout
-        LOG("Debug", 0, "CA3:requestToDeclareBlockCreation:retry");
+        LOG("Debug", "retry");
         travelingIds[packet.trackingId].timeoutMs = packet.timeoutMs;
         return ca3OK<number>(102);
     }
@@ -303,8 +303,8 @@ export async function requestToDeclareBlockCreation(core: ccBlockType, packet: C
  */
 function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: any, 
     trackingId: string, tenantId: string, blockOptions?: createBlockOptions): gResult<Ca3ReturnFormat, gError> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:packTxsToANewBlockObject:" + trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "Block", "packTxsToANewBlockObject");
+    LOG("Info", "start:" + trackingId);
 
     // Time out checking
     const currentTimeMs = new Date().valueOf();
@@ -420,8 +420,8 @@ function packTxsToANewBlockObject(core: ccBlockType, pObj: Ca3BlockFormat | unde
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
 async function signTheBlockObject(core: ccBlockType, bObj: Ca3BlockFormat, trackingId: string): Promise<gResult<Ca3ReturnFormat, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:signTheBlockObject:" + trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "signTheBlockObject");
+    LOG("Info", "start:" + trackingId);
 
     // Time out checking
     const currentTimeMs = new Date().valueOf();
@@ -461,8 +461,8 @@ async function signTheBlockObject(core: ccBlockType, bObj: Ca3BlockFormat, track
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
 async function sendTheBlockObjectToANode(core: ccBlockType, bObj: Ca3BlockFormat, trackingId: string): Promise<gResult<Ca3ReturnFormat, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:sendTheBlockObjectToANode:" + trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "sendTheBlockObjectToANode");
+    LOG("Info", "start:" + trackingId);
 
     // Time out checking
     const currentTimeMs = new Date().valueOf();
@@ -490,11 +490,11 @@ async function sendTheBlockObjectToANode(core: ccBlockType, bObj: Ca3BlockFormat
     }
 
     if (travelingIds[trackingId].stored === true) {
-        LOG("Debug", 0, "CA3:sendTheBlockObjectToANode:stored:" + trackingId);
+        LOG("Debug", "stored:" + trackingId);
         ret2.block = travelingIds[trackingId].block;
     } else {
         if (travelingIds[trackingId].state === "arrived") {
-            LOG("Debug", 0, "CA3:sendTheBlockObjectToANode:finishedWithFail:" + trackingId);
+            LOG("Debug", "finishedWithFail:" + trackingId);
         }
     }
 
@@ -514,9 +514,9 @@ async function sendTheBlockObjectToANode(core: ccBlockType, bObj: Ca3BlockFormat
  */
 async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat, 
     nodes: nodeProperty[], trackingId: string): Promise<gResult<boolean, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:tryToSendToSign:" + trackingId);
-    LOG("Debug", 0, "CA3:tryToSendToSign:object:" + JSON.stringify(tObj));
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "tryToSendToSign");
+    LOG("Info", "start:" + trackingId);
+    LOG("Debug", "object:" + JSON.stringify(tObj));
 
 
     // Time out checking
@@ -591,10 +591,10 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
 
     if (nodes2.length  > 0) {
         // Unprompted save
-        LOG("Info", 0, "CA3:tryToSendToSign:" + trackingId + ":SentSucceeded");
+        LOG("Info", trackingId + ":SentSucceeded");
         return ca3OK<boolean>(false);
     } else { // Prompted save
-        LOG("Info", 0, "CA3:tryToSendToSign:" + trackingId + ":SentFailed");
+        LOG("Info", trackingId + ":SentFailed");
         return ca3OK<boolean>(true);
     }
 }
@@ -613,21 +613,21 @@ async function tryToSendToSign(core: ccBlockType, tObj: Ca3TravelingFormat,
  * - 0: Save the block successfully, and sending for all of nodes are succeeded
  */
 export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3TravelingFormat): Promise<gResult<number, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:requestToSignAndResendOrStore:" + tObj.trackingId);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "requestToSignAndResendOrStore");
+    LOG("Info", "start:" + tObj.trackingId);
 
     const ret1 = await verifyABlock(core, tObj.block, tObj.trackingId);
     if (ret1.isFailure()) return ret1;
     if (ret1.value.status !== 0) {
-        LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that the verification was failed");
+        LOG("Notice", "Discard the block " + tObj.trackingId + " that the verification was failed");
         return ca3OK<number>(1000 + ret1.value.status);
     }
 
     const ret2 = await signTheBlockObject(core, tObj.block, tObj.trackingId);
     if (ret2.isFailure()) return ret2;
     if ((ret2.value.status !== 0) || (ret2.value.block === undefined)) {
-        //LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that the signature was failed");
-        LOG("Warning", ret2.value.status, "Unknwon status:" + (2000 + ret2.value.status).toString());
+        //LOG("Notice", "Discard the block " + tObj.trackingId + " that the signature was failed");
+        LOG("Warning", "Unknwon status:" + (2000 + ret2.value.status).toString());
         return ca3OK<number>(2000 + ret2.value.status);
     }
 
@@ -646,16 +646,16 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
             if (ret3.isFailure()) return ret3;
             storeBlock = ret3.value;
             if ((storeBlock === true) && (nameList.length < core.conf.ca3.minSignNodes)) {
-                LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that it has insufficient number of signature and sending to other node was failed");
+                LOG("Notice", "Discard the block " + tObj.trackingId + " that it has insufficient number of signature and sending to other node was failed");
                 return ca3OK<number>(3000);
             }
         } else {
             if (nameList.length >= core.conf.ca3.minSignNodes) {
                 storeBlock = true;
-                LOG("Warning", 0, "The internode module is down. Try to save the block " + tObj.trackingId);
+                LOG("Warning", "The internode module is down. Try to save the block " + tObj.trackingId);
             } else {
                 storeBlock = false;
-                LOG("Notice", 0, "Discard the block " + tObj.trackingId + " that it has insufficient number of signature and the internode module is down");
+                LOG("Notice", "Discard the block " + tObj.trackingId + " that it has insufficient number of signature and the internode module is down");
                 return ca3Error("requestToSignAndResendOrStore", "tryToSendToSign", "The internode module is down");
             }
         }
@@ -701,7 +701,7 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
                                     // Noting needed
                                     break;
                                 case ic.payload_type.RESULT_FAILURE:
-                                    LOG("Notice", 0, "Node " + result.node.nodename + " has failed to save the block:" + payload.gErrorAsString);
+                                    LOG("Notice", "Node " + result.node.nodename + " has failed to save the block:" + payload.gErrorAsString);
                                     errorNodes.push(result.node.nodename);
                                     break;
                                 default:
@@ -735,11 +735,11 @@ export async function requestToSignAndResendOrStore(core: ccBlockType, tObj: Ca3
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
 export async function verifyABlock(core: ccBlockType, bObj: Ca3BlockFormat, trackingId?: string): Promise<gResult<Ca3ReturnFormat, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "verifyABlock");
     if (trackingId === undefined) {
-        LOG("Info", 0, "CA3:verifyABlock");
+        LOG("Info", "start");
     } else {
-        LOG("Info", 0, "CA3:verifyABlock:" + trackingId);
+        LOG("Info", "start:" + trackingId);
 
         // Time out checking
         const currentTimeMs = new Date().valueOf();
@@ -753,11 +753,11 @@ export async function verifyABlock(core: ccBlockType, bObj: Ca3BlockFormat, trac
 
     try {
         if (bObj.hash === undefined) {
-            LOG("Warning", 0, "verifyBlock verified a illegal block or empty block");
+            LOG("Warning", "verifyBlock verified a illegal block or empty block");
             return ca3Error("verifyABlock", "illegalBlock", "illegal block or empty block");
         }
     } catch (error) {
-        LOG("Warning", 0, "verifyBlock verified a illegal block or empty block");
+        LOG("Warning", "verifyBlock verified a illegal block or empty block");
         return ca3Error("verifyABlock", "illegalData", "illegal block or empty block");
     }
 
@@ -791,11 +791,11 @@ export async function verifyABlock(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @returns returns with gResult, that is wrapped by a Promise, that contains the object and its status as Ca3ReturnFormat if it's success, and gError if it's failure.
  */
 async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trackingId?: string): Promise<gResult<Ca3ReturnFormat, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "verifyAllSignatures");
     if (trackingId === undefined) {
-        LOG("Info", 0, "CA3:verifyAllSignatures");
+        LOG("Info", "start");
     } else {
-        LOG("Info", 0, "CA3:verifyAllSignatures:" + trackingId);
+        LOG("Info", "start:" + trackingId);
     }
 
     let statusshift = 0;
@@ -805,11 +805,11 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
         block: undefined
     }
 
-    LOG("Debug", 0, "CA3:verifyAllSignatures:signcount:" + bObj.signcounter);
+    LOG("Debug", "signcount:" + bObj.signcounter);
 
     // ed25519 by each node
     const nameList = clone(Object.keys(bObj.signedby));
-    LOG("Debug", 0, "CA3:verifyAllSignatures:" + JSON.stringify(bObj));
+    LOG("Debug", "block:" + JSON.stringify(bObj));
     let ret2: boolean = false;
     while (true) {
         const name = nameList.pop();
@@ -828,12 +828,12 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
         if (ret2 === false) {
             ret1.status = 3 * statusshift * 10;
             ret1.detail = "CA3:verifyAllSignatures:" + name + ":ResultFailed";
-            LOG("Warning", ret1.status, ret1.detail);
+            LOG("Warning", ret1.detail);
             return ca3OK<Ca3ReturnFormat>(ret1);
         } else {
             ret1.status = 0;
             ret1.detail = "CA3:verifyAllSignatures:" + name + ":OK";
-            LOG("Info", ret1.status, ret1.detail);
+            LOG("Info", ret1.detail);
         }
     }
 
@@ -847,12 +847,12 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
         ret1.status = 0
         ret1.detail = "CA3:verifyAllSignatures:sha256:OK"
         ret1.block = bObj;
-        LOG("Info", ret1.status, ret1.detail);
+        LOG("Info", ret1.detail);
     } else {
         ret1.status = 3;
         ret1.detail = "CA3:verifyAllSignatures:sha256:ResultFailed";
         ret1.block = undefined;
-        LOG("Warning", ret1.status, ret1.detail);
+        LOG("Warning", ret1.detail);
     }
     return ca3OK<Ca3ReturnFormat>(ret1);
 }
@@ -870,8 +870,8 @@ async function verifyAllSignatures(core: ccBlockType, bObj: Ca3BlockFormat, trac
  * @returns returns with gResult type that contains the trackingId of the starting process if it's success, and gError if it's failure.
  */
 export function setupCreator(core: ccBlockType, type: string, data: objTx[], tenantId: string, startTimeMs: number, lifeTimeMs: number, trackingId: string): gResult<string, gError> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:setupCreator");
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "setupCreator");
+    LOG("Info", "start");
     
     // Delete timeouted travelingIds (Usually stopCreator unlocks)
     for (const traveling_id of Object.keys(travelingIds)) {
@@ -890,17 +890,17 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], ten
                 for (const tx of data) {
                     oidList.push(tx._id.toString());
                 }
-                LOG("Debug", 0, "CA3:setupCreator:creating data block for:" + JSON.stringify(oidList));
+                LOG("Debug", "creating data block for:" + JSON.stringify(oidList));
                 break;
             case "genesis":
-                LOG("Debug", 0, "CA3:setupCreator:creating genesis block for:" + core.conf.default_tenant_id);
+                LOG("Debug",  "creating genesis block for:" + core.conf.default_tenant_id);
                 tenant = core.conf.default_tenant_id;
                 break;
             case "parcel_open":
-                LOG("Debug", 0, "CA3:setupCreator:creating parcel_open block for:" + tenantId);
+                LOG("Debug", "creating parcel_open block for:" + tenantId);
                 break;
             case "parcel_close":
-                LOG("Debug", 0, "CA3:setupCreator:creating parcel_close block for:" + tenantId);
+                LOG("Debug", "creating parcel_close block for:" + tenantId);
                 break;
             default:
                 return ca3Error("setupCreator", "prepareDeclareCreation", "unknown block type:" + type);
@@ -930,8 +930,8 @@ export function setupCreator(core: ccBlockType, type: string, data: objTx[], ten
  * @returns returns no useful values
  */
 export function stopCreator(core: ccBlockType, trackingId: string): gResult<void, unknown>  {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:stopCreator");
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "stopCreator");
+    LOG("Info", "start");
 
     try {
         delete travelingIds[trackingId];
@@ -954,8 +954,8 @@ export function stopCreator(core: ccBlockType, trackingId: string): gResult<void
  */
 export async function proceedCreator(core: ccBlockType, pObj: Ca3BlockFormat | undefined, data: objTx[], 
     trackingId: string, tenantId: string, blockOptions: createBlockOptions): Promise<gResult<Ca3ReturnFormat, gError>> {
-    const LOG = core.log.lib.LogFunc(core.log);
-    LOG("Info", 0, "CA3:proceedCreator");
+    const LOG = core.log.lib.LogFunc(core.log, "CA3", "proceedCreator");
+    LOG("Info", "start");
 
     if (travelingIds[trackingId] === undefined) {
         return ca3Error("proceedCreator", "Invalid", trackingId + " is invalid or has been stopped already");

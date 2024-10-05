@@ -85,8 +85,8 @@ export class EventModule {
         }
 
 
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:init");
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "init");
+        LOG("Info", "start");
 
         // asynchronus
         this.eventLoop(core, timerRunOnce);
@@ -104,8 +104,8 @@ export class EventModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccEventType if it's success, and gError if it's failure.
      */
     public async restart(core: ccEventType, log: ccLogType, w: ccType): Promise<gResult<ccEventType, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "EventModule:restart");
+        const LOG = log.lib.LogFunc(log, "Event", "restart");
+        LOG("Info", "start");
 
         this.coreCondition = "unloaded";
         core.w?.s.lib.unregisterAutoTasks(core.w.s);
@@ -130,11 +130,11 @@ export class EventModule {
      * So there is no need to be concerned about the failure status.
      */
     public registerInternalEvent(core: ccEventType, event: internalEventFormat, timerRunOnce?: boolean): gResult<string, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:registerInternalEvent");
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "registerInternalEvent");
+        LOG("Info", "start");
 
         core.lib.eventQueue.internal.push(event);
-        LOG("Debug", 0, "DsModule:registerInternalEvent:list: " + JSON.stringify(core.lib.eventQueue.internal));
+        LOG("Debug", "List: " + JSON.stringify(core.lib.eventQueue.internal));
 
         // resume from unknown stop
         if (core.eventLoopIsActive === false) {
@@ -150,8 +150,8 @@ export class EventModule {
      * @returns returns no useful values
      */
     public async unregisterAllInternalEvents(core: ccEventType): Promise<gResult<void, unknown>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:unregisterAllInternalEvents");
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "unregisterAllInternalEvents");
+        LOG("Info", "start");
 
         core.lib.eventQueue.internal = [];
 
@@ -160,11 +160,11 @@ export class EventModule {
             if (currentrun === 0) {
                 return this.eOK<void>(undefined);
             } else {
-                LOG("Notice", 0, "EventModule:some events are still running.");
+                LOG("Notice", "some events are still running.");
                 retry--;
             }
             if (retry === 0) {
-                LOG("Warning", 0, "UserApi:gave up all events to finish.");
+                LOG("Warning", "UserApi:gave up all events to finish.");
             }
         }
         return this.eOK<void>(undefined);
@@ -177,8 +177,8 @@ export class EventModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result with internalEventFormat if it's success, and gError if it's failure.
      */
     public async getResult(core: ccEventType, eventId: string): Promise<gResult<internalEventFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:getResult for " + eventId);
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "getResult");
+        LOG("Info", "start for " + eventId);
         let ret: gResult<internalEventFormat, gError>;
 
         for (const event of core.lib.eventQueue.internal) {
@@ -205,8 +205,8 @@ export class EventModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result if it's success, and gError if it's failure.
      */
     private async runInternalMethod(core: ccEventType, method: string, args: string[]): Promise<gResult<any, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:runMethod");
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "runInternalMethod");
+        LOG("Info", "start");
 
         if (core.w === undefined) return this.eError("The cc module is down. It may be a bug.")
 
@@ -232,8 +232,8 @@ export class EventModule {
      * So there is no need to check the value of success.
      */
     protected async eventLoop(core: ccEventType, exitOnExhausted?: boolean): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "EventModule:eventLoop started");
+        const LOG = core.log.lib.LogFunc(core.log, "Event", "eventLoop");
+        LOG("Info", "start");
 
         try {
             core.eventLoopIsActive = true;
@@ -242,7 +242,7 @@ export class EventModule {
                     const currentTimeMs = new Date().valueOf();
                     if ((event.nextExecuteTimeMs === undefined) || 
                     ((event.nextExecuteTimeMs !== undefined) && (currentTimeMs >= event.nextExecuteTimeMs))) {
-                        LOG("Info", 0, "EventModule:eventLoop:It's time to run " + event.methodPath);
+                        LOG("Info", "It's time to run " + event.methodPath);
                         try {
                             event.status = "run";
                             this.runcounter++;
@@ -253,7 +253,7 @@ export class EventModule {
                             this.runcounter--;
                             event.status = "error";
                             event.executionResult = this.eError("eventLoop", "method", error.toString());
-                            LOG("Info", 0, "EventModule:eventLoop:registered internal method " + event.methodPath + " cannot be run properly:" + JSON.stringify(event.executionResult));
+                            LOG("Info", "registered internal method " + event.methodPath + " cannot be run properly:" + JSON.stringify(event.executionResult));
                         }
                         event.nextExecuteTimeMs = currentTimeMs + event.minIntervalMs + randomInt(0, 60000);
                     }

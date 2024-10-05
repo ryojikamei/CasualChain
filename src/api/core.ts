@@ -125,8 +125,8 @@ export class ApiModule {
      * @returns returns with gResult type that contains ccApiType if it's success, and gError if it's failure.
      */
     public async restart(core: ccApiType, log: ccLogType, m: ccMainType, s: ccSystemType, c: ccConfigType, k: ccKeyringType): Promise<gResult<ccApiType, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "ApiModule:restart");
+        const LOG = log.lib.LogFunc(log, "Api", "restart");
+        LOG("Info", "start");
 
         const ret1 = await this.deactivateApi(core, log, true);
         if (ret1.isFailure()) return ret1;
@@ -155,8 +155,8 @@ export class ApiModule {
      * So there is no need to check the value of success.
      */
     public async activateApi(core: ccApiType, log: ccLogType): Promise<gResult<void, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "ApiModule:activateApi");
+        const LOG = log.lib.LogFunc(log, "Api", "activateApi");
+        LOG("Info", "start");
 
         let firstApi;
         let secondApi;
@@ -210,8 +210,8 @@ export class ApiModule {
      * So there is no need to check the value of success.
      */
     public async deactivateApi(core: ccApiType, log: ccLogType, waitForClose?: boolean): Promise<gResult<void, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "ApiModule:deactivateApi");
+        const LOG = log.lib.LogFunc(log, "Api", "deactivateApi");
+        LOG("Info", "start");
 
         const ret1 = await core.lib.restApi.firstApi.shutdown(core);
         if (ret1.isFailure()) return this.aError("deactivateApi", "firstApi", "unknown error");
@@ -219,11 +219,11 @@ export class ApiModule {
         if (ret2.isFailure()) return this.aError("deactivateApi", "secondApi", "unknown error");
 
         if (waitForClose === true) {
-            LOG("Info", 0, "ApiModule:deactivateApi:Waiting for closing ports");
+            LOG("Info", "Waiting for closing ports");
             for await (const _ of setInterval(1000)) {
                 if ((core.lib.restApi.firstApi.getPort() === -1) && (core.lib.restApi.secondApi.getPort() === -1)) break;
             }
-            LOG("Info", 0, "ApiModule:deactivateApi:Closing ports are completed");
+            LOG("Info", "Closing ports are completed");
         }
 
         return this.aOK<void>(undefined);

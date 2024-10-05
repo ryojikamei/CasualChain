@@ -197,8 +197,8 @@ export class SystemModule {
     public restart(core: ccSystemType, log: ccLogType, dsInstance?: ccDsType, 
         inInstance?: ccInType, blockInstance?: ccBlockType, mainInstance?: ccMainType,
         eventInstance?: ccEventType): gResult<ccSystemType, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "MainModule:restart");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "restart");
+        LOG("Info", "start");
 
         this.coreCondition = "unloaded";
         const ret1 = this.init(core.conf, log);
@@ -220,8 +220,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and unknown if it's failure.
      */
     public registerAutoTasks(core: ccSystemType): gResult<void, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:registerAutoTasks");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "registerAutoTasks");
+        LOG("Info", "start");
 
         if (core.e === undefined) {
             return this.sError("resiterAutoTasks", "registerInternalEvent", "The event module is down");
@@ -294,8 +294,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and unknown if it's failure.
      */
     public unregisterAutoTasks(core: ccSystemType): gResult<void, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:unregisterAutoTasks");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "unregisterAutoTasks");
+        LOG("Info", "start");
 
         core.autoTasks = undefined;
 
@@ -313,8 +313,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains number of nodes successfully transferred if it's success, and gError if it's failure.
      */
     public async postDeliveryPool(core: ccSystemType, waitForUnLock?: boolean): Promise<gResult<number, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postDeliveryPool");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postDeliveryPool");
+        LOG("Info", "start");
 
         if (waitForUnLock === true) {
             for await (const _ of setInterval(100)) {
@@ -375,7 +375,7 @@ export class SystemModule {
                                 }
                                 break;
                             case ic.payload_type.RESULT_FAILURE:
-                                LOG("Info", 0, "Node " + result.node.nodename + " has failed to save transaction data:" + payload.gErrorAsString);
+                                LOG("Info", "Node " + result.node.nodename + " has failed to save transaction data:" + payload.gErrorAsString);
                                 errorNodes.push(result.node.nodename);
                                 break;
                             default:
@@ -388,7 +388,7 @@ export class SystemModule {
                 errorNodes.push(result.node.nodename);
             }
         }
-        LOG("Info", 0, "postDeliveryPool:success:" + success.toString() + ",failure:" + errorNodes.length.toString());
+        LOG("Info", "postDeliveryPool:success:" + success.toString() + ",failure:" + errorNodes.length.toString());
 
         // Something error => need attension
         core.i.lib.disableAbnormalNodes(core.i, errorNodes);
@@ -425,8 +425,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async requestToAddPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToAddPool");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToAddPool");
+        LOG("Info", "start");
 
         if (core.d !== undefined) {
             let tx: any;
@@ -449,7 +449,7 @@ export class SystemModule {
             if (failcnt === 0) {
                 return this.sOK<void>(undefined);
             } else {
-                LOG("Warning", failcnt, "Some data has not been added to the pool. Use /sync/poolsync to fix it.");
+                LOG("Warning", "Some data has not been added to the pool. Use /sync/poolsync to fix it.");
                 return this.sError("requestToAddPool", "setPoolNewData", "Some data has not been added to the pool.");
             }
         } else {
@@ -464,8 +464,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async postAppendBlocks(core: ccSystemType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postAppendBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postAppendBlocks");
+        LOG("Info", "start");
 
         if (core.serializationLocks.postAppendBlocks === true) {
             return this.sError("postAppendBlocks", "serializationLocks", "This function is running. Wait for a while.");
@@ -529,8 +529,9 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     protected async removeFromPool(core: ccSystemType, txArr: objTx[]): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:removeFromPool:" + JSON.stringify(txArr));
+        const LOG = core.log.lib.LogFunc(core.log, "System", "removeFromPool");
+        LOG("Info", "start");
+        LOG("Debug", "txArr:" + JSON.stringify(txArr));
 
         if (core.d === undefined) {
             return this.sError("removeFromPool", "poolDeleteTransactions", "The datastore module is down");
@@ -554,11 +555,11 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async requestToAddBlock(core: ccSystemType, bObj: objBlock, removeFromPool: boolean | undefined, trackingId?: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToAddBlock");
         if (trackingId === undefined) {
-            LOG("Info", 0, "SystemModule:requestToAddBlock");
+            LOG("Info", "start");
         } else {
-            LOG("Info", 0, "SystemModule:requestToAddBlock:" + trackingId);
+            LOG("Info", "start:" + trackingId);
         }
 
         if (core.b !== undefined) {
@@ -570,7 +571,7 @@ export class SystemModule {
                 case -1:
                     return this.sError("requestToAddBlock", "verifyBlock", "The block that was sent is broken.");
                 case 0:
-                    LOG("Info", 0, "requestToAddBlock: pass the verification");
+                    LOG("Info", "pass the verification");
                     break;
                 case 3:
                     return this.sError("requestToAddBlock", "verifyBlock", "The block that was sent is malformed.");
@@ -585,7 +586,7 @@ export class SystemModule {
             const ret2 = await core.d.lib.setBlockNewData(core.d, bObj, core.conf.administration_id);
             if (ret2.isFailure()) return ret2;
             if (ret2.value.status !== 0) {
-                LOG("Warning", ret2.value.status, "The data has not been added to the block. Use /sync/blocksync to fix it.");
+                LOG("Warning", "The data has not been added to the block. Use /sync/blocksync to fix it.");
                 return this.sError("requestToAddBlock", "setBlockNewData", "The data has not been added to the block.");
             }
         } else {
@@ -607,8 +608,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the object of blockFormat if it's success, and gError if it's failure.
      */
     public async postGenesisBlock(core: ccSystemType, options?: postGenesisBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postGenesisBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postGenesisBlock");
+        LOG("Info", "start");
 
         if (core.serializationLocks.postGenesisBlock === true) {
             return this.sError("postGenesisBlock", "serializationLocks", "This function is running. Wait for a while.");
@@ -660,7 +661,7 @@ export class SystemModule {
                 for (const result of results) {
                     try {
                         if (result.result.isFailure()) {
-                            LOG("Warning", -1, "There is a problem getting data from a remote node. No genesis block is created.");
+                            LOG("Warning", "There is a problem getting data from a remote node. No genesis block is created.");
                             returnError = this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight is failed");
                         } else {
                             const payload = result.result.value.getPayload()?.toObject();
@@ -672,7 +673,7 @@ export class SystemModule {
                                         if (payload.dataAsString !== undefined) {
                                             const d: inHeightReturnDataFormat = JSON.parse(payload.dataAsString);
                                             if (d.height !== 0) {
-                                                LOG("Warning", -1, "There is some data in the block collection on a remote node. No genesis block is created.");
+                                                LOG("Warning", "There is some data in the block collection on a remote node. No genesis block is created.");
                                                 returnError = this.sError("postGenesisBlock", "runRpcs", "GetBlockHeight indicates that there is data on a remote node");
                                             }
                                         } else {
@@ -681,7 +682,7 @@ export class SystemModule {
                                         }
                                         break;
                                     case ic.payload_type.RESULT_FAILURE:
-                                        LOG("Info", 0, "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                        LOG("Info", "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
                                         errorNodes.push(result.node.nodename);
                                         break;
                                     default:
@@ -707,18 +708,18 @@ export class SystemModule {
                 return this.sError("postGenesisBlock", "runRpcs", "The internode module is down");
             }
         } else { // check if force resetting can be done
-            LOG("Notice", 0, "Checking whether force reset the chain can be done");
+            LOG("Notice", "Checking whether force reset the chain can be done");
             if ((core.conf.node_mode === "testing") || (core.conf.node_mode === "testing+init")) {
-                LOG("Notice", 0, "Node mode is OK since testing");
+                LOG("Notice", "Node mode is OK since testing");
             } else {
-                LOG("Error", -1, "It cannot be reset since the node mode is not testing");
+                LOG("Error", "It cannot be reset since the node mode is not testing");
                 core.serializationLocks.postGenesisBlock = false;
                 return this.sError("postGenesisBlock", "forceresetiftesting", "The node mode is not OK");
             }
             if (core.d !== undefined) {
                 const ret3 = await core.d.lib.cleanup(core.d);
                 if (ret3.isFailure()) {
-                    LOG("Error", -1, "The clean the datastore up is failed: " + ret3.value.message);
+                    LOG("Error", "The clean the datastore up is failed: " + ret3.value.message);
                     core.serializationLocks.postGenesisBlock = false;
                     return ret3;
                 }
@@ -739,7 +740,7 @@ export class SystemModule {
                 return ret3;
             }
             if (ret3.value === undefined) {
-                LOG("Notice", 0, "Genesis block creation and posting are skipped.");
+                LOG("Notice", "Genesis block creation and posting are skipped.");
             }
             bObj = ret3.value;
         } else {
@@ -757,8 +758,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the number of height if it's success, and gError if it's failure.
      */
     public async requestToGetPoolHeight(core: ccSystemType, tenantId?: string): Promise<gResult<number, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToGetPoolHeight");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToGetPoolHeight");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("requestToGetPoolHeight", "getAllPool", "The main module is down");
@@ -777,8 +778,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the number of height if it's success, and gError if it's failure.
      */    
     public async requestToGetBlockHeight(core: ccSystemType, tenantId?: string): Promise<gResult<number, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToGetBlockHeight");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToGetBlockHeight");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("requestToGetBlockHeight", "getAllPool", "The main module is down");
@@ -802,8 +803,9 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     private markDiagStatusWithChain(core: ccSystemType, diagArr: blockDiagnosticsFormat[], highest_hash: string, status: number): gResult<blockDiagnosticsFormat[], unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:markDiagStatusWithChain");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "markDiagStatusWithChain");
+        LOG("Info", "start");
+
         for (const diagObj of diagArr) {
             if (diagObj.highest_hash === highest_hash) diagObj.block_status = diagObj.block_status + status;
         }
@@ -820,8 +822,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains blockchainDiagnosticsFormat that has been checked if it's success, and gError if it's failure.
      */
     private async checkHealthOfChainRecursive(core: ccSystemType, diagChain: blockchainDiagnosticsFormat, startidx: number, highest_hash: string): Promise<gResult<blockchainDiagnosticsFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:checkHealthOfChainRecursive");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "checkHealthOfChainRecursive");
+        LOG("Info", "start");
 
         let idx: number = clone(startidx);
         let previous_block_prev_hash: string | undefined = undefined;
@@ -843,7 +845,7 @@ export class SystemModule {
                             return this.sError("checkHealthOfChainRecursive", "verifyBlock", "The block module is down. It cannot continue.");
                         }
                         if (diagObj.block_status !== 0) {
-                            LOG("Warning", 1141, "The verifyBlock returns " + diagObj.block_status.toString() + ". Detected malformed block: " + diagObj.data.hash);
+                            LOG("Warning", "The verifyBlock returns " + diagObj.block_status.toString() + ". Detected malformed block: " + diagObj.data.hash);
                             diagChain.chain_status.has_malformed_block++;
                             diagChain.chain_status.number_of_errors++;
                         }
@@ -852,10 +854,10 @@ export class SystemModule {
                         if ((diagObj.data.prev_hash === "0") || (diagObj.data.prev_hash === "")) {
                             previous_block_prev_hash = undefined; // The search ended with results
                             if (diagObj.data.hash === diagChain.genesis_hash) { // genesis block. general chain.
-                                LOG("Notice", 0, "Arriving at the root of the chain with genesis block.");
+                                LOG("Notice", "Arriving at the root of the chain with genesis block.");
                                 break; // do not search any more
                             } else { // not genesis block. fragmenting chain
-                                LOG("Warning", 1121, "Arriving at the root of the chain with non genesis block. It's a fragmenting chain.");
+                                LOG("Warning", "Arriving at the root of the chain with non genesis block. It's a fragmenting chain.");
                                 const ret1 = this.markDiagStatusWithChain(core, diagChain.blocks, highest_hash, 100) // fragmented chain
                                 if (ret1.isSuccess()) diagChain.blocks = ret1.value;
                                 diagChain.chain_status.has_fragment++;
@@ -864,7 +866,7 @@ export class SystemModule {
                             }
                         }
                     } else { // Detected confluence. It's a fork if obtained diagObj had highest_hash value already
-                        LOG("Warning", 1111, "Detected confluence. Fork state is settled.");
+                        LOG("Warning", "Detected confluence. Fork state is settled.");
                         const ret2 = this.markDiagStatusWithChain(core, diagChain.blocks, highest_hash, 10) // forked chain
                         if (ret2.isSuccess()) diagChain.blocks = ret2.value;
                         const ret3 = this.markDiagStatusWithChain(core, diagChain.blocks, diagObj.highest_hash, 10) // forked chain also
@@ -876,7 +878,7 @@ export class SystemModule {
                     }
                 } else {
                     // Yet another start block is detected. It's a fork or a fragment. start recursion
-                    LOG("Warning", 1101, "Detected a new chain. One of the new chain or current chain is a fork or fragment. Start searching.");
+                    LOG("Warning", "Detected a new chain. One of the new chain or current chain is a fork or fragment. Start searching.");
                     const ret4 = await this.checkHealthOfChainRecursive(core, diagChain, idx, diagObj.highest_hash);
                     if (ret4.isFailure()) return ret4;
                     diagChain = ret4.value;
@@ -885,7 +887,7 @@ export class SystemModule {
         }
         // went back to the beginning but could not find the block specified in prev_hash (the previous block that should have been there).
         if (previous_block_prev_hash !== undefined) {
-            LOG("Warning", 1131, "Previous block for " + diagChain.blocks[startidx].data._id + " cannot be found. The blockchain is damaged, or the value of hash and previous_hash of the chain has been falsificated with.");
+            LOG("Warning", "Previous block for " + diagChain.blocks[startidx].data._id + " cannot be found. The blockchain is damaged, or the value of hash and previous_hash of the chain has been falsificated with.");
             const ret5 = this.markDiagStatusWithChain(core, diagChain.blocks, highest_hash, 1000) // root missing
             if (ret5.isSuccess()) diagChain.blocks = ret5.value;
             diagChain.chain_status.root_block_missing++; // This is counted as a duplicate with lacks_genesis_block
@@ -902,10 +904,10 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the report by blockchainDiagnosticsFormat if it's success, and gError if it's failure.
      */
     private async reportHealthOfChain(core: ccSystemType, omitdetail?: boolean): Promise<gResult<blockchainDiagnosticsFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:reportHealthOfChain");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "reportHealthOfChain");
+        LOG("Info", "start");
 
-        LOG("Notice", 0, "Creating the blocklist to diagnostics: ", {lf: false});
+        LOG("Notice", "Creating the blocklist to diagnostics: ", {lf: false});
         if (core.m === undefined) {
             return this.sError("reportHealthOfChain", "getAllBlock", "The main module is down");
         }
@@ -913,7 +915,7 @@ export class SystemModule {
         if (ret1.isFailure()) return ret1;
 
         if (ret1.value.length === 0) {
-            LOG("Warning", 1, "The datastore is empty. The blockchain might not be initialized");
+            LOG("Warning", "The datastore is empty. The blockchain might not be initialized");
             return this.sError("reportHealthOfChain", "getAllBlock", "The datastore is empty");
         }
 
@@ -962,7 +964,7 @@ export class SystemModule {
                 }
             } catch (error) {
                 try {
-                    LOG("Warning", 1001, "A data that has oid " + bObj._id.toString() + " cannot be read !");
+                    LOG("Warning", "A data that has oid " + bObj._id.toString() + " cannot be read !");
                     const fakeData = {
                         _id: bObj._id,
                         version: 1,
@@ -983,7 +985,7 @@ export class SystemModule {
                     diagChain.chain_status.number_of_errors++;
                     diagChain.chain_status.has_illegal_block++;
                 } catch (error) {
-                    LOG("Warning", 1002, "A data cannot be read !");
+                    LOG("Warning", "A data cannot be read !");
                     const fakeData = {
                         _id: randomOid().byStr(),
                         version: 1,
@@ -1014,21 +1016,21 @@ export class SystemModule {
                 return -1;
             }
         })
-        LOG("Notice", 0, "done");
+        LOG("Notice", "done");
 
         // check information of genesis block
         if (diagChain.genesis_hash === "") {
             // The blockchain is damaged or lacks something
-            LOG("Warning", 1003, "Not a normal blockchain, genesis block is not found!");
+            LOG("Warning", "Not a normal blockchain, genesis block is not found!");
             diagChain.chain_status.lacks_genesis_block = true;
             diagChain.chain_status.number_of_errors++;
         }
 
-        LOG("Notice", 0, "Start checking health of the blockchain");
+        LOG("Notice", "Start checking health of the blockchain");
         const ret2 = await this.checkHealthOfChainRecursive(core, diagChain, 0, "");
         if (ret2.isFailure()) return ret2;
         diagChain = ret2.value;
-        LOG("Notice", 0, "End checking health of the blockchain");
+        LOG("Notice", "End checking health of the blockchain");
 
         if ((omitdetail === undefined) || (omitdetail === false)) {
             return this.sOK<blockchainDiagnosticsFormat>(diagChain);
@@ -1046,8 +1048,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the list of nodes by healthyNodesFormat if it's success, and gError if it's failure.
      */
     private async obtainHealthyNodes(core: ccSystemType, localCondition: number): Promise<gResult<healthyNodesFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:obtainHealthyNodes");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "obtainHealthyNodes");
+        LOG("Info", "start");
 
         let healthyNodes: nodeStatus[] = [];
 
@@ -1058,7 +1060,7 @@ export class SystemModule {
             const ret1 = await core.lib.getLastHashAndHeight(core, core.conf.administration_id);
             if (ret1.isFailure()) { return ret1 };
             if (ret1.value.hash === "") {
-                LOG("Error", -1, "Unable to obtain hash value");
+                LOG("Error", "Unable to obtain hash value");
                 return this.sError("obtainHealthyNodes", "getLastHashAndHeight", "Unable to obtain hash value");
             }
             healthyNodes.push({host: "localhost", hash: ret1.value.hash, height: ret1.value.height});
@@ -1102,7 +1104,7 @@ export class SystemModule {
                                     }
                                     break;
                                 case ic.payload_type.RESULT_FAILURE:
-                                    LOG("Info", 0, "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                    LOG("Info", "Node " + result.node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
                                     errorNodes.push(result.node.nodename);
                                     break;
                                 default:
@@ -1121,11 +1123,11 @@ export class SystemModule {
         } else {
             return this.sError("obtainHealthyNodes", "runRpcs", "The internode module is down");
         }
-        LOG("Debug", 0, "obtainHealthyNodes:healthyNodes");
-        LOG("Debug", 0, JSON.stringify(healthyNodes));
+        LOG("Debug", "healthyNodes");
+        LOG("Debug", JSON.stringify(healthyNodes));
 
         if (((localCondition === 0) && (healthyNodes.length < 2)) || ((localCondition !== 0) && (healthyNodes.length < 1))) {
-            LOG("Error", -2, "Unable to obtain other healthy node's information.");
+            LOG("Error", "Unable to obtain other healthy node's information.");
             return this.sError("obtainHealthyNodes", "runRpcs", "Unable to obtain other healthy node's information.");
         }
 
@@ -1166,8 +1168,8 @@ export class SystemModule {
                 }
             }
         })
-        LOG("Debug", 0, "obtainHealthyNodes:MajorityNodes");
-        LOG("Debug", 0, JSON.stringify(mNodes));
+        LOG("Debug", "MajorityNodes");
+        LOG("Debug", JSON.stringify(mNodes));
 
         const healthyNodesReport: healthyNodesFormat = {
             hosts: healthyNodes,
@@ -1186,8 +1188,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the list of oids of blocks that should be replaced later if it's success, and gError if it's failure.
      */
     private collectTargetOidsRecursive(core: ccSystemType, diagChain: blockchainDiagnosticsFormat, replaceOids: string[], searchkey?: string): gResult<string[], gError> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:collectTargetOidsRecursive");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "collectTargetOidsRecursive");
+        LOG("Info", "start");
 
         let hash: string;
         if (searchkey === undefined) {
@@ -1201,7 +1203,7 @@ export class SystemModule {
                 if (hash === diagObj.data.prev_hash) {
                     if (typeof(diagObj.data._id) === "undefined") {
                         // do nothing
-                        LOG("Warning", 1211, "There is a illegal block data with undefined _id");
+                        LOG("Warning", "There is a illegal block data with undefined _id");
                         diagObj.block_status = 4; // status checked and it's a target
                     } else { // ObjectId
                         replaceOids.push(diagObj.data._id.toString());
@@ -1209,7 +1211,7 @@ export class SystemModule {
                         if (diagObj.data.prev_hash !== "") {
                             const ret1 = this.collectTargetOidsRecursive(core, diagChain, replaceOids, diagObj.data.prev_hash); // recurse go-backing mode
                             if (ret1.isFailure()) {
-                                LOG("Warning", 1212, "There is a illegal block data that has unrecognized format");
+                                LOG("Warning", "There is a illegal block data that has unrecognized format");
                                 return this.sError("collectTargetOidsRecursive", "go-backing", "There is a illegal block data that has unrecognized format");
                             }
                             replaceOids = ret1.value;
@@ -1223,7 +1225,7 @@ export class SystemModule {
                 || (diagObj.block_status % 10 === -1) || (diagObj.block_status % 10 === -2)) {
                     if (typeof(diagObj.data._id) === "undefined") {
                         // do nothing
-                        LOG("Warning", 1201, "There is a illegal block data with undefined _id");
+                        LOG("Warning", "There is a illegal block data with undefined _id");
                         diagObj.block_status = 4; // status checked and it's a target
                     } else { // ObjectId
                         replaceOids.push(diagObj.data._id.toString());
@@ -1231,7 +1233,7 @@ export class SystemModule {
                         if ((diagObj.data.prev_hash !== undefined) && (diagObj.data.prev_hash !== "")) {
                             const ret2 = this.collectTargetOidsRecursive(core, diagChain, replaceOids, diagObj.data.prev_hash); // fork go-backing mode
                             if (ret2.isFailure()) {
-                                LOG("Warning", 1202, "There is a illegal block data that has unrecognized format");
+                                LOG("Warning", "There is a illegal block data that has unrecognized format");
                                 return this.sError("collectTargetOidsRecursive", "go-forwarding", "There is a illegal block data that has unrecognized format");
                             }
                             replaceOids = ret2.value;
@@ -1241,7 +1243,7 @@ export class SystemModule {
             }
         }
         if (hash === "") // does not found any data!
-            LOG("Warning", 1213, "The end of the search was reached without finding the block with the hash in question. The blockchain is broken.");
+            LOG("Warning", "The end of the search was reached without finding the block with the hash in question. The blockchain is broken.");
 
         return this.sOK<string[]>(replaceOids);
     }
@@ -1255,8 +1257,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the array of getBlockResult if it's success, and gError if it's failure.
      */
     private async getNormalBlocksAsPossible(core: ccSystemType, oidList: string[], healthyNodes: healthyNodesFormat): Promise<gResult<getBlockResult[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:getNormalBlocksAsPossible");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "getNormalBlocksAsPossible");
+        LOG("Info", "start");
 
         if (oidList.length === 0) return this.sOK<getBlockResult[]>([]);
 
@@ -1292,13 +1294,13 @@ export class SystemModule {
                 let errorNodes: string[] = [];
                 let returnError: gResult<never, gError> | undefined;
                 if (ret.isFailure()) {
-                    LOG("Warning", 1301, "The process was aborted because data acquisition from some nodes are failed.");
+                    LOG("Warning", "The process was aborted because data acquisition from some nodes are failed.");
                     returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                 } else {
                     const result = ret.value[0];
                     try {
                         if (result.result.isFailure()) {
-                            LOG("Warning", 1303, "The process was aborted because data acquisition from some nodes are failed.");
+                            LOG("Warning", "The process was aborted because data acquisition from some nodes are failed.");
                             returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                         } else {
                             const payload = result.result.value.getPayload()?.toObject();
@@ -1310,13 +1312,13 @@ export class SystemModule {
                                         if (payload.dataAsString !== undefined) {
                                             bArr.push(JSON.parse(payload.dataAsString));
                                         } else {
-                                            LOG("Warning", 1304, "The process was aborted because data acquisition from some nodes are failed.");
+                                            LOG("Warning", "The process was aborted because data acquisition from some nodes are failed.");
                                             returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                                         }
                                         break;
                                     case ic.payload_type.RESULT_FAILURE:
                                         // Occurs when the receiving node failed to get block cursor
-                                        LOG("Warning", 1305, "The process was aborted because data acquisition from some nodes are failed.");
+                                        LOG("Warning", "The process was aborted because data acquisition from some nodes are failed.");
                                         returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                                         errorNodes.push(result.node.nodename);
                                         break;
@@ -1327,7 +1329,7 @@ export class SystemModule {
                             }
                         }
                     } catch (error) {
-                        LOG("Warning", 1306, "The process was aborted because data acquisition from some nodes are failed.");
+                        LOG("Warning", "The process was aborted because data acquisition from some nodes are failed.");
                         returnError = this.sError("getNormalBlocksAsPossible", "runRpcs_ToMajority", "Data acquisition from some nodes are failed");
                         errorNodes.push(result.node.nodename);
                     }
@@ -1336,8 +1338,8 @@ export class SystemModule {
                 // Something error => need attension
                 if (core.i !== undefined) { core.i.lib.disableAbnormalNodes(core.i, errorNodes); }
             }
-            LOG("Debug", 0, "getNormalBlocksAsPossible:bArr");
-            LOG("Debug", 0, JSON.stringify(bArr));
+            LOG("Debug", "bArr");
+            LOG("Debug", JSON.stringify(bArr));
             return bArr;
         });
 
@@ -1399,7 +1401,7 @@ export class SystemModule {
                                             }
                                             break;
                                         case ic.payload_type.RESULT_FAILURE:
-                                            LOG("Info", 0, "Node " + node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
+                                            LOG("Info", "Node " + node.nodename + " has failed to get blockchain data:" + payload.gErrorAsString);
                                             errorNodes.push(node.nodename);
                                             break;
                                         default:
@@ -1415,7 +1417,7 @@ export class SystemModule {
                         }
                     }
                     if (bRes.block === undefined) {
-                        LOG("Notice", 1302, "The block that has oid " + bRes.oid + " cannot be repaired because it does not exist on any other node.");
+                        LOG("Notice", "The block that has oid " + bRes.oid + " cannot be repaired because it does not exist on any other node.");
                     }
                 }
             }
@@ -1438,8 +1440,8 @@ export class SystemModule {
      * Note that a success status is returned even if no block with the target oid is found.
      */
     public async requestToGetBlock(core: ccSystemType, oid: string, returnUndefinedIfFail: boolean | undefined, tenantId?: string): Promise<gResult<objBlock | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToGetBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToGetBlock");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("requestToGetBlock", "getSearchByOid", "The main module is down");
@@ -1471,8 +1473,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     private async repairFalsifiedChain(core: ccSystemType, diagChain: blockchainDiagnosticsFormat, normalNodes: healthyNodesFormat): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:repairFalsifiedChain");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "repairFalsifiedChain");
+        LOG("Info", "start");
 
         // Get the list of blocks to be replaced
         let replaceOids: string[] = [];
@@ -1502,8 +1504,8 @@ export class SystemModule {
      * On success status, true value means the chain is healthy and false value means the chain has not been healthy and is repaired when the scanonly option is not added.
      */
     public async postScanAndFixBlock(core: ccSystemType, options?: postScanAndFixOptions): Promise<gResult<boolean, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postScanAndFixBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postScanAndFixBlock");
+        LOG("Info", "start");
 
         if (core.serializationLocks.postScanAndFixBlock === true) {
             return this.sError("postScanAndFixBlock", "serializationLocks", "This function is running. Wait for a while.");
@@ -1519,7 +1521,7 @@ export class SystemModule {
         }
 
 
-        LOG("Notice", 0, "First, get a health check report of the blockchain of its own node");
+        LOG("Notice", "First, get a health check report of the blockchain of its own node");
         let self_report: blockchainDiagnosticsFormat = {
             blocks: [],
             chain_status: {
@@ -1537,44 +1539,45 @@ export class SystemModule {
         let repairNeeded: number;
         const ret1 = await core.lib.reportHealthOfChain(core);
         if (ret1.isFailure()) {
-            LOG("Warning", -2, "Failed to generate health check report:" + ret1.value +  " It needs to repair");
+            LOG("Warning", "Failed to generate health check report:" + ret1.value +  " It needs to repair");
             repairNeeded = 2;
         } else {
             self_report = ret1.value;
         }
-        LOG("Notice", 0, JSON.stringify(self_report.chain_status));
+        LOG("Notice", JSON.stringify(self_report.chain_status));
         if (self_report.chain_status.number_of_errors === 0) {
-            LOG("Notice", 0, "OK. It doesn't need to repair")
+            LOG("Notice", "OK. It doesn't need to repair")
             repairNeeded = 0;
         } else {
-            LOG("Notice", -1, "Some errors reported. It needs to repair");
+            LOG("Notice", "Some errors reported. It needs to repair");
             repairNeeded = 1;
         }
         
 
-        LOG("Notice", 0, "Obtain healthy nodes information ", {lf: false});
+        LOG("Notice", "Obtain healthy nodes information ", {lf: false});
         let nodes: healthyNodesFormat;
         const ret2 = await core.lib.obtainHealthyNodes(core, repairNeeded);
         if (ret2.isFailure()) {
-            LOG("Error", -3, "Cannot obtain healthy node information. It's difficult to continue");
+            LOG("Notice", "");
+            LOG("Error", "Cannot obtain healthy node information. It's difficult to continue");
             core.serializationLocks.postScanAndFixBlock = false;
             return this.sError("postScanAndFixBlock", "obtainHealthyNode", "Cannot obtain healthy node information");
         }
         nodes = ret2.value;
-        LOG("Notice", 0, "OK");
+        LOG("Notice", "OK");
 
         // Scan result
         // If it is a member of the majority node, complete the process
         if (nodes.majority.hosts.includes("localhost")) {
-            LOG("Notice", 0, "The blockchain of this node is healthy and properly synchronized with other nodes.");
+            LOG("Notice", "The blockchain of this node is healthy and properly synchronized with other nodes.");
             core.serializationLocks.postScanAndFixBlock = false;
             return this.sOK<boolean>(true);
         }
         // Cases with problems
         if (self_report.chain_status.number_of_errors !== 0) {
-            LOG("Notice", 1, "The blockchain of this node is NOT healthy. It needs to be fixed.");
+            LOG("Notice", "The blockchain of this node is NOT healthy. It needs to be fixed.");
         } else {
-            LOG("Notice", 1, "The blockchain of this node is NOT synchronized with other nodes. It needs to be fixed.");
+            LOG("Notice", "The blockchain of this node is NOT synchronized with other nodes. It needs to be fixed.");
         }
 
         // So much for checks only, returns false because it's an abnormal chain
@@ -1585,14 +1588,14 @@ export class SystemModule {
 
         // Will attempt to correct the problem.
         if (self_report.chain_status.number_of_errors !== 0) {
-            LOG("Notice", 0, "Will attempt to correct the problem as best it can");
+            LOG("Notice", "Will attempt to correct the problem as best it can");
             const ret3 = await core.lib.repairFalsifiedChain(core, self_report, nodes);
             if (ret3.isFailure()) {
-                LOG("Error", -4, "Exception occured while reparing the chain. It cannot continue");
+                LOG("Error", "Exception occured while reparing the chain. It cannot continue");
                 core.serializationLocks.postScanAndFixBlock = false;
                 return ret3;
             } else {
-                LOG("Notice", 0, "Finished fixing the problem");
+                LOG("Notice", "Finished fixing the problem");
             }
         }
 
@@ -1607,8 +1610,8 @@ export class SystemModule {
             core.serializationLocks.postScanAndFixBlock = false;
             return ret4;
         }
-        LOG("Debug", 0, "postScanAndFixBlock:ownHashes");
-        LOG("Debug", 0, JSON.stringify(ret4.value));
+        LOG("Debug", "postScanAndFixBlock:ownHashes");
+        LOG("Debug", JSON.stringify(ret4.value));
 
         // Send to one of the majority nodes and receive the difference
         const request = "ExamineBlockDifference";
@@ -1675,11 +1678,11 @@ export class SystemModule {
             core.serializationLocks.postScanAndFixBlock = false;
             return this.sError("postScanAndFixBlock", "runRpcs_ExamineBlockDifference", "The internode module is down");
         }
-        LOG("Debug", 0, "postScanAndFixBlock:examinedList");
-        LOG("Debug", 0, JSON.stringify(examinedList));
+        LOG("Debug", "examinedList");
+        LOG("Debug", JSON.stringify(examinedList));
 
         // Process to be added
-        LOG("Info", 0, "postScanAndFixBlock:add a block:");
+        LOG("Info", "postScanAndFixBlock:add a block:");
         let pArr: Promise<gResult<blockResultObject, gError>>[] = [];
         let failcnt = 0;
         if (core.d !== undefined) {
@@ -1696,7 +1699,7 @@ export class SystemModule {
                 }
             })
             if (failcnt !== 0) {
-                LOG("Warning", failcnt, "Some data has not been added to the block. Rerun /sync/blocksync later.");
+                LOG("Warning", "Some data has not been added to the block. Rerun /sync/blocksync later.");
                 core.serializationLocks.postScanAndFixBlock = false;
                 return this.sError("postScanAndFixBlock", "setBlockNewData", "Some data has not been added to the block.");
             }
@@ -1720,7 +1723,7 @@ export class SystemModule {
         for (const id of examinedList.del) {
             let bObj: any;
             for (bObj of ret8.value) {
-                LOG("Debug", 0, "bObj:" + JSON.stringify(bObj));
+                LOG("Debug", "bObj:" + JSON.stringify(bObj));
                 if (bObj.data !== undefined) {
                     if (bObj._id.toString() === id) {
                         let pbObj: any;
@@ -1731,8 +1734,8 @@ export class SystemModule {
                 }
             }
         }
-        LOG("Debug", 0, "postScanAndFixBlock:pushBackTxArr(before):");
-        LOG("Debug", 0, JSON.stringify(pushBackTxArr));
+        LOG("Debug", "pushBackTxArr(before):");
+        LOG("Debug", JSON.stringify(pushBackTxArr));
 
         // If the extracted tx is included in the added block, remove the tx from the write-back candidate
         let bObj: any;
@@ -1740,7 +1743,7 @@ export class SystemModule {
             let txObj: any;
             if (bObj.data !== undefined) {
                 for (txObj of bObj.data) {
-                    LOG("Debug", 0, "txObj:" + JSON.stringify(txObj));
+                    LOG("Debug", "txObj:" + JSON.stringify(txObj));
                     let pbObj: any;
                     let index: number = 0; 
                     for(pbObj of pushBackTxArr) {
@@ -1754,10 +1757,10 @@ export class SystemModule {
                 }
             }
         }
-        LOG("Debug", 0, "postScanAndFixBlock:examinedList.add:");
-        LOG("Debug", 0, JSON.stringify(examinedList.add));
-        LOG("Debug", 0, "postScanAndFixBlock:pushBackTxArr(after):");
-        LOG("Debug", 0, JSON.stringify(pushBackTxArr));
+        LOG("Debug", "examinedList.add:");
+        LOG("Debug", JSON.stringify(examinedList.add));
+        LOG("Debug", "pushBackTxArr(after):");
+        LOG("Debug", JSON.stringify(pushBackTxArr));
 
         // Write the remaining tx back to pool
         if (core.d !== undefined) {
@@ -1776,7 +1779,7 @@ export class SystemModule {
                 }
             })
             if (failcnt !== 0) {
-                LOG("Error", failcnt, "Some data has not been added to the pool.");
+                LOG("Error", "Some data has not been added to the pool.");
                 core.serializationLocks.postScanAndFixBlock = false;
                 return this.sError("postScanAndFixBlock", "setPoolNewData", "Some data has not been added to the pool.");
             }
@@ -1796,8 +1799,8 @@ export class SystemModule {
             core.serializationLocks.postScanAndFixBlock = false;
             return this.sError("postScanAndFixBlock", "blockDeleteBlocks", "The datastore module is down");
         }
-        LOG("Debug", 0, "postScanAndFixBlock:examinedList.del:");
-        LOG("Debug", 0, JSON.stringify(examinedList.del));
+        LOG("Debug", "examinedList.del:");
+        LOG("Debug", JSON.stringify(examinedList.del));
 
         core.serializationLocks.postScanAndFixBlock = false;
         return this.sOK<boolean>(true);
@@ -1811,8 +1814,8 @@ export class SystemModule {
      * @returns retruns with gResult, that is wrapped by a Promise, that contains digestDataFormat that has both values in one object if it's success, and gError if it's failure.
      */
     private async getLastHashAndHeight(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:getLastHashAndHeight");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "getLastHashAndHeight");
+        LOG("Info", "start");
 
         if ((failIfUnhealthy !== undefined) && (failIfUnhealthy === true)) {
             const ret1 = await core.lib.reportHealthOfChain(core, true);
@@ -1841,8 +1844,8 @@ export class SystemModule {
      * @returns returns Promise\<examineHashes\>
      */
     private async getAllBlockHashes(core: ccSystemType, tenantId?: string): Promise<gResult<examineHashes, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:getAllBlockHashes");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "getAllBlockHashes");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("getAllBlockHashes", "getAllBlock", "The main module is down");
@@ -1866,8 +1869,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result by examinedHashes if it's success, and gError if it's failure.
      */
     private async examineBlockDifference(core: ccSystemType, examineList: examineHashes, tenantId?: string): Promise<gResult<examinedHashes, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:examineBlockDifference");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "examineBlockDifference");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("examineBlockDifference", "getAllBlock", "The main module is down");
@@ -1908,8 +1911,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains digestDataFormat if it's success, and gError if it's failure.
      */
     public async requestToGetLastHash(core: ccSystemType, tenantId?: string, failIfUnhealthy?: boolean): Promise<gResult<inDigestReturnDataFormat, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToGetLastHash");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToGetLastHash");
+        LOG("Info", "start");
 
         if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
@@ -1925,8 +1928,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the result by examinedHashes if it's success, and gError if it's failure.
      */
     public async requestToExamineBlockDifference(core: ccSystemType, examineList: examineHashes, tenantId?: string): Promise<gResult<examinedHashes, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToExamineBlockDifference");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToExamineBlockDifference");
+        LOG("Info", "start");
 
         if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
@@ -1942,8 +1945,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains boolean if it's success, and gError if it's failure.
      */
     public async postScanAndFixPool(core: ccSystemType, options?: postScanAndFixOptions): Promise<gResult<boolean, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postScanAndFixPool");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postScanAndFixPool");
+        LOG("Info", "start");
 
         if (core.serializationLocks.postScanAndFixPool === true) {
             return this.sError("postScanAndFixPool", "serializationLocks", "This function is running. Wait for a while.");
@@ -1955,7 +1958,7 @@ export class SystemModule {
         // (2) After the above state, acquire the transmitted tx that is in the other node but does not have it. (This may be necessary when returning from a fragmented state.)
 
         // Eliminate duplication of tx in pool and tx in block (in the future, target after checkpoint)
-        LOG("Notice", 0, "postScanAndFixPool:checking with local pool against local block:", {lf: false});
+        LOG("Notice", "postScanAndFixPool:checking with local pool against local block:", {lf: false});
         if (core.m === undefined) {
             core.serializationLocks.postScanAndFixPool = false;
             return this.sError("postScanAndFixPool", "getAllBlock", "The main module is down");
@@ -1989,35 +1992,35 @@ export class SystemModule {
                 }
             }
         }
-        LOG("Debug", 0, "postScanAndFixPool:removePoolIds");
-        LOG("Debug", 0, JSON.stringify(removePoolIds));
+        LOG("Debug", "removePoolIds");
+        LOG("Debug", JSON.stringify(removePoolIds));
 
         if (removePoolIds.length !== 0) {
-            LOG("Notice", 0, "Detected duplication of transactions, it should be fixed.");
+            LOG("Notice", "Detected duplication of transactions, it should be fixed.");
             if (options?.scanonly === true) {
                 core.serializationLocks.postScanAndFixPool = false;
                 return this.sOK<boolean>(false);
             }
             if (core.d !== undefined) {
-                LOG("Notice", 0, "deleting duplication of transactions:", {lf: false});
+                LOG("Notice", "deleting duplication of transactions:", {lf: false});
                 const ret3 = await core.d.lib.poolDeleteTransactions(core.d, removePoolIds, core.conf.administration_id);
                 if (ret3.isFailure()) {
-                    LOG("Error", -1, "postScanAndFixPool:removePoolIds: error in deleting transactions");
+                    LOG("Error", "postScanAndFixPool:removePoolIds: error in deleting transactions");
                     core.serializationLocks.postScanAndFixPool = false;
                     return ret3
                 } else {
-                    LOG("Notice", 0, "OK.");
+                    LOG("Notice", "OK.");
                 }
             } else {
                 core.serializationLocks.postScanAndFixPool = false;
                 return this.sError("postScanAndFixPool", "poolDeleteTransactions", "The datastore module is down");
             }
         } else {
-            LOG("Notice", 0, "there are no duplication of transactions to delete.");
+            LOG("Notice", "There are no duplication of transactions to delete.");
         }
 
         // Send the tx list of the pool and get missing txs from all nodes
-        LOG("Notice", 0, "postScanAndFixPool:checking with local pool against remote pools: ", {lf: false});
+        LOG("Notice", "postScanAndFixPool:checking with local pool against remote pools: ", {lf: false});
         for (const removePoolId of removePoolIds) {
             poolIds = poolIds.filter(poolId => {
                 return poolId !== removePoolId
@@ -2047,7 +2050,7 @@ export class SystemModule {
         for (const result of results) {
             try {
                 if (result.result.isFailure()) {
-                    LOG("Error", -2, "error in collecting lacking transactions");
+                    LOG("Error", "error in collecting lacking transactions");
                     errorNodes.push(result.node.nodename);
                     returnError = this.sError("postScanAndFixPool", "runRpcs", "Error in collecting lacking transactions");
                     breakFor = true;
@@ -2101,20 +2104,20 @@ export class SystemModule {
             uniquedTxMap.set(lackingTx, true);
         }
         const uniqedTxArr: objTx[] = Array.from(uniquedTxMap.keys());
-        LOG("Debug", 0, "postScanAndFixPool:uniqedTxArr");
-        LOG("Debug", 0, JSON.stringify(uniqedTxArr));
+        LOG("Debug", "uniqedTxArr");
+        LOG("Debug", JSON.stringify(uniqedTxArr));
 
         if (uniqedTxArr.length === 0) {
-            LOG("Notice", 0, "postScanAndFixPool:local pool is clean against remote pools.");
+            LOG("Notice", "postScanAndFixPool:local pool is clean against remote pools.");
             core.serializationLocks.postScanAndFixPool = false;
             return this.sOK<boolean>(true);
         } else {
-            LOG("Notice", 0, "Detected some transmitted transactions on remote pools are not found on this node. It should be fixed.");
+            LOG("Notice", "Detected some transmitted transactions on remote pools are not found on this node. It should be fixed.");
             if (options?.scanonly === true) {
                 core.serializationLocks.postScanAndFixPool = false;
                 return this.sOK<boolean>(false);
             } else {
-                LOG("Notice", 0, "postScanAndFixPool:syncing with local pool and remote pools: ", {lf: false});
+                LOG("Notice", "postScanAndFixPool:syncing with local pool and remote pools: ", {lf: false});
             }
         }
 
@@ -2135,11 +2138,11 @@ export class SystemModule {
                 }
             })
             if (failcnt !== 0) {
-                LOG("Error", -3 * failcnt, "Some data has not been added to the pool.");
+                LOG("Error", "Some data has not been added to the pool.");
                 core.serializationLocks.postScanAndFixPool = false;
                 return this.sError("postScanAndFixPool", "setPoolNewData", "Some data has not been added to the pool.");
             } else {
-                LOG("Notice", 0, "OK.");
+                LOG("Notice", "OK.");
                 core.serializationLocks.postScanAndFixPool = false;
                 return this.sOK<boolean>(true);
             }
@@ -2156,8 +2159,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains transactions if it's success, and gError if it's failure.
      */
     public async requestToExaminePoolDifference(core: ccSystemType, examineList: string[], tenantId?: string): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:requestToExaminePoolDifference");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "requestToExaminePoolDifference");
+        LOG("Info", "start");
 
         if (tenantId === undefined) { tenantId = core.conf.default_tenant_id; }
 
@@ -2173,8 +2176,8 @@ export class SystemModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains transactions if it's success, and gError if it's failure.
      */
     public async examinePoolDifference(core: ccSystemType, examineList: string[], tenantId?: string): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:examinePoolDifference");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "examinePoolDifference");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("examinePoolDifference", "getAllPool", "The main module is down");
@@ -2188,7 +2191,7 @@ export class SystemModule {
                 return (JSON.stringify(tx._id.toString()).split('"')[1] !== id)
             })
         }
-        LOG("Debug", 0, "TxArr" + JSON.stringify(txArr));
+        LOG("Debug", "TxArr" + JSON.stringify(txArr));
         return this.sOK<objTx[]>(txArr);
     }
 
@@ -2199,8 +2202,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async postSyncCaches(core: ccSystemType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postSyncCaches");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postSyncCaches");
+        LOG("Info", "start");
 
         if (core.d !== undefined) {
             const ret1 = await core.d.lib.setPoolNewData(core.d, undefined, core.conf.administration_id);
@@ -2209,7 +2212,7 @@ export class SystemModule {
             if (ret2.isFailure()) return ret2;
             if ((ret1.isSuccess()) && (ret2.isSuccess())) {
                 if ((ret1.value.status !== 0) || (ret2.value.status !== 0)) {
-                    LOG("Warning", -1, "Syncing read cache failed")
+                    LOG("Warning", "Syncing read cache failed")
                     return this.sError("postSyncCaches", "setNewData", "Syncing read cache failed");
                 }
             }
@@ -2227,8 +2230,8 @@ export class SystemModule {
      * @returns returns new parcel ID.
      */
     public async postOpenParcel(core: ccSystemType, options: postOpenParcelOptions): Promise<gResult<string, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postOpenParcel");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postOpenParcel");
+        LOG("Info", "start");
 
         if (options.adminId !== core.conf.administration_id) {
             return this.sError("postOpenParcel", "Check adminId", "The administration_id is required to create a new parcel");
@@ -2266,7 +2269,7 @@ export class SystemModule {
         if (ret2.value === undefined) { return this.sError("postOpenParcel", "createBlock", "undefined object"); };
         bObj = ret2.value;
 
-        LOG("Notice", 0, "SystemModule:postOpenParcel: new parcel that has id " + newId + " is created and enabled");
+        LOG("Notice", "New parcel that has id " + newId + " is created and enabled");
 
         this.refreshParcelList(core);
 
@@ -2282,8 +2285,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async postCloseParcel(core: ccSystemType, options: postCloseParcelOptions): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:postCloseParcel");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "postCloseParcel");
+        LOG("Info", "start");
 
         if (options.adminId !== core.conf.administration_id) {
             return this.sError("postCloseParcel", "Check administration ID", "The administration_id is required to disable a parcel");
@@ -2313,7 +2316,7 @@ export class SystemModule {
         const ret2 = await core.b.lib.createBlock(core.b, [], options.tenantId, blockOptions);
         if (ret2.isFailure()) return ret2;
 
-        LOG("Notice", 0, "SystemModule:postCloseParcel: the parcel that has id " + options.tenantId + " is disabled");
+        LOG("Notice", "SystemModule:postCloseParcel: the parcel that has id " + options.tenantId + " is disabled");
         
         this.refreshParcelList(core);
 
@@ -2327,8 +2330,8 @@ export class SystemModule {
      * So there is no need to check the value of success.
      */
     public async refreshParcelList(core: ccSystemType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:refreshParcelList");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "refreshParcelList");
+        LOG("Info", "start");
 
         if (core.m === undefined) {
             return this.sError("postCloseParcel", "createBlock", "The main module is down");
@@ -2358,8 +2361,8 @@ export class SystemModule {
      * So there is no need to be concerned about the failure status.
      */
     public isOpenParcel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "SystemModule:isOpenParcel");
+        const LOG = core.log.lib.LogFunc(core.log, "System", "isOpenParcel");
+        LOG("Info", "start");
 
         for (const id of core.activeTenants) {
             if (id === tenantId) return this.sOK(true);

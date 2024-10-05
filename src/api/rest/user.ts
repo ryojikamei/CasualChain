@@ -103,8 +103,8 @@ export class ListnerV3UserApi {
      * @returns returns with gResult type that contains express.Express if it's success, and unknown if it's failure.
      */
     public async init(acore: ccApiType): Promise<gResult<express.Express, unknown>> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
-        LOG("Info", 0, "UserApi:init");
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "user");
+        LOG("Info", "start");
 
         this.api.use(express.json({ limit: '16777216b' }));
         this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
@@ -113,7 +113,7 @@ export class ListnerV3UserApi {
         this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
 
         this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-byjson");
+            LOG("Info", "get-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getSearchByJson(acore.m, req.body).then((data) => {
@@ -124,14 +124,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getSearchByJson", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/getbyjson"));
             }
         });
 
         this.api.get("/get/byoid/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-byoid");
+            LOG("Info", "get-byoid");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getSearchByOid(acore.m, req.params.oid, req.body).then((data) => {
@@ -144,14 +144,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(outMsg);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getSearchByOid", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/byoid"));
             }
         });
 
         this.api.get("/get/alltxs", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-alltxs");
+            LOG("Info", "get-alltxs");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getAll(acore.m, req.body).then((data) => {
@@ -162,14 +162,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAll", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/alltxs"));
             }
         });
 
         this.api.get("/get/blocked", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-blocked");
+            LOG("Info", "get-blocked");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getAllBlock(acore.m, req.body).then((data) => {
@@ -180,14 +180,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAllBlock", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/blocked"));
             }
         });
 
         this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-pooling");
+            LOG("Info", "get-pooling");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getAllPool(acore.m, req.body).then((data) => {
@@ -198,14 +198,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAllPool", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/pooling"));
             }
         });
 
         this.api.get("/get/lastblock", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-lastblock");
+            LOG("Info", "get-lastblock");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getLastBlock(acore.m, req.body).then((data) => {
@@ -216,14 +216,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getLastBlock", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/lastblock"));
             }
         });
 
         this.api.get("/get/poolingdelivered", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-poolingdelivered");
+            LOG("Info", "get-poolingdelivered");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getAllDeliveredPool(acore.m, req.body).then((data) => {
@@ -234,14 +234,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getAllDeliveredPool", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/poolingdelivered"));
             }
         });
 
         this.api.get("/get/totalnumber", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-totalnumber");
+            LOG("Info", "get-totalnumber");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 let opt = clone(req.body);
@@ -254,14 +254,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getTransactionHeight", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/totalnumber"));
             }
         });
 
         this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:get-histrory");
+            LOG("Info", "get-histrory");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.getHistoryByOid(acore.m, req.params.oid, req.body).then((data) => {
@@ -272,14 +272,14 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getHistoryByOid", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/get/history"));
             }
         });
 
         this.api.post("/post/byjson", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:post-byjson");
+            LOG("Info", "post-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
                 acore.m.lib.postByJson(acore.m, req.body).then((data) => {
@@ -290,7 +290,7 @@ export class ListnerV3UserApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Main Module is currently down.");
+                LOG("Warning", "Main Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postByJson", pos: "frontend", detail: "Main Module is currently down." }, message: "Main Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/post/byjson"));
             }
@@ -306,10 +306,10 @@ export class ListnerV3UserApi {
      * @returns - returns the port number listening
      */
     public async listen(acore: ccApiType, api: express.Express): Promise<void> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "user:listen");
         this.server = api.listen(acore.conf.rest.userapi_port, () => {
             this.runningPort = acore.conf.rest.userapi_port;
-            LOG("Info", 0, "UserApi:Listen");
+            LOG("Info", "start");
         })
     }
 
@@ -320,8 +320,8 @@ export class ListnerV3UserApi {
      * @returns - returns no useful return value
      */
     public async shutdown(acore: ccApiType): Promise<gResult<void, unknown>> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
-        LOG("Info", 0, "UserApi:shutdown");
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "user:shutdown");
+        LOG("Info", "start");
 
         const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
 
@@ -361,11 +361,11 @@ export class ListnerV3UserApi {
             if (currentrun === 0) {
                 break;
             } else {
-                LOG("Notice", 0, "UserApi:some APIs are still running.");
+                LOG("Notice", "some APIs are still running.");
                 retry--;
             }
             if (retry === 0) {
-                LOG("Warning", 0, "UserApi:gave up all APIs to terminate.");
+                LOG("Warning", "gave up all APIs to terminate.");
             }
         }
 

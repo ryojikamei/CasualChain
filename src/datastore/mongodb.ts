@@ -102,8 +102,8 @@ export class BackendDbSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains void if it's success, and gError if it's failure.
      */
     public async cleanup(core: ccCommonIoType, client?: MongoClient): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:cleanup");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:cleanup");
+        LOG("Info", "start");
 
         if (client === undefined) {
             return this.dbError("mongodb:cleanup", "client", "Connection has not been established");
@@ -126,8 +126,8 @@ export class BackendDbSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains objPool[] if it's success, and gError if it's failure.
      */
     public async poolGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, tenantId: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<poolCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:poolGetFromDbToCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:poolGetFromDbToCursor");
+        LOG("Info", "start");
 
         if ((sortOrder !== undefined) && ((sortOrder !== -1) && (sortOrder !== 1))) {
             return this.dbError("poolGetFromDbToCursor", "sort", "The sortOrder value must be -1 or 1 or undefined");
@@ -180,8 +180,8 @@ export class BackendDbSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains objBlock[] if it's success, and gError if it's failure.
      */
     public async blockGetFromDbToCursor(core: ccDirectIoType, client: MongoClient, conf: dsConfigType, tenantId: string, sortOrder?: number, constrainedSize?: number): Promise<gResult<blockCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockGetFromDbToCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:blockGetFromDbToCursor");
+        LOG("Info", "start");
 
         if ((sortOrder !== undefined) && ((sortOrder !== -1) && (sortOrder !== 1))) {
             return this.dbError("blockGetFromDbToCursor", "sort", "The sortOrder value must be -1 or 1 or undefined");
@@ -232,8 +232,8 @@ export class BackendDbSubModule {
      * So there is no need to check the value of success, and there is no need to be concerned about the failure status also.
      */
     public async closeCursor(core: ccCommonIoType, session: ClientSession): Promise<gResult<void, unknown>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:closeCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:closeCursor");
+        LOG("Info", "start");
 
         await session.endSession(); // endSession won't throw any errors
 
@@ -268,8 +268,8 @@ export class BackendDbSubModule {
     public async poolAppendToDb(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, 
         wcache: objTx[], tenantId: string, retryWithNonExistent?: boolean): Promise<gResult<InsertManyResult, gError>> {
         // Investigation is needed whether retry is needed or not
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:poolAppendToDb");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:poolAppendToDb");
+        LOG("Info", "start");
 
         let res: dbInsertionResult = {
             status: 0,
@@ -295,7 +295,7 @@ export class BackendDbSubModule {
         await session.withTransaction(async () => {
             const dbObj = client.db();
             const pool = dbObj.collection(conf.mongo_poolcollection);
-            LOG("Debug", 0, "mongodb:poolAppendToDb:insertMany:" + JSON.stringify(this.convIdStrToObjectId(wcache)));
+            LOG("Debug", "insertMany:" + JSON.stringify(this.convIdStrToObjectId(wcache)));
             await pool.insertMany(this.convIdStrToObjectId(wcache))
             .then((result: InsertManyResult) => {
                 session.commitTransaction();
@@ -307,7 +307,7 @@ export class BackendDbSubModule {
                 res.status--;
                 errPos = "InsertAborted"
                 errDetail = reason.toString();
-                LOG("Debug", 0, "mongodb:poolAppendToDb:insertMany:" + errDetail);
+                LOG("Debug", "insertMany:" + errDetail);
             })
         }).catch((error: any) => {
             res.status--;
@@ -362,9 +362,9 @@ export class BackendDbSubModule {
      */
     public async blockAppendToDb(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, 
         wcache: objBlock[], tenantId: string): Promise<gResult<InsertManyResult, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockAppendToDb");
-        LOG("Debug", 0, "mongodb:blockAppendToDb:" + JSON.stringify(wcache));
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:blockAppendToDb");
+        LOG("Info", "start");
+        LOG("Debug", "blocks:" + JSON.stringify(wcache));
 
         let res: dbInsertionResult = {
             status: 0,
@@ -430,8 +430,8 @@ export class BackendDbSubModule {
      * So there is no need to check the value of success. Note it returns success even if no update at all.
      */
     public async poolUpdateFlagsByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:poolUpdateFlagsByOid");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:poolUpdateFlagsByOid");
+        LOG("Info", "start");
 
         if (oids.length === 0) { return this.dbOK<void>(undefined); }
 
@@ -495,8 +495,8 @@ export class BackendDbSubModule {
      * So there is no need to check the value of success. Note it returns success even if no deletion at all.
      */
     public async poolDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:poolDeleteByOid");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:poolDeleteByOid");
+        LOG("Info", "start");
 
         let ret: number = 0;
         let errStr: string = "";
@@ -556,8 +556,8 @@ export class BackendDbSubModule {
      * So there is no need to check the value of success. Note it returns success even if no deletion at all.
      */
     public async blockDeleteByOid(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockDeleteByOid");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:blockDeleteByOid");
+        LOG("Info", "start");
 
         let ret: number = 0;
         let errStr: string = "";
@@ -617,8 +617,8 @@ export class BackendDbSubModule {
      * So there is no need to check the value of success. Note it returns success even if no updates at all.
      */
     public async blockReplaceByBlocks(core: ccCommonIoType, client: MongoClient, conf: dsConfigType, blockResults: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockReplaceByBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:blockReplaceByBlocks");
+        LOG("Info", "start");
 
         let ret: number = 0;
         let errStr: string = "";
@@ -701,8 +701,8 @@ export class BackendDbSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains objPool[] if it's success, and gError if it's failure.
      */
     public async poolSyncFromDbToCache(core: ccCommonIoType, client: MongoClient, conf: dsConfigType): Promise<gResult<objTx[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:poolSyncFromDbToCache");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:poolSyncFromDbToCache");
+        LOG("Info", "start");
 
         let ret: objTx[] = [];
 
@@ -757,8 +757,8 @@ export class BackendDbSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains objBlock[] if it's success, and gError if it's failure.
      */
     public async blockSyncFromDbToCache(core: ccCommonIoType, client: MongoClient, conf: dsConfigType): Promise<gResult<objBlock[], gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "mongodb:blockSyncFromDbToCache");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "mongodb:blockSyncFromDbToCache");
+        LOG("Info", "start");
 
         let ret: objBlock[] = [];
 
