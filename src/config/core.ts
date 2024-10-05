@@ -104,28 +104,41 @@ export class ConfigModule {
         let console_level_number = -1;
         const console_level_string: string = li.console_level;
         switch (console_level_string.toLowerCase()) {
-            case "emergency" || "emerg" || "0":
+            case "emergency":
+            case "emerg":
+            case "0":
                 console_level_number = 0;
                 break;
-            case "alert" || "1":
+            case "alert":
+            case "1":
                 console_level_number = 1;
                 break;
-            case "critical" || "crit" || "2":
+            case "critical":
+            case "crit":
+            case "2":
                 console_level_number = 2;
                 break;
-            case "error" || "err" || "3":
+            case "error":
+            case "err":
+            case "3":
                 console_level_number = 3;
                 break;
-            case "warning" || "warn" || "4":
+            case "warning":
+            case "warn":
+            case "4":
                 console_level_number = 4;
                 break;
-            case "notice" || "5":
+            case "notice":
+            case "5":
                 console_level_number = 5;
                 break;
-            case "infomational" || "info" || "6":
+            case "infomational":
+            case "info":
+            case "6":
                 console_level_number = 6;
                 break;
-            case "debug" || "7":
+            case "debug":
+            case "7":
                 console_level_number = 7;
                 break;
             default: // An invalid string goes to normal
@@ -136,35 +149,48 @@ export class ConfigModule {
         let file_level_text = "";
         const file_level_string: string = li.file_level;
         switch (file_level_string.toLowerCase()) {
-            case "emergency" || "emerg" || "0":
+            case "emergency":
+            case "emerg":
+            case "0":
                 file_level_number = 0;
                 file_level_text = "emerg";
                 break;
-            case "alert" || "1":
+            case "alert":
+            case "1":
                 file_level_number = 1;
                 file_level_text = "alert";
                 break;
-            case "critical" || "crit" || "2":
+            case "critical":
+            case "crit":
+            case "2":
                 file_level_number = 2;
                 file_level_text = "crit";
                 break;
-            case "error" || "err" || "3":
+            case "error":
+            case "err":
+            case "3":
                 file_level_number = 3;
                 file_level_text = "error";
                 break;
-            case "warning" || "warn" || "4":
+            case "warning":
+            case "warn":
+            case "4":
                 file_level_number = 4;
                 file_level_text = "warn";
                 break;
-            case "notice" || "5":
+            case "notice":
+            case "5":
                 file_level_number = 5;
                 file_level_text = "notice";
                 break;
-            case "infomational" || "info" || "6":
+            case "infomational":
+            case "info":
+            case "6":
                 file_level_number = 6;
                 file_level_text = "info";
                 break;
-            case "debug" || "7":
+            case "debug":
+            case "7":
                 file_level_number = 7;
                 file_level_text = "debug";
                 break;
