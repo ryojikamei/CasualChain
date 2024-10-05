@@ -90,8 +90,8 @@ export class BlockModule {
             m: mainInstance ?? undefined
         }
 
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "BlockModule:init");
+        const LOG = core.log.lib.LogFunc(core.log, "Block", "init");
+        LOG("Info", "start");
 
         if (algorithmFile === undefined) {
             algorithmFile = "../../dist/block/algorithm/ca3.js";
@@ -121,8 +121,8 @@ export class BlockModule {
      */
     public async restart(core: ccBlockType, log: ccLogType, i: ccInType, k: ccKeyringType,
         m: ccMainType, s: ccSystemType): Promise<gResult<ccBlockType, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "BlockModule:restart");
+        const LOG = log.lib.LogFunc(log, "Block", "restart");
+        LOG("Info", "start");
 
         this.coreCondition = "unloaded";
         const ret1 = await this.init(core.conf, log);
@@ -147,8 +147,8 @@ export class BlockModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the created block with blockFormat if it's success, and gError if it's failure.
      */
     public async createBlock(core: ccBlockType, txArr: objTx[], tenantId: string, blockOptions?: createBlockOptions): Promise<gResult<blockFormat | undefined, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "BlockModule:createBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "Block", "createBlock");
+        LOG("Info", "start");
         if (blockOptions === undefined) {
             blockOptions = { type: "data" }
         }
@@ -193,7 +193,7 @@ export class BlockModule {
                             lifeTime = core.conf.ca3.maxLifeTime;
                         }
                     } else {
-                        LOG("Debug", 0, "BlockModule:createBlock:proceedCreator:" + JSON.stringify(ret1));
+                        LOG("Debug", "proceedCreator:" + JSON.stringify(ret1));
                         if (ret1.value.origin.detail !== undefined) { errDetail = ret1.value.origin.detail; }
                     }
                 }
@@ -202,15 +202,15 @@ export class BlockModule {
         if (core.algorithm.travelingIds[trackingId].stored === true) {
             const block = clone(core.algorithm.travelingIds[trackingId].block);
             core.algorithm.stopCreator(core, trackingId);
-            LOG("Info", 0, "BlockModule:created a block with CA3:" + trackingId);
+            LOG("Info", "created a block with CA3:" + trackingId);
             return this.bOK<blockFormat>(block);
         } else {
             core.algorithm.stopCreator(core, trackingId);
             if (errDetail === "Already started") { // It's a common event.
-                LOG("Notice", -1, "BlockModule:create a block with CA3 skipped: " + errDetail);
+                LOG("Notice", "create a block with CA3 skipped: " + errDetail);
                 return this.bOK<undefined>(undefined);
             } else {
-                LOG("Error", -1, "BlockModule:create a block with CA3 failed: " + errDetail);
+                LOG("Error", "create a block with CA3 failed: " + errDetail);
                 return this.bError("createBlock", "proceedCreator", "create a block with CA3 failed:" + errDetail);
             }
         }
@@ -229,8 +229,8 @@ export class BlockModule {
      * - 3: It is a problematic block
      */
     public async verifyBlock(core: ccBlockType, bObj: blockFormat, trackingId?: string): Promise<gResult<number, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "BlockModule:verifyBlock");
+        const LOG = core.log.lib.LogFunc(core.log, "Block", "verifyBlock");
+        LOG("Info", "start");
 
         // return value must be sync with block_status in system module:
         const ret2: gResult<Ca3ReturnFormat, gError> = await core.algorithm.verifyABlock(core, bObj, trackingId);

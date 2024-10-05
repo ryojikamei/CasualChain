@@ -102,8 +102,8 @@ export class ListnerV3AdminApi {
      * @returns returns with gResult type that contains express.Express if it's success, and unknown if it's failure.
      */
     public async init(acore: ccApiType): Promise<gResult<express.Express, unknown>> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
-        LOG("Info", 0, "AdminApi:init");
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "admin");
+        LOG("Info", "start");
 
         this.api.use(express.json({ limit: '16777216b' }));
         this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
@@ -112,7 +112,7 @@ export class ListnerV3AdminApi {
         this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
 
         this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-deliverpooling");
+            LOG("Info", "sys-deliverpooling");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postDeliveryPool(acore.s).then((data) => {
@@ -123,14 +123,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postDeliveryPool", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/deliverpooling"));
             }
         });
 
         this.api.post("/sys/blocking", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-blocking");
+            LOG("Info", "sys-blocking");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postAppendBlocks(acore.s).then((data) => {
@@ -141,14 +141,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down");
+                LOG("Warning", "System Module is currently down");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postAppendBlocks", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/blocking"));
             }
         });
 
         this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-initbc");
+            LOG("Info", "sys-initbc");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postGenesisBlock(acore.s, req.body).then((data) => {
@@ -159,14 +159,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postGenesisBlock", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/initbc"));
             }
         });
 
         this.api.post("/sys/syncblocked", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-syncblocked");
+            LOG("Info", "sys-syncblocked");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postScanAndFixBlock(acore.s, req.body).then((data) => {
@@ -177,14 +177,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postScanAndFixBlock", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncblocked"));
             }
         });
 
         this.api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-syncpooling");
+            LOG("Info", "sys-syncpooling");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postScanAndFixPool(acore.s, req.body).then((data) => {
@@ -195,14 +195,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postScanAndFixPool", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/syncpooling"));
             }
         });
 
         this.api.get("/sys/getconf", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-getconf");
+            LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
                 const ret = acore.c.lib.getConfiguration(undefined, req.body);
@@ -212,14 +212,14 @@ export class ListnerV3AdminApi {
                 }
                 return res.status(200).json(ret.value);
             } else {
-                LOG("Warning", 1, "Config Module is currently down.");
+                LOG("Warning", "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
             }
         })
 
         this.api.get("/sys/getconf/:module", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-getconf");
+            LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
                 const ret = acore.c.lib.getConfiguration(req.params.module, req.body);
@@ -229,14 +229,14 @@ export class ListnerV3AdminApi {
                 }
                 return res.status(200).json(ret.value);
             } else {
-                LOG("Warning", 1, "Config Module is currently down.");
+                LOG("Warning", "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "getConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/getconf"));
             }
         })
 
         this.api.post("/sys/editconf", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-setconf");
+            LOG("Info", "sys-setconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
                 const [key, value] = Object.entries(req.body)[0];
@@ -247,14 +247,14 @@ export class ListnerV3AdminApi {
                 }
                 return res.status(200).json(ret.value);
             } else {
-                LOG("Warning", 1, "Config Module is currently down.");
+                LOG("Warning", "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "setConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/editconf"));
             }
         })
 
         this.api.post("/sys/resetconf", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-resetconf");
+            LOG("Info", "sys-resetconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
                 acore.c.lib.reloadConfiguration().then((data) => {
@@ -265,28 +265,28 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "Config Module is currently down.");
+                LOG("Warning", "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "reloadConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
             }
         })
 
         this.api.post("/sys/applyconf", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-applyconf");
+            LOG("Info", "sys-applyconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
                 acore.c.lib.applyConfiguration();
                 this.runcounter--;
                 return res.status(200).json(undefined);
             } else {
-                LOG("Warning", 1, "Config Module is currently down.");
+                LOG("Warning", "Config Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "reloadConfiguration", pos: "frontend", detail: "Config Module is currently down." }, message: "Config Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/resetconf"));
             }
         })
         
         this.api.post("/sys/opentenant", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-opentenant");
+            LOG("Info", "sys-opentenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postOpenParcel(acore.s, req.body).then((data) => {
@@ -297,14 +297,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postOpenParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/opentenant"));
             }
         });
 
         this.api.post("/sys/closetenant", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-closetenant");
+            LOG("Info", "sys-closetenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postCloseParcel(acore.s, req.body).then((data) => {
@@ -315,14 +315,14 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postCloseParcel", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/closetenant"));
             }
         });
 
         this.api.post("/sys/synccache", (req: express.Request, res: express.Response) => {
-            LOG("Info", 0, "Api:sys-synccache");
+            LOG("Info", "sys-synccache");
             if (acore.s !== undefined) {
                 this.runcounter++;
                 acore.s.lib.postSyncCaches(acore.s).then((data) => {
@@ -333,7 +333,7 @@ export class ListnerV3AdminApi {
                     return res.status(200).json(data.value);
                 })
             } else {
-                LOG("Warning", 1, "System Module is currently down.");
+                LOG("Warning", "System Module is currently down.");
                 const errmsg: gError = { name: "Error", origin: { module: "listener", func: "postSyncCaches", pos: "frontend", detail: "System Module is currently down." }, message: "System Module is currently down." }
                 return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/synccache"));
             }
@@ -349,10 +349,10 @@ export class ListnerV3AdminApi {
      * @returns - returns the port number listening
      */
     public async listen(acore: ccApiType, api: express.Express): Promise<void> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "admin:listen");
         this.server = api.listen(acore.conf.rest.adminapi_port, () => {
             this.runningPort = acore.conf.rest.adminapi_port;
-            LOG("Info", 0, "AdminApi:Listen");
+            LOG("Info", "start");
         })
     }
 
@@ -363,8 +363,8 @@ export class ListnerV3AdminApi {
      * @returns - returns no useful return value
      */
     public async shutdown(acore: ccApiType): Promise<gResult<void, unknown>> {
-        const LOG = acore.log.lib.LogFunc(acore.log);
-        LOG("Info", 0, "AdminApi:shutdown");
+        const LOG = acore.log.lib.LogFunc(acore.log, "Rest", "admin:shutdown");
+        LOG("Info", "start");
 
         const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
 
@@ -410,11 +410,11 @@ export class ListnerV3AdminApi {
             if (currentrun === 0) {
                 break;
             } else {
-                LOG("Notice", 0, "AdminApi:some APIs are still running.");
+                LOG("Notice", "some APIs are still running.");
                 retry--;
             }
             if (retry === 0) {
-                LOG("Warning", 0, "AdminApi:gave up all APIs to terminate.");
+                LOG("Warning", "gave up all APIs to terminate.");
             }
         }
         

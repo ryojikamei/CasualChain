@@ -11,14 +11,8 @@ import { LogModule } from "../logger/index.js";
 export class logMock {
     public lib: LogModule;
     public conf: logConfigType;
-    public status: number;
-    public msg: {
-        last_status: number;
-        last_message: string;
-        last_errormsg: string;
-        last_resultmsg: string;
-        pending_message: string;
-    };
+    public console_linefeed_pending: boolean;
+    public file_pending_message: string;
 
     constructor() {
         this.lib =  new LogModule(),
@@ -33,14 +27,8 @@ export class logMock {
             file_level: 7,
             file_level_text: ""
         },
-        this.status =  -1,
-        this.msg = {
-            last_errormsg: "",
-            last_message: "",
-            last_resultmsg: "",
-            last_status: 0,
-            pending_message: ""
-        }
+        this.console_linefeed_pending = false,
+        this.file_pending_message = ""
     }
     
 }

@@ -45,7 +45,6 @@ describe("Test of ListerV3UserApi", () => {
             acore.s = score;
             const ret = await lib.init(acore)
             expect(ret.type).toBe("success");
-            expect(acore.log.msg.last_status).toBe(0);
         })
     })
 

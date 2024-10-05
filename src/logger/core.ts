@@ -67,7 +67,6 @@ export class LogModule {
      * @returns returns with gResult type that contains ccLogType if it's success, and gError if it's failure.
      */
     public init(conf: logConfigType, logger?: Logger): gResult<ccLogType, gError> {
-        let status: number = 0;
 
         this.coreCondition = "loading";
         /* System log except console output uses winston */
@@ -78,7 +77,6 @@ export class LogModule {
                 try {
                     this.winston = winston_init(conf.file_level_text, conf.file_path, conf.file_rotation);
                 } catch (error: any) {
-                    status = -1;
                     this.winston = undefined;
                     return this.lError("init", "winston_init", error.toString());
                 }
@@ -88,27 +86,21 @@ export class LogModule {
         const core: ccLogType = {
             lib: new LogModule(),
             conf: conf,
-            status: status,
-            msg: {
-                last_status: 0,
-                last_message: "",
-                last_errormsg: "",
-                last_resultmsg: "",
-                pending_message: ""
-            }
+            console_linefeed_pending: false,
+            file_pending_message: ""
         }
         core.lib.winston = this.winston;
 
-        const LOG = this.LogFunc(core)
-        LOG("Debug", 0, "A message for checking the logger condition", {skipconsole : true});
+        const LOG = this.LogFunc(core, "Log", "init");
+        LOG("Debug", "A message for checking the logger condition", {skipconsole : true});
         this.coreCondition = "active";
         core.lib.coreCondition = this.coreCondition;
         return this.lOK<ccLogType>(core);
     }
 
     public restart(core: ccLogType): gResult<ccLogType, gError> {
-        const LOG = this.LogFunc(core);
-        LOG("Info", 0, "LogModule:restart");
+        const LOG = this.LogFunc(core, "Log", "restart");
+        LOG("Info", "restart");
 
         const ret1 = this.init(core.conf);
         if (ret1.isFailure()) return ret1;
@@ -121,10 +113,17 @@ export class LogModule {
     /**
      * The method to return the function that writes the log.
      * @param core - set ccLogType instance
-     * @returns return the unnamed function that writes the log
+     * @param moduleName - set caller's module name
+     * @param methodName - set caller's method or function name
+     * @returns return the unnamed function that writes the log. It must require type, and message arguments, and can set options.
      */
-    public LogFunc(core: ccLogType) {
-        return function(type: logLevel, status: number, message: string, options?: logOptions) {
+    public LogFunc(core: ccLogType, moduleName: string, methodName: string) {
+        /**
+         * @param type - set level string with logLevel type
+         * @param message - set message
+         * @param options - can set options with logOptions type
+         */
+        return function(type: logLevel, message: string, options?: logOptions) {
             let opts: logOptions = {
                 lf: undefined,
                 skipconsole: undefined,
@@ -135,178 +134,146 @@ export class LogModule {
             if (opts.skipconsole === undefined) opts.skipconsole = false;
             if (opts.skipfile === undefined) opts.skipfile = false;
             let level: number;
+            let error: boolean;
             switch (type) {
                 case "Error":
                     level = 3;
+                    error = true;
                     break;
                 case "Warning":
                     level = 4;
+                    error = false;
                     break;
                 case "Notice":
                     level = 5;
+                    error = false;
                     break;
                 case "Info":
                     level = 6;
+                    error = false;
                     break;
                 case "Debug":
                     level = 7;
+                    error = true;
                     break;
                 default: // An invalid string goes to normal
-                    level = 6;
+                    level = 5;
+                    error = false;
                     break;
             }
-            core.lib.sendMsg(core, status, message, level, opts.lf, opts.skipconsole, opts.skipfile);
+
+            if ((core.conf.console_output === true) && (opts.skipconsole === false) && (level <= core.conf.console_level)) {
+                if (core.console_linefeed_pending !== true) {
+                    core.lib.writeConsole(core, core.lib.formatMessasge(moduleName, methodName, type, message, opts.lf, false), error);
+                    if (opts.lf === true) {
+                        core.console_linefeed_pending = false; // most way
+                    } else {
+                        core.console_linefeed_pending = true;
+                    }
+                } else {
+                    core.lib.writeConsole(core, core.lib.formatMessasge(moduleName, methodName, type, message, opts.lf, true), error);
+                    if (opts.lf === true) {
+                        core.console_linefeed_pending = false;
+                    } else {
+                        core.console_linefeed_pending = true;
+                    }
+                }
+            }
+            if ((core.conf.file_output === true) && (opts.skipfile === false) && (level <= core.conf.file_level)) {
+                if (opts.lf === false) {
+                    core.file_pending_message = core.file_pending_message + message;
+                } else if (core.file_pending_message.length !== 0) {
+                    message = core.file_pending_message + message
+                    core.lib.writeFile(core, core.lib.formatMessasge(moduleName, methodName, type, message, opts.lf, false), level);
+                    core.file_pending_message = "";
+                } else {
+                    core.lib.writeFile(core, core.lib.formatMessasge(moduleName, methodName, type, message, opts.lf, false), level);
+                }
+            }
         }
     }
 
     /**
-     * The internal method that write message to both the console and the log file.
-     * @param core - set ccLogType instance
-     * @param status - set status value to remember. Normal is 0
+     * Format message string
+     * @param moduleName - set caller's module name
+     * @param methodName - set caller's method or function name
+     * @param type - set log level as string
      * @param message - set the message
-     * @param level - set filter level. The syslog level values from 3 to 7 are acceptable
-     * @param lf - set false if it needs not to send LF
-     * @param skipconsole - set true if it needs not to show message on the console
-     * @param skipfile - set true if it needs not to write message to the log file
-     * @returns returns the msg object that contains last status and messages that are classified
+     * @param lf - put lf or not
+     * @param following - the message is the message following previous message or not
+     * @returns returns the message string to output
      */
-    protected sendMsg(
-        core: ccLogType, 
-        status: number,
-        message: any,
-        level: number, /* 3:ERR, 4:WARNING, 5:NOTICE, 6:INFO, 7:DEBUG */
-        lf: boolean,
-        skipconsole: boolean,
-        skipfile: boolean
-        ) {
+    private formatMessasge(moduleName: string, methodName: string, type: string, message: string, lf: boolean, following: boolean): string {
 
-            let msg: string;
-            if (typeof(message) === "object") {
-                msg = JSON.stringify(message)
-            } else {
-                msg = message.toString()
-            }
-
-            let end: string;
-            if (lf === true) {
-                end = '\n';
-            } else {
-                end = '';
-            };
-
-            const console_color_reset_code = '\u001b[0m';
-
-            let msgTagText: string;
-            switch (level) {
-                case 3:
-                    msgTagText = "ERR: ";
-                    core.msg.last_errormsg =  msg;
-                    core.msg.last_message = ""
-                    core.msg.last_resultmsg = "";
-                    core.msg.last_status = status;
-                    if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stderr.write(core.conf.console_color_code + msgTagText + core.msg.last_errormsg + console_color_reset_code + end);
-                    }
-                    if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
-                        if ((lf === true) && (core.msg.pending_message === "") && (core.lib.winston !== undefined)) {
-                            core.lib.winston.error(msg);
-                        } else if ((lf === true) && (core.msg.pending_message !== "") && (core.lib.winston !== undefined)) { // flush
-                            core.lib.winston.error(core.msg.pending_message + msg);
-                            core.msg.pending_message = "";
-                        } else { // lf === false
-                            core.msg.pending_message = core.msg.pending_message + msg;
-                        }
-                    }
-                    break;
-                case 4:
-                    msgTagText = "WARNING: ";
-                    core.msg.last_errormsg =  ""
-                    core.msg.last_message = msg;
-                    core.msg.last_resultmsg = "";
-                    core.msg.last_status = status;
-                    if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(core.conf.console_color_code + msgTagText + core.msg.last_message + console_color_reset_code + end);
-                    }
-                    if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
-                        if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
-                            this.winston.warn(msg);
-                        } else if ((lf === true) && (core.msg.pending_message !== "") && (this.winston !== undefined)) { // flush
-                            this.winston.warn(core.msg.pending_message + msg);
-                            core.msg.pending_message = "";
-                        } else { // lf === false
-                            core.msg.pending_message = core.msg.pending_message + msg;
-                        }
-                    }
-                    break;
-                case 5:
-                    msgTagText = "NOTICE: ";
-                    core.msg.last_errormsg =  ""
-                    core.msg.last_message = msg;
-                    core.msg.last_resultmsg = "";
-                    core.msg.last_status = status;
-                    if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(core.conf.console_color_code + core.msg.last_message + console_color_reset_code + end); // Do not print "NOTICE: "
-                    }
-                    if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
-                        if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
-                            //this.winston.notice(msg);
-                            this.winston.info(msg);
-                        } else if ((lf === true) && (core.msg.pending_message !== "") && (this.winston !== undefined)) { // flush
-                            //this.winston.notice(core.msg.pending_message + msg);
-                            this.winston.info(core.msg.pending_message + msg);
-                            core.msg.pending_message = "";
-                        } else { // lf === false
-                            core.msg.pending_message = core.msg.pending_message + msg;
-                        }
-                    }
-                    break;
-                case 6:
-                    msgTagText = "INFO: ";
-                    core.msg.last_errormsg =  ""
-                    core.msg.last_message = msg;
-                    core.msg.last_resultmsg = "";
-                    core.msg.last_status = status;
-                    if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stdout.write(core.conf.console_color_code + msgTagText + core.msg.last_message + console_color_reset_code + end);
-                    }
-                    if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
-                        if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
-                            this.winston.info(msg);
-                        } else if ((lf === true) && (core.msg.pending_message !== "") && (this.winston !== undefined)) { // flush
-                            this.winston.info(core.msg.pending_message + msg);
-                            core.msg.pending_message = "";
-                        } else { // lf === false
-                            core.msg.pending_message = core.msg.pending_message + msg;
-                        }
-                    }
-                    break;
-                case 7:
-                    msgTagText = "DEBUG: ";
-                    core.msg.last_errormsg =  msg;
-                    core.msg.last_message = ""
-                    core.msg.last_resultmsg = "";
-                    core.msg.last_status = status;
-                    if ((level <= core.conf.console_level) && (skipconsole === false)) {
-                        process.stderr.write(core.conf.console_color_code + msgTagText + core.msg.last_errormsg + console_color_reset_code + end);
-                    }
-                    if ((core.conf.file_output === true) && (level <= core.conf.file_level) && (skipfile === false)) {
-                        if ((lf === true) && (core.msg.pending_message === "") && (this.winston !== undefined)) {
-                            this.winston.debug(msg);
-                        } else if ((lf === true) && (core.msg.pending_message !== "") && (this.winston !== undefined)) { // flush
-                            this.winston.debug(core.msg.pending_message + msg);
-                            core.msg.pending_message = "";
-                        } else { // lf === false
-                            core.msg.pending_message = core.msg.pending_message + msg;
-                        }
-                    }
-                    break;
-                default: // Result
-                    core.msg.last_errormsg =  ""
-                    core.msg.last_message = "";
-                    core.msg.last_status = 0;
-                    core.msg.last_resultmsg = msg;
-                    break;
-            }
-            return core.msg;
+        let msg: string;
+        if (typeof(message) === "object") {
+            msg = JSON.stringify(message);
+        } else {
+            msg = message.toString();
         }
+        let end: string;
+        if (lf === true) {
+            end = '\n';
+        } else {
+            end = '';
+        };
+
+        if (following === true) {
+            return msg + end;
+        } else {
+            const timeStr = new Date().toISOString();
+            return timeStr + "|" + moduleName + "|" + methodName + "|" + type.toUpperCase() + "|" + msg + end;
+        }
+    }
+
+    /**
+     * Write a formetted message to the console
+     * @param core - set ccLogType instance
+     * @param messsage - set the formatted message
+     * @param stderr - write to stderr or not
+     * @returns returns always zero
+     */
+    private writeConsole(core: ccLogType, messsage: string, stderr: boolean): number {
+
+        const color_set_code = core.conf.console_color_code;
+        let color_reset_code = "";
+        if (color_set_code.length !== 0) { color_reset_code = '\u001b[0m'; }
+
+        if (stderr !== true) {
+            process.stdout.write(color_set_code + messsage + color_reset_code);
+        } else {
+            process.stderr.write(color_set_code + messsage + color_reset_code);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Write a formatted message to the log file
+     * @param core  - set ccLogType instance
+     * @param message - set the formatted message
+     * @param level - set the loglevel of the message
+     * @returns returns negative number value when the winston module is not initialized
+     */
+    private writeFile(core: ccLogType, message: string, level: number): number {
+
+        if (this.winston === undefined) { 
+            console.error("Winston unknown error");
+            return -1;
+        }
+
+        if (level <= 3) {
+            this.winston.error(message);
+        } else if (level === 4) {
+            this.winston.warn(message);
+        } else if (level === 5) {
+            this.winston.info(message);
+        } else if (level === 6) {
+            this.winston.info(message);
+        } else {
+            this.winston.debug(message);
+        }
+        return 0;
+    }
+
 }

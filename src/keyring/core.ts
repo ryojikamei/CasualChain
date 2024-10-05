@@ -13,7 +13,7 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { ccKeyringType } from ".";
 import { keyringConfigType } from "../config";
-import { ccLogType } from "../logger";
+import { ccLogType } from "../logger/index.js";
 
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
@@ -92,16 +92,16 @@ export class KeyringModule {
             i: undefined
         }
 
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:init");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "init");
+        LOG("Info", "start");
 
         const privateKey = this.configPath + conf.sign_key_file;
         if (existsSync(privateKey) === false) {
             if (conf.create_keys_if_no_sign_key_exists === true) {
-                LOG("Notice", 0, "The private key file is not found. Generate a key pair");
+                LOG("Notice", "The private key file is not found. Generate a key pair");
                 await core.lib.generateKeyPair(core, this.configPath);
             } else {
-                LOG("Error", -1, "The private key file is not found");
+                LOG("Error", "The private key file is not found");
                 return this.kError("init", "generateKeyPair", "The private key file is not found");
             }
         }
@@ -112,10 +112,10 @@ export class KeyringModule {
         const CertificateSigningRequest = this.configPath + conf.tls_csr_file;
         if (existsSync(CertificateSigningRequest) === false) {
             if (conf.create_keys_if_no_sign_key_exists === true) {
-                LOG("Notice", 0, "Certificate files are not found. Generate certificates");
+                LOG("Notice", "Certificate files are not found. Generate certificates");
                 await core.lib.generateCertificates(core, this.configPath);
             } else {
-                LOG("Error", -1, "Certificate files are not found");
+                LOG("Error", "Certificate files are not found");
                 return this.kError("init", "generateCertificates", "The certificate files are not found");
             }
         }
@@ -151,8 +151,8 @@ export class KeyringModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccKeyringType if it's success, and gError if it's failure.
      */
     public async restart(core: ccKeyringType, log: ccLogType): Promise<gResult<ccKeyringType, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:restart");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "restart");
+        LOG("Info", "start");
 
         const ret1 = await this.init(core.conf, log);
         if (ret1.isFailure()) { return ret1 };
@@ -172,8 +172,8 @@ export class KeyringModule {
      * So there is no need to check the value of success.
      */
     private async generateKeyPair(core: ccKeyringType, keypath: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:generateKeyPair");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "generateKeyPair");
+        LOG("Info", "start");
 
         const bin: string = "openssl";
 
@@ -186,7 +186,7 @@ export class KeyringModule {
             } else {
                 code = private_ret.exitCode
             }
-            LOG("Warning", code, private_ret.stderr);
+            LOG("Warning", private_ret.stderr);
             return this.kError("generateKeyPair", "private_ret:" + code.toString(), private_ret.stderr);
         }
 
@@ -200,7 +200,7 @@ export class KeyringModule {
             } else {
                 code = public_ret.exitCode
             }
-            LOG("Warning", code, public_ret.stderr);
+            LOG("Warning", public_ret.stderr);
             return this.kError("generateKeyPair", "public_ret:" + code.toString(), public_ret.stderr);
         }
 
@@ -208,8 +208,8 @@ export class KeyringModule {
     }
 
     public async generateCertificates(core: ccKeyringType, keypath: string): Promise<gResult<boolean, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "eKeyringModule:generateCertificates");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "generateCertificates");
+        LOG("Info", "start");
 
         const bin: string = "openssl";
 
@@ -224,7 +224,7 @@ export class KeyringModule {
             } else {
                 code = csr_ret.exitCode;
             }
-            LOG("Warning", code, csr_ret.stderr);
+            LOG("Warning", csr_ret.stderr);
             return this.kError("generateCertificates", "csr_ret:" + code.toString(), csr_ret.stderr);
         }
 
@@ -239,7 +239,7 @@ export class KeyringModule {
             } else {
                 code = crt_ret.exitCode;
             }
-            LOG("Warning", code, crt_ret.stderr);
+            LOG("Warning", crt_ret.stderr);
             return this.kError("generateCertificates", "crt_ret:" + code.toString(), crt_ret.stderr);
         }
 
@@ -253,11 +253,11 @@ export class KeyringModule {
      * So there is no need to check the value of success.
      */
     public async postSelfPublicKeys(core: ccKeyringType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:postSelfPublicKeys");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "postSelfPublicKeys");
+        LOG("Info", "start");
 
         if ((core.cache[0] === undefined) || (core.cache[0].nodename !== "self")) {
-            LOG("Error", -1, "The modules is not initialized properly!");
+            LOG("Error", "The modules is not initialized properly!");
             return this.kError("postSelfPublicKeys", "prerequisite", "The modules is not initialized properly!");
         }
 
@@ -275,7 +275,7 @@ export class KeyringModule {
             } else {
                 const data: any = tx.data;
                 if (data.nodename === core.cache[0].nodename) {
-                    LOG("Warning", 1, "Public key for " + data.nodename + " is already posted. Skip.");
+                    LOG("Warning", "Public key for " + data.nodename + " is already posted. Skip.");
                     skipPubkey = true;
                 }
             }
@@ -310,7 +310,7 @@ export class KeyringModule {
             } else {
                 const data: any = tx.data;
                 if (data.nodename === core.cache[0].nodename) {
-                    LOG("Warning", 1, "Certificate for " + data.nodename + " is already posted. Skip.");
+                    LOG("Warning", "Certificate for " + data.nodename + " is already posted. Skip.");
                     skipTlscrt = true;
                 }
             }
@@ -346,8 +346,8 @@ export class KeyringModule {
      * So there is no need to check the value of success.
      */
     public async refreshPublicKeyCache(core: ccKeyringType, waitOnStartUp?: boolean): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:refreshPublicKeyCache");
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "refreshPublicKeyCache");
+        LOG("Info", "start");
 
         let ret1;
         while (true) {
@@ -355,7 +355,7 @@ export class KeyringModule {
                 ret1 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_pubkey_data, sortOrder: -1, excludeBlocked: true, tenant: core.conf.default_tenant_id});
                 if (ret1.isFailure()) return ret1;
                 if (ret1.value.length === 0) {
-                    LOG("Notice", -1, "No verify keys have been published yet");
+                    LOG("Notice", "No verify keys have been published yet");
                     return this.kError("refreshPublicKeyCache", "getSearchByJson", "No verify keys have been published yet");
                 } else {
                     let ring_bc: any;
@@ -380,7 +380,7 @@ export class KeyringModule {
             if ((waitOnStartUp !== true) || (ret1.value.length !== 0)) {
                 break;
             } else {
-                LOG("Notice", 0, "Waiting for initial key is published.");
+                LOG("Notice", "Waiting for initial key is published.");
                 setTimeout(() => {
                     // Do nothing
                 }, 1000);
@@ -393,7 +393,7 @@ export class KeyringModule {
                 ret2 = await core.m.lib.getSearchByJson(core.m, {key: "cc_tx", value: tag_tlscrt_data, sortOrder: -1, excludeBlocked: true, tenant: core.conf.default_tenant_id});
                 if (ret2.isFailure()) return ret2;
                 if (ret2.value.length === 0) {
-                    LOG("Notice", -1, "No tls certs have been published yet");
+                    LOG("Notice", "No tls certs have been published yet");
                     return this.kError("refreshPublicKeyCache", "getSearchByJson", "No tls certs have been published yet");
                 } else {
                     let ring_bc: any;
@@ -412,7 +412,7 @@ export class KeyringModule {
             if ((waitOnStartUp !== true) || (ret2.value.length !== 0)) {
                 break;
             } else {
-                LOG("Notice", 0, "Waiting for initial crt is published.");
+                LOG("Notice", "Waiting for initial crt is published.");
                 setTimeout(() => {
                     // Do nothing
                 }, 1000);
@@ -429,8 +429,8 @@ export class KeyringModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains signature string if it's success, and gError if it's failure.
      */
     public async signByPrivateKey(core: ccKeyringType, target: object, trackingId: string): Promise<gResult<string, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "KeyringModule:signByPrivateKey:" + trackingId);
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "signByPrivateKey");
+        LOG("Info", "start:" + trackingId);
 
         if (core.cache[0].sign_key_hex === undefined) {
             return this.kError("signByPrivateKey", "sign_key_hex", "The private key is invalid");
@@ -439,10 +439,10 @@ export class KeyringModule {
         try {
             const targetHex = Buffer.from(JSON.stringify(target)).toString("hex");
             signature = Buffer.from(ed25519.sign(targetHex, core.cache[0].sign_key_hex)).toString("hex");
-            LOG("Debug", 0, "KeyringModule:signByPrivateKey:target:" + JSON.stringify(target));
-            LOG("Debug", 0, "KeyringModule:signByPrivateKey:sign_key_hex:" + core.cache[0].sign_key_hex);
-            LOG("Debug", 0, "KeyringModule:signByPrivateKey:signature:" + signature);
-            LOG("Debug", 0, "KeyringModule:signByPrivateKey:verify_key_hex:" + core.cache[0].verify_key_hex);
+            LOG("Debug", "KeyringModule:signByPrivateKey:target:" + JSON.stringify(target));
+            LOG("Debug", "KeyringModule:signByPrivateKey:sign_key_hex:" + core.cache[0].sign_key_hex);
+            LOG("Debug", "KeyringModule:signByPrivateKey:signature:" + signature);
+            LOG("Debug", "KeyringModule:signByPrivateKey:verify_key_hex:" + core.cache[0].verify_key_hex);
         } catch (error: any) {
             return this.kError("signByPrivateKey", "sign:", error.toString());
         }
@@ -460,11 +460,11 @@ export class KeyringModule {
      * On success, the value is true if the target object is not malformed, and false if it's malformed.
      */
     public async verifyByPublicKey(core: ccKeyringType, signature: string, target: object, nodename: string, trackingId?: string): Promise<gResult<boolean, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "verifyByPublicKey");
         if (trackingId !== undefined) {
-            LOG("Info", 0, "KeyringModule:verifyByPublicKey:" + trackingId);
+            LOG("Info", "start:" + trackingId);
         } else {
-            LOG("Info", 0, "KeyringModule:verifyByPublicKey");
+            LOG("Info", "start");
         }
 
         let publicKey: string | undefined;
@@ -482,18 +482,18 @@ export class KeyringModule {
                 if (nodename === keys.nodename) publicKey = keys.verify_key_hex;
             }
             if (publicKey === undefined) {
-                LOG("Debug", 0, "KeyringModule:verifyByPublicKey:nodename:" + nodename);
-                LOG("Debug", 0, "KeyringModule:verifyByPublicKey:nodename:" + JSON.stringify(core.cache));
-                LOG("Info", 0, "The public key is not found or nodename is malformed");
+                LOG("Debug", "KeyringModule:verifyByPublicKey:nodename:" + nodename);
+                LOG("Debug", "KeyringModule:verifyByPublicKey:nodename:" + JSON.stringify(core.cache));
+                LOG("Info", "The public key is not found or nodename is malformed");
                 return this.kError("verifyByPublicKey", "refreshPublicKeyCache", "The public key is not found or nodename is malformed");
             }
         }
 
         const targetHex = Buffer.from(JSON.stringify(target)).toString("hex");
         try {
-            LOG("Debug", 0, "KeyringModule:verifyByPublicKey:target:" + JSON.stringify(target));
-            LOG("Debug", 0, "KeyringModule:verifyByPublicKey:verify_key_hex:" + publicKey);
-            LOG("Debug", 0, "KeyringModule:verifyByPublicKey:signature:" + signature);
+            LOG("Debug", "KeyringModule:verifyByPublicKey:target:" + JSON.stringify(target));
+            LOG("Debug", "KeyringModule:verifyByPublicKey:verify_key_hex:" + publicKey);
+            LOG("Debug", "KeyringModule:verifyByPublicKey:signature:" + signature);
             return this.kOK<boolean>(ed25519.verify(signature, targetHex, publicKey));
         } catch (error: any) {
             return this.kError("verifyByPublicKey", "verify", error.toString());

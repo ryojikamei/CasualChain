@@ -66,8 +66,8 @@ export class DirectIoSubModule {
             log: log
         }
 
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:init:" + conf.mongo_port.toString());
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:init");
+        LOG("Info", "start on port:" + conf.mongo_port.toString());
 
         const ret = await core.db.lib.init(conf);
         if (ret.isFailure()) {
@@ -86,8 +86,8 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async cleanup(core: ccDirectIoType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:cleanup");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:cleanup");
+        LOG("Info", "start");
 
         const ret1 = await core.db.lib.cleanup(core, core.db.obj);
         if (ret1.isFailure()) {
@@ -106,11 +106,11 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async poolModifyReadsFlag(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:poolModifyReadsFlag");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:poolModifyReadsFlag");
+        LOG("Info", "start");
 
         if (tenantId !== core.conf.administration_id) {
-            LOG("Debug", 0, "DirectIoSubModule:poolModifyReadsFlag:IncorrectAuthorization:" + tenantId);
+            LOG("Notice", "IncorrectAuthorization:" + tenantId);
             return this.ioError("poolModifyReadsFlag", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
@@ -141,11 +141,11 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async poolDeleteTransactions(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:poolDeleteTransactions");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:poolDeleteTransactions");
+        LOG("Info", "start");
 
         if (tenantId !== core.conf.administration_id) {
-            LOG("Debug", 0, "DirectIoSubModule:poolDeleteTransactions:IncorrectAuthorization:" + tenantId);
+            LOG("Notice", "IncorrectAuthorization:" + tenantId);
             return this.ioError("poolDeleteTransactions", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
@@ -182,11 +182,11 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async blockDeleteBlocks(core: ccDirectIoType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:blockDeleteBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:blockDeleteBlocks");
+        LOG("Info", "start");
 
         if (tenantId !== core.conf.administration_id) {
-            LOG("Debug", 0, "DirectIoSubModule:blockDeleteBlocks:IncorrectAuthorization:" + tenantId);
+            LOG("Notice", "IncorrectAuthorization:" + tenantId);
             return this.ioError("blockDeleteBlocks", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
@@ -209,13 +209,13 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async blockUpdateBlocks(core: ccDirectIoType, blocks: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:blockUpdateBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:blockDeleteBlocks");
+        LOG("Info", "start");
 
         if (blocks.length === 0) return this.ioOK<void>(undefined);
 
         if (tenantId !== core.conf.administration_id) {
-            LOG("Debug", 0, "DirectIoSubModule:blockUpdateBlocks:IncorrectAuthorization:" + tenantId);
+            LOG("Notice", "IncorrectAuthorization:" + tenantId);
             return this.ioError("blockUpdateBlocks", "CheckAuthorization", "IncorrectAuthorization:" + tenantId);
         }
 
@@ -237,19 +237,19 @@ export class DirectIoSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getPoolCursor(core: ccDirectIoType, options?: getPoolCursorOptions, tenantId?: string): Promise<gResult<poolCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:getPoolCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:getPoolCursor");
+        LOG("Info", "start");
 
         let filter_key: string | undefined;
         if (tenantId === undefined) {
             if (core.conf.enable_default_tenant === false) {
-                LOG("Debug", -1, "getPoolCursor:default parcel is disabled");
+                LOG("Notice", "default parcel is disabled");
                 return this.ioError("getPoolCursor", "tenantId", "Default parcel is disabled");
             }
             filter_key = core.conf.default_tenant_id;
         } else {
             if (tenantId.length === 0) {
-                LOG("Debug", -1, "getPoolCursor:tenantId is invalid");
+                LOG("Notice", "tenantId is invalid");
                 return this.ioError("getPoolCursor", "tenantId", "The tenatId is invalid");
             }
             filter_key = tenantId;
@@ -293,19 +293,19 @@ export class DirectIoSubModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains corresponding transactions if it's success, and gError if it's failure.
      */
     public async getBlockCursor(core: ccDirectIoType, options?: getBlockCursorOptions, tenantId?: string): Promise<gResult<blockCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:getBlockCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:getBlockCursor");
+        LOG("Info", "start");
 
         let filter_key: string | undefined
         if (tenantId === undefined) {
             if (core.conf.enable_default_tenant === false) {
-                LOG("Debug", -1, "getBlockCursor:default parcel is disabled");
+                LOG("Notice", "default parcel is disabled");
                 return this.ioError("getBlockCursor", "tenantId", "Default parcel is disabled");
             }
             filter_key = core.conf.default_tenant_id;
         } else {
             if (tenantId.length === 0) {
-                LOG("Debug", -1, "getBlockCursor:tenantId is invalid");
+                LOG("Notice", "tenantId is invalid");
                 return this.ioError("getBlockCursor", "tenantId", "The tenatId is invalid");
             }
             filter_key = tenantId;
@@ -327,8 +327,8 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async closeCursor(core: ccDirectIoType, cursorSession: poolCursor | blockCursor): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:closeCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:closeCursor");
+        LOG("Info", "start");
 
         if ((core.db.obj !== undefined) && (cursorSession.session !== undefined)) {
             await core.db.lib.closeCursor(core, cursorSession.session);
@@ -345,8 +345,8 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async setPoolNewData(core: ccDirectIoType, wObj: objTx | undefined, tenantId: string): Promise<gResult<poolResultObject, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:setPoolNewData");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:setPoolNewData");
+        LOG("Info", "start");
 
         if (wObj === undefined) return this.ioOK<poolResultObject>({id: "", status: 0, cache: []});
 
@@ -388,8 +388,8 @@ export class DirectIoSubModule {
      * So there is no need to check the value of success.
      */
     public async setBlockNewData(core: ccDirectIoType, wObj: objBlock | undefined, tenantId: string): Promise<gResult<blockResultObject, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DirectIoSubModule:setBlockNewData");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "directio:setBlockNewData");
+        LOG("Info", "start");
 
         if (wObj === undefined) return this.ioOK<blockResultObject>({id: "", status: 0, cache: []});
 

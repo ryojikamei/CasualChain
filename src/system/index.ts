@@ -16,7 +16,6 @@ export import SystemModule = core.SystemModule
 
 import { ccBlockType } from "../block/index.js"
 import { internalEventFormat, ccEventType } from "../event/index.js"
-import { randomUUID } from "crypto"
 
 /**
  * Defined internal tasks that run automatically

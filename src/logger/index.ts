@@ -15,14 +15,8 @@ export import LogModule = core.LogModule;
 export type ccLogType = {
     lib: LogModule,
     conf: logConfigType,
-    status: number,
-    msg: {
-        last_status: number,
-        last_message: string,
-        last_errormsg: string,
-        last_resultmsg: string,
-        pending_message: string
-    }
+    console_linefeed_pending: boolean,
+    file_pending_message: string
 }
 
 /**

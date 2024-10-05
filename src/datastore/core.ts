@@ -69,8 +69,8 @@ export class DsModule {
             io: undefined,
             log: log
         }
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:init");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "init");
+        LOG("Info", "start");
 
         let iolib;
         if (IoSubModule !== undefined) {
@@ -105,8 +105,8 @@ export class DsModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains ccDsType if it's success, and gError if it's failure.
      */
     public async restart(core: ccDsType, log: ccLogType): Promise<gResult<ccDsType, gError>> {
-        const LOG = log.lib.LogFunc(log);
-        LOG("Info", 0, "DsModule:restart");
+        const LOG = log.lib.LogFunc(log, "Ds", "restart");
+        LOG("Info", "start");
 
         this.coreCondition = "unloaded";
         const ret1 = await this.init(core.conf, log);
@@ -123,8 +123,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async cleanup(core: ccDsType): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:cleanup");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "cleanup");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.cleanup(core.io);
@@ -141,8 +141,8 @@ export class DsModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the itertor of corresponding transactions if it's success, and gError if it's failure.
      */
     public async getPoolCursor(core: ccDsType, options: getPoolCursorOptions, tenantId?: string): Promise<gResult<poolCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:getPoolCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "getPoolCursor");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.getPoolCursor(core.io, options, tenantId);
@@ -159,8 +159,8 @@ export class DsModule {
      * @returns returns with gResult, that is wrapped by a Promise, that contains the itertor of corresponding transactions if it's success, and gError if it's failure.
      */
     public async getBlockCursor(core: ccDsType, options: getBlockCursorOptions, tenantId?: string): Promise<gResult<blockCursor, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:getBlockCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "getBlockCursor");
+        LOG("Info", "start");
         
         if (core.io !== undefined) {
             return await core.io.lib.getBlockCursor(core.io, options, tenantId);
@@ -177,8 +177,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async closeCursor(core: ccDsType, cursorSession: poolCursor | blockCursor): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:closeCursor");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "closeCursor");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.closeCursor(core.io, cursorSession);
@@ -196,8 +196,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async setPoolNewData(core: ccDsType, wObj: objTx | undefined, tenantId: string): Promise<gResult<poolResultObject, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:setPoolNewData");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "setPoolNewData");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.setPoolNewData(core.io, wObj, tenantId);
@@ -215,8 +215,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async setBlockNewData(core: ccDsType, wObj: objBlock | undefined, tenantId: string): Promise<gResult<blockResultObject, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:setBlockNewData");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "setBlockNewData");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.setBlockNewData(core.io, wObj, tenantId);
@@ -234,8 +234,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async poolModifyReadsFlag(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:poolModifyReadsFlag");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "poolModifyReadsFlag");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.poolModifyReadsFlag(core.io, oids, tenantId);
@@ -253,8 +253,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async poolDeleteTransactions(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:poolDeleteTransactions");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "poolDeleteTransactions");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.poolDeleteTransactions(core.io, oids, tenantId);
@@ -272,8 +272,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async blockUpdateBlocks(core: ccDsType, blocks: getBlockResult[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:blockUpdateBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "blockUpdateBlocks");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.blockUpdateBlocks(core.io, blocks, tenantId);
@@ -291,8 +291,8 @@ export class DsModule {
      * So there is no need to check the value of success.
      */
     public async blockDeleteBlocks(core: ccDsType, oids: string[], tenantId: string): Promise<gResult<void, gError>> {
-        const LOG = core.log.lib.LogFunc(core.log);
-        LOG("Info", 0, "DsModule:blockDeleteBlocks");
+        const LOG = core.log.lib.LogFunc(core.log, "Ds", "blockDeleteBlocks");
+        LOG("Info", "start");
 
         if (core.io !== undefined) {
             return await core.io.lib.blockDeleteBlocks(core.io, oids, tenantId);
