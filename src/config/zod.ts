@@ -192,3 +192,12 @@ export const eventConfigInputSchema = z.object({
  * The configuration property for EventModule
  */
 export type eventConfigType = z.infer<typeof eventConfigInputSchema>;
+
+
+export const getConfigurationInputSchema = z.object({
+    showPasswords: z.boolean() 
+})
+export type getConfigurationOptions = z.infer<typeof getConfigurationInputSchema>;
+
+export const editConfigurationInputSchema = z.record(z.string(), z.string());
+export type editConfigurationOptions = z.infer<typeof editConfigurationInputSchema>;

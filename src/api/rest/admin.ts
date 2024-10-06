@@ -13,6 +13,9 @@ import { Server } from "http";
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { ccApiType } from "../index.js";
+import { postCloseParcelInputSchema, postGenesisBlockInputSchema, postOpenParcelInputSchema, postScanAndFixInputSchema } from "../../system/zod.js";
+import { editConfigurationInputSchema, getConfigurationInputSchema } from "../../config/zod.js";
+import { SafeParseReturnType, ZodSchema } from "zod";
 
 /**
  * Provide Administration APIs.
@@ -96,6 +99,15 @@ export class ListnerV3AdminApi {
         : "No credentials provided"
     }
 
+    private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
+        if (body === undefined) { return this.adminOK(undefined); }
+        try {
+            return this.adminOK(schema.parse(body));
+        } catch (error: any) {
+            return this.adminError("Rest", "adminApi", "parseBody", JSON.stringify(error.issues));
+        }
+    }
+
     /**
      * Register basic authentication and API endpoints
      * @param acore - set ccApiType instance
@@ -151,7 +163,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-initbc");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postGenesisBlock(acore.s, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postGenesisBlockInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/initbc"));
+                }
+                acore.s.lib.postGenesisBlock(acore.s, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/initbc"));
@@ -169,7 +186,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-syncblocked");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postScanAndFixBlock(acore.s, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postScanAndFixInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/syncblocked"));
+                }
+                acore.s.lib.postScanAndFixBlock(acore.s, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/syncblocked"));
@@ -187,7 +209,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-syncpooling");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postScanAndFixPool(acore.s, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postScanAndFixInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/syncpooling"));
+                }
+                acore.s.lib.postScanAndFixPool(acore.s, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/syncpooling"));
@@ -205,7 +232,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                const ret = acore.c.lib.getConfiguration(undefined, req.body);
+                const parseResult = this.parseBody(req.body, getConfigurationInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/getconf"));
+                }
+                const ret = acore.c.lib.getConfiguration(undefined, parseResult.value);
                 this.runcounter--;
                 if (ret.isFailure()) {
                     return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
@@ -222,7 +254,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                const ret = acore.c.lib.getConfiguration(req.params.module, req.body);
+                const parseResult = this.parseBody(req.body, getConfigurationInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/getconf"));
+                }
+                const ret = acore.c.lib.getConfiguration(req.params.module, parseResult.value);
                 this.runcounter--;
                 if (ret.isFailure()) {
                     return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/getconf"));
@@ -239,7 +276,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-setconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
-                const [key, value] = Object.entries(req.body)[0];
+                const parseResult = this.parseBody(req.body, editConfigurationInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/editconf"));
+                }
+                const [key, value] = Object.entries(parseResult.value)[0];
                 const ret = acore.c.lib.setConfiguration(key, String(value));
                 this.runcounter--;
                 if (ret.isFailure()) {
@@ -289,7 +331,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-opentenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postOpenParcel(acore.s, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postOpenParcelInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/opentenant"));
+                }
+                acore.s.lib.postOpenParcel(acore.s, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/opentenant"));
@@ -307,7 +354,12 @@ export class ListnerV3AdminApi {
             LOG("Info", "sys-closetenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
-                acore.s.lib.postCloseParcel(acore.s, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postCloseParcelInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/sys/closetenant"));
+                }
+                acore.s.lib.postCloseParcel(acore.s, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/sys/closetenant"));

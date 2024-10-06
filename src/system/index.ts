@@ -14,6 +14,8 @@ import { ccMainType } from "../main/index.js"
 import * as core from "./core.js"
 export import SystemModule = core.SystemModule
 
+import * as zod from "./zod.js"
+
 import { ccBlockType } from "../block/index.js"
 import { internalEventFormat, ccEventType } from "../event/index.js"
 
@@ -59,17 +61,13 @@ export type ccSystemType = {
  * The options for postScanAndFix
  * - scanonly: it only reports the condition of the pool or block and exit
  */
-export type postScanAndFixOptions = {
-    scanonly?: boolean
-}
+export import postScanAndFixOptions = zod.postScanAndFixOptions;
 
 /**
  * The options for postGenesisBlock
  * trytoreset: set true when trying to reinit the chain. It won't work in production state.
  */
-export type postGenesisBlockOptions = {
-    trytoreset: boolean
-}
+export import postGenesisBlockOptions = zod.postGenesisBlockOptions;
 
 /**
  * The rpc format for gRPC
@@ -127,17 +125,11 @@ export type examinedHashes = {
  * - adminId: administration_id to initialize
  * - recallPhrase: phrase to recall tenantId
  */
-export type postOpenParcelOptions = {
-    adminId: string,
-    recallPhrase: string
-}
+export import postOpenParcelOptions = zod.postOpenParcelOptions;
 
 /**
  * The options for postCloseParcel
  * - adminId: administration_id to disable
  * - tenantId: target tenant id to close
  */
-export type postCloseParcelOptions = {
-    adminId: string,
-    tenantId: string
-}
+export import postCloseParcelOptions = zod.postCloseParcelOptions;
