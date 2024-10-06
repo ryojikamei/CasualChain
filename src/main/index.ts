@@ -12,7 +12,7 @@ import { ccSystemType } from "../system/index.js"
 import * as main from "./core.js"
 export import MainModule = main.MainModule
 
-
+import * as zod from "./zod.js"
 
 /**
  * The core object of the MainModule
@@ -33,13 +33,7 @@ export type ccMainType = {
  * - constrainedSize: stops counting just before the specified size is exceeded
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getAllBlockOptions = {
-    sortOrder?: number,
-    bareTransaction?: boolean,
-    ignoreGenesisBlockIsNotFound?: boolean,
-    constrainedSize?: number,
-    tenant?: string
-}
+export import getAllBlockOptions = zod.getAllBlockOptions;
 
 /**
  * Options for gettting blocks
@@ -48,12 +42,7 @@ export type getAllBlockOptions = {
  * - constrainedSize: stops counting just before the specified size is exceeded
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getBlockOptions = {
-    sortOrder?: number,
-    ignoreGenesisBlockIsNotFound?: boolean,
-    constrainedSize?: number,
-    tenant?: string
-}
+export import getBlockOptions = zod.getBlockOptions;
 
 /**
  * General options for getting transactions 
@@ -62,12 +51,7 @@ export type getBlockOptions = {
  * - constrainedSize: stops counting just before the specified size is exceeded
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getTransactionOptions = {
-    excludeNonpropergate?: boolean,
-    sortOrder?: number,
-    constrainedSize?: number,
-    tenant?: string
-}
+export import getTransactionOptions = zod.getTransactionOptions;
 
 /**
  * Options for getSearchByOid 
@@ -75,11 +59,7 @@ export type getTransactionOptions = {
  * - constrainedSize: stops counting just before the specified size is exceeded
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getTransactionOrBlockOptions = {
-    targetIsBlock?: boolean,
-    constrainedSize?: number,
-    tenant?: string
-}
+export import getTransactionOrBlockOptions = zod.getTransactionOrBlockOptions;
 
 /**
  * Options for getTransactionHeight
@@ -88,12 +68,7 @@ export type getTransactionOrBlockOptions = {
  * - excludeNonpropergate: exclude transactions that are not propergated to other nodes
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getTransactionHeightOptions = {
-    excludeBlocked?: boolean,
-    excludePooling?: boolean,
-    excludeNonpropergate?: boolean,
-    tenant?: string
-}
+export import getTransactionHeightOptions = zod.getTransactionHeightOptions;
 
 /**
  * Options for getJson 
@@ -110,20 +85,7 @@ export type getTransactionHeightOptions = {
  * - constrainedSize: stops counting just before the specified size is exceeded
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type getJsonOptions = {
-    key: string,
-    value: any,
-    searchBlocks?: boolean,
-    excludeBlocked?: boolean,
-    excludePooling?: boolean,
-    excludeNonpropergate?: boolean,
-    ignoreGenesisBlockIsNotFound?: boolean,
-    sortOrder?: number,
-    matcherType?: string,
-    whole?: boolean,
-    constrainedSize?: number,
-    tenant?: string
-}
+export import getJsonOptions = zod.getJsonOptions;
 
 /**
  * Options for postJson
@@ -133,10 +95,4 @@ export type getJsonOptions = {
  * - compatDateTime: use human readable date format instead of unix timestamp
  * - tenant: set tenant ID. If undefined, it is considered set if default_tenant_id is allowed and an error if it is not
  */
-export type postJsonOptions = {
-    type: string,
-    prev_id?: string,
-    data: any,
-    compatDateTime?: boolean,
-    tenant?: string
-}
+export type postJsonOptions = zod.postJsonOptions;

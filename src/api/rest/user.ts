@@ -14,6 +14,8 @@ import { Server } from "http";
 import { gResult, gSuccess, gFailure, gError } from "../../utils.js";
 
 import { ccApiType } from "../index.js";
+import { ZodSchema } from "zod";
+import { getAllBlockInputSchema, getBlockInputSchema, getJsonInputSchema, getTransactionHeightInputSchema, getTransactionInputSchema, getTransactionOrBlockInputSchema, postJsonInputSchema } from "../../main/zod.js";
 
 /**
  * Provide User APIs.
@@ -97,6 +99,15 @@ export class ListnerV3UserApi {
         : "No credentials provided"
     }
 
+    private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
+        if (body === undefined) { return this.userOK(undefined); }
+        try {
+            return this.userOK(schema.parse(body));
+        } catch (error: any) {
+            return this.userError("Rest", "userApi", "parseBody", JSON.stringify(error.issues));
+        }
+    }
+
     /**
      * Register basic authentication and API endpoints
      * @param acore - set ccApiType instance
@@ -116,7 +127,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getSearchByJson(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getJsonInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/byjson"));
+                }
+                acore.m.lib.getSearchByJson(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/byjson"));
@@ -134,7 +150,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-byoid");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getSearchByOid(acore.m, req.params.oid, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionOrBlockInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/byoid"));
+                }
+                acore.m.lib.getSearchByOid(acore.m, req.params.oid, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/byoid"));
@@ -154,7 +175,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-alltxs");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getAll(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/alltxs"));
+                }
+                acore.m.lib.getAll(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/alltxs"));
@@ -172,7 +198,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-blocked");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getAllBlock(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getAllBlockInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/blocked"));
+                }
+                acore.m.lib.getAllBlock(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/blocked"));
@@ -190,7 +221,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-pooling");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getAllPool(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/pooling"));
+                }
+                acore.m.lib.getAllPool(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/pooling"));
@@ -208,7 +244,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-lastblock");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getLastBlock(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getBlockInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/lastblock"));
+                }
+                acore.m.lib.getLastBlock(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/lastblock"));
@@ -226,7 +267,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-poolingdelivered");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getAllDeliveredPool(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/poolingdelivered"));
+                }
+                acore.m.lib.getAllDeliveredPool(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/poolingdelivered"));
@@ -244,9 +290,13 @@ export class ListnerV3UserApi {
             LOG("Info", "get-totalnumber");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                let opt = clone(req.body);
-                opt.skippooling = true;
-                acore.m.lib.getTransactionHeight(acore.m, opt).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionHeightInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/totalnumber"));
+                }
+                parseResult.value.excludePooling = true;
+                acore.m.lib.getTransactionHeight(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/totalnumber"));
@@ -264,7 +314,12 @@ export class ListnerV3UserApi {
             LOG("Info", "get-histrory");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.getHistoryByOid(acore.m, req.params.oid, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, getTransactionInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/get/history"));
+                }
+                acore.m.lib.getHistoryByOid(acore.m, req.params.oid, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/get/history"));
@@ -282,7 +337,12 @@ export class ListnerV3UserApi {
             LOG("Info", "post-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
-                acore.m.lib.postByJson(acore.m, req.body).then((data) => {
+                const parseResult = this.parseBody(req.body, postJsonInputSchema);
+                if (parseResult.isFailure()) {
+                    this.runcounter--;
+                    return res.status(400).json(this.craftErrorResponse(parseResult.value, "/post/byjson"));
+                }
+                acore.m.lib.postByJson(acore.m, parseResult.value).then((data) => {
                     this.runcounter--;
                     if (data.isFailure()) {
                         return res.status(503).json(this.craftErrorResponse(data.value, "/post/byjson"));

@@ -24,9 +24,7 @@ export import keyringConfigType = zod.keyringConfigType;
 export import eventConfigType = zod.eventConfigType;
 export import wholeConfigType = zod.wholeConfigType;
 
-export type getConfigurationOptions = {
-    showPasswords?: boolean
-}
+export import getConfigurationOptions = zod.getConfigurationOptions;
 
 export type configCache = {
     conf: wholeConfigType,

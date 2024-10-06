@@ -93,13 +93,7 @@ export class ConfigModule {
                 file_level: nodeConfig.get("logger.file_level"),
             })
         } catch (error: any) {
-            let detail: string;
-            try {
-                detail = error.toString();
-            } catch (error: any) {
-                detail = error.flatten();
-            }
-            return this.cError("init", "logger", detail);
+            return this.cError("init", "logger", JSON.stringify(error.issues));
         }
         let console_level_number = -1;
         const console_level_string: string = li.console_level;
