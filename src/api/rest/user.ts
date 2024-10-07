@@ -6,6 +6,7 @@
 
 import express from "express";
 import basicAuth from "express-basic-auth";
+import helmet from "helmet";
 import clone from "clone";
 
 import { setInterval } from "timers/promises";
@@ -122,6 +123,7 @@ export class ListnerV3UserApi {
         const authUser = acore.conf.rest.userapi_user;
         const authPassword = acore.conf.rest.userapi_password;
         this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
+        this.api.use(helmet({ strictTransportSecurity: false }));
 
         this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
             LOG("Info", "get-byjson");

@@ -6,6 +6,7 @@
 
 import express from "express";
 import basicAuth from "express-basic-auth";
+import helmet from "helmet";
 
 import { setInterval } from "timers/promises";
 import { Server } from "http";
@@ -122,6 +123,7 @@ export class ListnerV3AdminApi {
         const authUser = acore.conf.rest.adminapi_user;
         const authPassword = acore.conf.rest.adminapi_password;
         this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
+        this.api.use(helmet({ strictTransportSecurity: false }));
 
         this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-deliverpooling");
