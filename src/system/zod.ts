@@ -8,12 +8,12 @@ import { z } from "zod"
 
 
 export const postGenesisBlockInputSchema = z.object({
-    trytoreset: z.boolean()
+    trytoreset: z.boolean().optional()
 })
 export type postGenesisBlockOptions = z.infer<typeof postGenesisBlockInputSchema>;
 
 export const postScanAndFixInputSchema = z.object({
-    scanonly: z.boolean()
+    scanonly: z.boolean().optional()
 })
 export type postScanAndFixOptions = z.infer<typeof postScanAndFixInputSchema>;
 

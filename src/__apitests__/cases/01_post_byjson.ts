@@ -20,7 +20,7 @@ export async function run(conf: any): Promise<number> {
 
     const payload2 = JSON.stringify({ wrong: "new", tenant: "a24e797d-84d1-4012-ba78-8882f2711f6c", data: { desc: "test" }});
     const ret2: responseType = await runAxios("/post/byjson", "post", conf.bcapi, payload2);
-    if (ret2.code !== 503) {
+    if (ret2.code !== 400) {
         return -2;
     }
     const desc = await generateData("01-1");
