@@ -38,7 +38,7 @@ export async function run(conf: any): Promise<number> {
 
     const payload5 = JSON.stringify({ tenant: "a24e797d-84d1-4012-ba78-8882f2711f6c", value: "test" });
     const ret5: responseType = await runAxios("/get/byjson", "get", conf.bcapi, payload5);
-    if (ret5.data.length !== 0) {
+    if (ret5.code !== 400) {
         return -5;
     }
 

@@ -13,13 +13,13 @@ export async function run(conf: any): Promise<number> {
     // Failure
     const payload1 = JSON.stringify({});
     const ret1: responseType = await runAxios("/sys/opentenant", "post", conf.bcapi, payload1);
-    if (ret1.code !== 503) {
+    if (ret1.code !== 400) {
         return -1;
     }
     
     const payload2 = JSON.stringify({ "adminId": "8e921d59-00b4-48c2-9ed2-b9f2a90030d6"});
     const ret2: responseType = await runAxios("/sys/opentenant", "post", conf.bcapi, payload2);
-    if (ret2.code !== 503) {
+    if (ret2.code !== 400) {
         return -2;
     }
     const payload3 = JSON.stringify({ "adminId": "wrong", "recallPhrase": "apittest" });

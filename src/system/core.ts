@@ -617,10 +617,10 @@ export class SystemModule {
             core.serializationLocks.postGenesisBlock = true;
         }
 
-        let forceresetiftesting: boolean = false;
+        let forceresetiftesting: boolean  = false;
         if (options !== undefined) {
             try {
-                forceresetiftesting = options.trytoreset;
+                if (options.trytoreset !== undefined) { forceresetiftesting = options.trytoreset; };
             } catch (error) {
                 core.serializationLocks.postGenesisBlock = false;
                 return this.sError("postGenesisBlock", "Option parse", "The options are incorrect; it may have been forgotten to add Content-type.");
