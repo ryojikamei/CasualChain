@@ -5,9 +5,7 @@
  */
 
 import express from "express";
-import basicAuth from "express-basic-auth";
 import helmet from "helmet";
-import clone from "clone";
 
 import { setInterval } from "timers/promises";
 import { Server } from "http";
@@ -89,17 +87,6 @@ export class ListnerV3UserApi {
         this.runningPort = -1;
     }
 
-    /**
-     * Basic authentication helper method to return unauthorized response
-     * @param req - request body 
-     * @returns returns req.auth
-     */
-    private getUnauthorizedResponse(req: any): string {
-        return req.auth
-        ? ("Credentials " + req.auth.user + ":" + req.auth.password + " rejected")
-        : "No credentials provided"
-    }
-
     private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
         if (body === undefined) { return this.userOK(undefined); }
         try {
@@ -110,7 +97,7 @@ export class ListnerV3UserApi {
     }
 
     /**
-     * Register basic authentication and API endpoints
+     * Register API authentication and endpoints
      * @param acore - set ccApiType instance
      * @returns returns with gResult type that contains express.Express if it's success, and unknown if it's failure.
      */
@@ -122,10 +109,50 @@ export class ListnerV3UserApi {
         this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
         const authUser = acore.conf.rest.userapi_user;
         const authPassword = acore.conf.rest.userapi_password;
-        this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
         this.api.use(helmet({ strictTransportSecurity: false }));
 
-        this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
+        const auth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            let token = "";
+            if ((req.headers.authorization !== undefined) && (req.headers.authorization.split(" ")[0] === "Bearer")) {
+                token = req.headers.authorization.split(" ")[1];
+            } else {
+                return next("No token is specified");
+            }
+            if (acore.k === undefined) { return next("Keyring Module is currently down."); }
+            const ret = acore.k.lib.verifyWithPaseto(acore.k, token);
+            if (ret.isFailure()) {
+                return next(ret.value)
+            } else {
+                LOG("Info", "The authorization of " + authUser + " for user APIs is successful.")
+                next();
+            }
+        }
+            
+        this.api.post("/post/login", (req: express.Request, res: express.Response) => {
+            LOG("Info", "post-login");
+
+            if ((req.body.user !== authUser) || (req.body.password !== authPassword)) {
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "signWithPaseto", pos: "frontend", detail: "Invalid user or password."}, message: "Invalid user or password." }
+                return res.status(403).json(this.craftErrorResponse(errmsg, "/post/login"));
+            }
+            if (acore.k !== undefined) {
+                this.runcounter++;
+                const target = { user: authUser, password: authPassword }
+                const ret = acore.k.lib.signWithPaseto(acore.k, target);
+                this.runcounter--;
+                if (ret.isFailure()) {
+                    return res.status(503).json(this.craftErrorResponse(ret.value, "/post/login"));
+                } else {
+                    return res.status(200).json(ret.value);
+                }
+            } else {
+                LOG("Warning", "Keyring Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "signWithPaseto", pos: "frontend", detail: "Keyring Module is currently down." }, message: "Keyring Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/post/login"));
+            }
+        })
+
+        this.api.get("/get/byjson", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -148,7 +175,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/byoid/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/byoid/:oid(\\w{24})", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-byoid");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -173,7 +200,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/alltxs", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/alltxs", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-alltxs");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -196,7 +223,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/blocked", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/blocked", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-blocked");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -219,7 +246,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/pooling", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/pooling", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-pooling");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -242,7 +269,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/lastblock", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/lastblock", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-lastblock");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -265,7 +292,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/poolingdelivered", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/poolingdelivered", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-poolingdelivered");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -288,7 +315,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/totalnumber", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/totalnumber", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-totalnumber");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -312,7 +339,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.get("/get/history/:oid(\\w{24})", (req: express.Request, res: express.Response) => {
+        this.api.get("/get/history/:oid(\\w{24})", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "get-histrory");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -335,7 +362,7 @@ export class ListnerV3UserApi {
             }
         });
 
-        this.api.post("/post/byjson", (req: express.Request, res: express.Response) => {
+        this.api.post("/post/byjson", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "post-byjson");
             if (acore.m !== undefined) {
                 this.runcounter++;
@@ -387,6 +414,9 @@ export class ListnerV3UserApi {
 
         const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
 
+        this.api.post("/post/login", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/post/login"));
+        });
         this.api.get("/get/byjson", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/get/byjson"));
         });

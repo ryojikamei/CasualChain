@@ -5,7 +5,6 @@
  */
 
 import express from "express";
-import basicAuth from "express-basic-auth";
 import helmet from "helmet";
 
 import { setInterval } from "timers/promises";
@@ -89,17 +88,6 @@ export class ListnerV3AdminApi {
         this.runningPort = -1;
     }
 
-    /**
-     * Basic authentication helper method to return unauthorized response
-     * @param req - request body 
-     * @returns returns req.auth
-     */
-    private getUnauthorizedResponse(req: any): string {
-        return req.auth
-        ? ("Credentials " + req.auth.user + ":" + req.auth.password + " rejected")
-        : "No credentials provided"
-    }
-
     private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
         if (body === undefined) { return this.adminOK(undefined); }
         try {
@@ -110,7 +98,7 @@ export class ListnerV3AdminApi {
     }
 
     /**
-     * Register basic authentication and API endpoints
+     * Register API authentication and endpoints
      * @param acore - set ccApiType instance
      * @returns returns with gResult type that contains express.Express if it's success, and unknown if it's failure.
      */
@@ -122,10 +110,50 @@ export class ListnerV3AdminApi {
         this.api.use(express.urlencoded({ extended: true, limit: '16777216b' }));
         const authUser = acore.conf.rest.adminapi_user;
         const authPassword = acore.conf.rest.adminapi_password;
-        this.api.use(basicAuth({users: {[authUser]:authPassword}, unauthorizedResponse: this.getUnauthorizedResponse}));
         this.api.use(helmet({ strictTransportSecurity: false }));
 
-        this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
+        const auth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+            let token = "";
+            if ((req.headers.authorization !== undefined) && (req.headers.authorization.split(" ")[0] === "Bearer")) {
+                token = req.headers.authorization.split(" ")[1];
+            } else {
+                return next("No token is specified");
+            }
+            if (acore.k === undefined) { return next("Keyring Module is currently down."); }
+            const ret = acore.k.lib.verifyWithPaseto(acore.k, token);
+            if (ret.isFailure()) {
+                return next(ret.value)
+            } else {
+                LOG("Info", "The authorization of " + authUser + " for administation APIs is successful.")
+                next();
+            }
+        }
+            
+        this.api.post("/sys/login", (req: express.Request, res: express.Response) => {
+            LOG("Info", "sys-login");
+
+            if ((req.body.user !== authUser) || (req.body.password !== authPassword)) {
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "signWithPaseto", pos: "frontend", detail: "Invalid user or password."}, message: "Invalid user or password." }
+                return res.status(403).json(this.craftErrorResponse(errmsg, "/sys/login"));
+            }
+            if (acore.k !== undefined) {
+                this.runcounter++;
+                const target = { user: authUser, password: authPassword }
+                const ret = acore.k.lib.signWithPaseto(acore.k, target);
+                this.runcounter--;
+                if (ret.isFailure()) {
+                    return res.status(503).json(this.craftErrorResponse(ret.value, "/sys/login"));
+                } else {
+                    return res.status(200).json(ret.value);
+                }
+            } else {
+                LOG("Warning", "Keyring Module is currently down.");
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "signWithPaseto", pos: "frontend", detail: "Keyring Module is currently down." }, message: "Keyring Module is currently down." }
+                return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/login"));
+            }
+        })
+                        
+        this.api.post("/sys/deliverpooling", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-deliverpooling");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -143,7 +171,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/blocking", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/blocking", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-blocking");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -161,7 +189,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/initbc", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/initbc", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-initbc");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -184,7 +212,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/syncblocked", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/syncblocked", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-syncblocked");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -207,7 +235,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/syncpooling", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/syncpooling", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-syncpooling");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -230,7 +258,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.get("/sys/getconf", (req: express.Request, res: express.Response) => {
+        this.api.get("/sys/getconf", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
@@ -252,7 +280,7 @@ export class ListnerV3AdminApi {
             }
         })
 
-        this.api.get("/sys/getconf/:module", (req: express.Request, res: express.Response) => {
+        this.api.get("/sys/getconf/:module", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-getconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
@@ -274,7 +302,7 @@ export class ListnerV3AdminApi {
             }
         })
 
-        this.api.post("/sys/editconf", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/editconf", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-setconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
@@ -297,7 +325,7 @@ export class ListnerV3AdminApi {
             }
         })
 
-        this.api.post("/sys/resetconf", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/resetconf", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-resetconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
@@ -315,7 +343,7 @@ export class ListnerV3AdminApi {
             }
         })
 
-        this.api.post("/sys/applyconf", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/applyconf", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-applyconf");
             if (acore.c !== undefined) {
                 this.runcounter++;
@@ -329,7 +357,7 @@ export class ListnerV3AdminApi {
             }
         })
         
-        this.api.post("/sys/opentenant", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/opentenant", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-opentenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -352,7 +380,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/closetenant", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/closetenant", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-closetenant");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -375,7 +403,7 @@ export class ListnerV3AdminApi {
             }
         });
 
-        this.api.post("/sys/synccache", (req: express.Request, res: express.Response) => {
+        this.api.post("/sys/synccache", auth, (req: express.Request, res: express.Response) => {
             LOG("Info", "sys-synccache");
             if (acore.s !== undefined) {
                 this.runcounter++;
@@ -422,6 +450,9 @@ export class ListnerV3AdminApi {
 
         const errmsg: gError= { name: "Error", origin: { module: "listener", func: "shutdown", pos: "frontend", detail: "Shutdown is in progress." }, message: "Shutdown is in progress." }
 
+        this.api.post("/sys/login", (req: express.Request, res: express.Response) => {
+            return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/login"));
+        });
         this.api.post("/sys/deliverpooling", (req: express.Request, res: express.Response) => {
             return res.status(503).json(this.craftErrorResponse(errmsg, "/sys/deliverpooling"));
         });
