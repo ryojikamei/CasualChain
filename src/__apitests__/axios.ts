@@ -5,6 +5,7 @@
  */
 
 import axios from "axios";
+import { authTokens } from "./server";
 
 export type responseType = {
     code: number,
@@ -13,34 +14,39 @@ export type responseType = {
     errormsg: string
 }
 
-export async function runAxios(cmd: string, method: string, bcapi: any, payload?: string, nodeNo?: number): Promise<responseType> {
+function genHeaders(cmd: string, token: string): object {
+    let header = { "Content-Type": "application/json; charset=utf-8" };
+
+    if (cmd.endsWith("/login") === false) {
+        header = { ...header, ...{ "Authorization": "Bearer " + token } };
+    }
+
+    return header;
+}
+
+export async function runAxios(cmd: string, method: string, bcapi: any, tokens: authTokens, payload?: string, nodeNo?: number): Promise<responseType> {
     let baseURL: string
-    let username: string
-    let password: string
+    let headers: object
     if (cmd.startsWith("/sys/") === false) {
         switch (nodeNo) {
             case 2:
                 baseURL = "http://" + bcapi.node2.host + ":" + bcapi.node2.userapi_port.toString();
-                username = bcapi.node2.userapi_user;
-                password = bcapi.node2.userapi_password;
+                headers = genHeaders(cmd, tokens.node2_user);
                 break;
             default:
                 baseURL = "http://" + bcapi.node1.host + ":" + bcapi.node1.userapi_port.toString();
-                username = bcapi.node1.userapi_user;
-                password = bcapi.node1.userapi_password;
+                headers = genHeaders(cmd, tokens.node1_user);
                 break;
         }
     } else {
         switch (nodeNo) {
             case 2:
                 baseURL = "http://" + bcapi.node2.host + ":" + bcapi.node2.adminapi_port.toString();
-                username = bcapi.node2.adminapi_user;
-                password = bcapi.node2.adminapi_password;
+                headers = genHeaders(cmd, tokens.node2_admin);
                 break;
             default:
                 baseURL = "http://" + bcapi.node1.host + ":" + bcapi.node1.adminapi_port.toString();
-                username = bcapi.node1.adminapi_user;
-                password = bcapi.node1.adminapi_password;
+                headers = genHeaders(cmd, tokens.node1_admin);
                 break;
         }
     }
@@ -56,11 +62,7 @@ export async function runAxios(cmd: string, method: string, bcapi: any, payload?
     await axios(cmd, {
         method: method,
         baseURL: baseURL,
-        headers: { "Content-Type": "application/json; charset=utf-8" },
-        auth: {
-            username: username,
-            password: password
-        },
+        headers: headers,
         data: data
     })
     .then((onfullfilled) => {

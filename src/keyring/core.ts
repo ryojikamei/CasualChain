@@ -5,9 +5,11 @@
  */
 
 import { existsSync } from "fs";
+import { readFile } from "fs/promises";
+
 import { execa } from "execa";
 import { ed25519 } from "@noble/curves/ed25519";
-import { readFile } from "fs/promises";
+import { generateKeys, sign, verify } from "paseto-ts/v4";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
@@ -18,6 +20,8 @@ import { ccLogType } from "../logger/index.js";
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
 import { moduleCondition } from "../index.js";
+import { AnyARecord } from "dns";
+import { Payload } from "paseto-ts/lib/types";
 
 /**
  * The tag string for the transaction of public keys
@@ -106,8 +110,14 @@ export class KeyringModule {
             }
         }
 
-        const private_cache = await readFile(this.configPath + conf.sign_key_file, "utf-8");
-        const public_cache = await readFile(this.configPath + conf.verify_key_file, "utf-8");
+        // for TLS/gRPC
+        const private_openssl = await readFile(this.configPath + conf.sign_key_file, "utf-8");
+        const public_openssl = await readFile(this.configPath + conf.verify_key_file, "utf-8");
+        // for noble-curves
+        const private_noble = Buffer.from(private_openssl.split(/\n/)[1].slice(0,32)).toString("hex");
+        const public_noble = Buffer.from(ed25519.getPublicKey(private_noble)).toString("hex")
+        // for PASETO
+        const pasetoKeys = generateKeys("public"); 
 
         const CertificateSigningRequest = this.configPath + conf.tls_csr_file;
         if (existsSync(CertificateSigningRequest) === false) {
@@ -125,19 +135,14 @@ export class KeyringModule {
 
         core.cache.push({
             nodename: "self",
-            sign_key: private_cache,
-            sign_key_hex: Buffer.from(private_cache.split(/\n/)[1].slice(0,32)).toString("hex"),
-            verify_key: public_cache,
-            verify_key_hex: Buffer.from(public_cache.split(/\n/)[1]).toString("hex"),
+            sign_key: private_openssl,
+            sign_key_hex: private_noble,
+            sign_key_paserk: pasetoKeys.secretKey,
+            verify_key: public_openssl,
+            verify_key_hex: public_noble,
+            verify_key_paserk: pasetoKeys.publicKey,
             tls_crt: crt_cache
         });
-        // noble-curves doen't accept pubkey from openssl
-        // AND grpc doesn't accept keys from noble-curves
-        if (core.cache[0].sign_key_hex !== undefined) {
-            const pubKeyArr8: Uint8Array = ed25519.getPublicKey(core.cache[0].sign_key_hex);
-            const pubKeyHexStr = Buffer.from(pubKeyArr8).toString("hex");
-            core.cache[0].verify_key_hex = pubKeyHexStr;
-        }
 
         this.coreCondition = "initialized"
         core.lib.coreCondition = this.coreCondition;
@@ -497,6 +502,41 @@ export class KeyringModule {
             return this.kOK<boolean>(ed25519.verify(signature, targetHex, publicKey));
         } catch (error: any) {
             return this.kError("verifyByPublicKey", "verify", error.toString());
+        }
+    }
+
+    /**
+     * Sign with PASETO to generate a token
+     * @param core - set ccKeyringType instance
+     * @param target - the target object to sign
+     * @returns returns with gResult, that contains the token string if it's success, and gError if it's failure.
+     */
+    public signWithPaseto<T extends { [key: string]: any; }>(core: ccKeyringType, target: T & Payload): gResult<string, gError> {
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "signWithPaseto");
+        LOG("Info", "start");
+
+        if (core.cache[0].sign_key_paserk === undefined) {
+            return this.kError("signWithPaseto", "sign_key", "The private key is invalid");
+        }
+        try {
+            return this.kOK(sign(core.cache[0].sign_key_paserk, target));
+        } catch (error: any) {
+            return this.kError("signWithPaseto", "sign", error.toString());
+        }
+    }
+
+    public verifyWithPaseto(core: ccKeyringType, token: string): gResult<object, gError> {
+        const LOG = core.log.lib.LogFunc(core.log, "Keyring", "verifyWithPaseto");
+        LOG("Info", "start:" + token);
+
+        if (core.cache[0].verify_key_paserk === undefined) {
+            return this.kError("verifyWithPaseto", "verify_key", "The public key is invalid");
+        }
+        try {
+            const { payload, footer } = verify(core.cache[0].verify_key_paserk, token);
+            return this.kOK(payload);
+        } catch (error: any) {
+            return this.kError("verifyWithPaseto", "verify", error.toString());
         }
     }
 }

@@ -149,19 +149,73 @@ export async function exportTestData(collection: string, dumpfile: string): Prom
     return ret.exitCode;
 }
 
-export async function waitForNode() {
-    console.log("Waiting for test nodes are ready.");
-    for await (const _ of setInterval(500)) {
+export type authTokens = {
+    node1_admin: string,
+    node1_user: string,
+    node2_admin: string,
+    node2_user: string
+}
+
+async function getAuthTokens(): Promise<authTokens> {
+
+    let tokens: authTokens = {
+        node1_admin: "",
+        node1_user: "",
+        node2_admin: "",
+        node2_user: ""
+    }
+    let data: string = "";
+
+    for await (const _ of setInterval(200)) {
+        data = JSON.stringify({ user: conf.bcapi.node1.userapi_user, password: conf.bcapi.node1.userapi_password });
+        const ret300: responseType = await runAxios("/post/login", "post", conf.bcapi, tokens, data, 1);
+        if (ret300.code !== 200) {
+            continue;
+        } else {
+            tokens.node1_user = ret300.data;
+        }
+    
+        data = JSON.stringify({ user: conf.bcapi.node1.adminapi_user, password: conf.bcapi.node1.adminapi_password });
+        const ret301: responseType = await runAxios("/sys/login", "post", conf.bcapi, tokens, data, 1);
+        if (ret301.code !== 200) {
+            continue
+        } else {
+            tokens.node1_admin = ret301.data;
+        }
+    
+        data = JSON.stringify({ user: conf.bcapi.node2.userapi_user, password: conf.bcapi.node2.userapi_password });
+        const ret302: responseType = await runAxios("/post/login", "post", conf.bcapi, tokens, data, 2);
+        if (ret302.code !== 200) {
+            continue
+        } else {
+            tokens.node2_user = ret302.data;
+        }
+    
+        data = JSON.stringify({ user: conf.bcapi.node2.adminapi_user, password: conf.bcapi.node2.adminapi_password });
+        const ret303: responseType = await runAxios("/sys/login", "post", conf.bcapi, tokens, data, 2);
+        if (ret303.code !== 200) {
+            continue
+        } else {
+            tokens.node2_admin = ret303.data;
+        }
+        break;
+    }
+
+    return tokens;
+}
+
+export async function waitForNode(tokens: authTokens) {
+    for await (const _ of setInterval(200)) {
         // Kicking data out of pool
-        const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
+        const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, tokens);
         if (ret200.code !== 200) {
             continue;
         }
-        const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
+        const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, tokens, undefined, 2);
         if (ret201.code !== 200) {
             continue;
         }
-        const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
+        const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi, tokens);
         if (ret202.code !== 200) {
             continue;
         }
@@ -172,7 +226,6 @@ export async function waitForNode() {
             let i = -1;
             while ((i = keys.indexOf("\n", i + 1)) >= 0) { lines++; }
             if (lines >= 2) { 
-                console.log("==== Nodes are now ready ====");
                 break;
             }
         } catch (error: any) {
@@ -187,7 +240,10 @@ async function apiTestMain() {
     const pathcases = process.cwd() + "/dist/__apitests__/cases/"
     const testcases = await readdir(pathcases);
 
-    await waitForNode();
+    console.log("Waiting for test nodes are ready.");
+    const tokens: authTokens = await getAuthTokens();
+    await waitForNode(tokens);
+    console.log("==== Nodes are now ready ====");
     
     console.log("====== Start API tests ======");
     
@@ -196,17 +252,17 @@ async function apiTestMain() {
         if (testcase.endsWith(".js")) {
 
             // Kicking data out of pool
-            const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi);
+            const ret200: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, tokens);
             if (ret200.code !== 200) {
                 console.log(JSON.stringify(ret200));
                 return -200;
             }
-            const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, undefined, 2);
+            const ret201: responseType = await runAxios("/sys/deliverpooling", "post", conf.bcapi, tokens, undefined, 2);
             if (ret201.code !== 200) {
                 console.log(JSON.stringify(ret201));
                 return -201;
             }
-            const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi);
+            const ret202: responseType = await runAxios("/sys/blocking", "post", conf.bcapi, tokens);
             if (ret202.code !== 200) {
                 console.log(JSON.stringify(ret202));
                 return -202;
@@ -220,7 +276,7 @@ async function apiTestMain() {
 
             const test = await import(pathcases + testcase);
             process.stdout.write("APITest => " + test.name + ": ");
-            const ret = await test.run(conf);
+            const ret = await test.run(conf, tokens);
             if (ret == 0) {
                 console.log("[ OK ]");
                 succeed++;

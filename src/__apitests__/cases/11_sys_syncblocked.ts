@@ -5,15 +5,16 @@
  */
 
 import { runAxios, responseType } from "../axios.js";
+import { authTokens } from "../server.js";
 
 // Due to functional limitations, only normal systems are tested.
 
 export const name = "_get_syncblocked";
 
-export async function run(conf: any): Promise<number> {
+export async function run(conf: any, tokens: authTokens): Promise<number> {
 
     // TEST1
-    const ret1: responseType = await runAxios("/sys/syncblocked", "post", conf.bcapi);
+    const ret1: responseType = await runAxios("/sys/syncblocked", "post", conf.bcapi, tokens);
     if (ret1.code !== 200) {
         return -1;
     }

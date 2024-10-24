@@ -26,8 +26,10 @@ export type cachedKeyFiles = {
     nodename?: string,
     sign_key?: string,
     sign_key_hex?: string,
+    sign_key_paserk?: string,
     verify_key?: string,
     verify_key_hex?: string,
+    verify_key_paserk?: string,
     tls_crt?: string
 }
 
