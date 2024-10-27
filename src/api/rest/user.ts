@@ -87,6 +87,12 @@ export class ListnerV3UserApi {
         this.runningPort = -1;
     }
 
+    /**
+     * parse body by zod
+     * @param body - set body 
+     * @param schema - set schema by ZodSchema type
+     * @returns returns with gResult, that contains parsed body if it's success, and gError if it's failure.
+     */
     private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
         if (body === undefined) { return this.userOK(undefined); }
         try {
