@@ -87,6 +87,12 @@ export class ListnerV3UserApi {
         this.runningPort = -1;
     }
 
+    /**
+     * parse body by zod
+     * @param body - set body 
+     * @param schema - set schema by ZodSchema type
+     * @returns returns with gResult, that contains parsed body if it's success, and gError if it's failure.
+     */
     private parseBody(body: any, schema: ZodSchema): gResult<any, gError> {
         if (body === undefined) { return this.userOK(undefined); }
         try {
@@ -116,12 +122,17 @@ export class ListnerV3UserApi {
             if ((req.headers.authorization !== undefined) && (req.headers.authorization.split(" ")[0] === "Bearer")) {
                 token = req.headers.authorization.split(" ")[1];
             } else {
-                return next("No token is specified");
+                const elements = req.url.split("/");
+                const path = "/" + elements[elements.length - 2] + elements[elements.length - 1];
+                const errmsg: gError = { name: "Error", origin: { module: "listener", func: "verifyWithPaseto", pos: "frontend", detail: "No token is specified"}, message: "No token is specified" }
+                res.status(400).json(this.craftErrorResponse(errmsg, path)).end();
             }
             if (acore.k === undefined) { return next("Keyring Module is currently down."); }
             const ret = acore.k.lib.verifyWithPaseto(acore.k, token);
             if (ret.isFailure()) {
-                return next(ret.value)
+                const elements = req.url.split("/");
+                const path = "/" + elements[elements.length - 2] + elements[elements.length - 1];
+                res.status(401).json(this.craftErrorResponse(ret.value, path)).end();
             } else {
                 LOG("Info", "The authorization of " + authUser + " for user APIs is successful.")
                 next();

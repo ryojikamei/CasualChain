@@ -139,14 +139,14 @@ export class SystemModuleMock {
                         return sOK(randomUUID());
                     }
                 },
-                async postCloseparcel(core: ccSystemType, options: any): Promise<gResult<void, gError>> {
+                async postCloseParcel(core: ccSystemType, options: any): Promise<gResult<void, gError>> {
                     if (options.adminId === undefined) {
                         return sError("postCloseparcel", "Check administration ID", "The administration_id is required to disable a parcel");
                     } else {
                         return sOK(undefined);
                     }
                 },
-                async refreshparcelList(core: ccSystemType): Promise<gResult<void, gError>> {
+                async refreshParcelList(core: ccSystemType): Promise<gResult<void, gError>> {
                     return sOK(undefined);
                 },
                 isOpenParcel(core: ccSystemType, tenantId: string): gResult<boolean, unknown> {

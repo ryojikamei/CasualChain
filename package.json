@@ -1,6 +1,6 @@
 {
   "name": "casualchain",
-  "version": "1.9.3",
+  "version": "1.9.4",
   "description": "A Typescript/Javascript version of blockchain engine without any insentive features",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",
@@ -50,6 +50,7 @@
     "jest": "^29.7.0",
     "mongodb-memory-server": "^9.4.1",
     "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
     "typedoc": "^0.26.8",
     "typescript": "^5.6.2"
   },

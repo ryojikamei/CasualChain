@@ -10,6 +10,7 @@ import { readFile } from "fs/promises";
 import { execa } from "execa";
 import { ed25519 } from "@noble/curves/ed25519";
 import { generateKeys, sign, verify } from "paseto-ts/v4";
+import { Payload } from "paseto-ts/lib/types";
 
 import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
@@ -20,8 +21,6 @@ import { ccLogType } from "../logger/index.js";
 import { objTx } from "../datastore";
 import { postJsonOptions } from "../main";
 import { moduleCondition } from "../index.js";
-import { AnyARecord } from "dns";
-import { Payload } from "paseto-ts/lib/types";
 
 /**
  * The tag string for the transaction of public keys
@@ -525,6 +524,12 @@ export class KeyringModule {
         }
     }
 
+    /**
+     * Verify token with PASETO
+     * @param core - set ccKeyringType instance
+     * @param token - set the token to verify
+     * @returns returns with gResult, that contains the payload object if it's success, and gError if it's failure.
+     */
     public verifyWithPaseto(core: ccKeyringType, token: string): gResult<object, gError> {
         const LOG = core.log.lib.LogFunc(core.log, "Keyring", "verifyWithPaseto");
         LOG("Info", "start:" + token);

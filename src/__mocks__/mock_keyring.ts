@@ -47,6 +47,12 @@ export class KeyringModuleMock {
                         default:
                             return kOK(true);
                     }
+                },
+                signWithPaseto<T extends { [key: string]: any; }>(core: ccKeyringType, target: any): gResult<string, gError> {
+                    return kOK("v4.public.fakePasetoString");
+                },
+                verifyWithPaseto(core: ccKeyringType, token: string): gResult<object, gError> {
+                    return kOK({});
                 }
             },
             conf: keyringConf,
