@@ -531,7 +531,7 @@ export class MainModule {
         LOG("Info", "start");
         LOG("Debug", JSON.stringify(data));
 
-        let dataObj: object | undefined;
+        let dataObj: object | undefined = undefined;
         let matcherType: string = "";
 
         if (data === undefined) return this.mOK(dataObj);
@@ -542,7 +542,7 @@ export class MainModule {
         }
 
         if (matcherType === "strict") {
-            if ((data[options.key] !== undefined) && (data[options.key] === options.value)) return this.mOK(data);
+            if ((data[options.key] !== undefined) && (data[options.key] === options.value)) { return this.mOK(data) };
             return this.mOK(dataObj);
         } else {
             return this.mError("searchForTxData", "Unimplemented", "matcherType " + matcherType + " is not implemented");
