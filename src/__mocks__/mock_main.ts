@@ -85,8 +85,8 @@ export class MainModuleMock {
                         return mOK(tx);
                     }
                 },
-                async getSearchByJson(core: ccMainType, kv: object, options?: getJsonOptions): Promise<gResult<objTx[], gError>> {
-                    if (kv.hasOwnProperty("notFoundSample")) {
+                async getSearchByJson(core: ccMainType, options: getJsonOptions): Promise<gResult<objTx[], gError>> {
+                    if (options.key === "notFoundSample") {
                         return mOK([]);
                     } else {
                         const txs = [tx3];

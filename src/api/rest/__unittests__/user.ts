@@ -75,7 +75,7 @@ describe("Test of ListerV3UserApi", () => {
         })
         test("Success in getting nothing", async () => {
             acore.m = mcore;
-            const body = { notFoundSample : "" }
+            const body = { key: "notFoundSample", value: "" }
             const res = await request(api).get("/get/byjson").send(body).auth(acore.conf.rest.userapi_user, acore.conf.rest.userapi_password);
             expect(res.status).toBe(200);
             expect(res.body).toEqual([]);
