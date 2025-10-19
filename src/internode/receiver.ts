@@ -6,11 +6,12 @@ import { gResult, gSuccess, gFailure, gError } from "../utils.js";
 
 import { Ca3TravelingFormat, Ca3TravelingIdFormat2 } from "../block/algorithm/ca3.js";
 import { objTx } from "../datastore/index.js";
-import { inAddBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, inGetPoolHeightDataFormat, inHeightReturnDataFormat, inDigestReturnDataFormat } from "./index.js";
+import { inAddBlockDataFormat, inExamineBlockDiffernceDataFormat, inExaminePoolDiffernceDataFormat, inGetBlockDataFormat, inGetBlockDigestDataFormat, inGetBlockHeightDataFormat, inGetPoolHeightDataFormat, inHeightReturnDataFormat, inDigestReturnDataFormat, rpcAuthFormat } from "./index.js";
 import { inConfigType } from "../config/zod.js";
 import { ccLogType } from "../logger/index.js";
 import { ccSystemType, getBlockResult } from "../system/index.js";
 import { ccBlockType } from "../block/index.js";
+import { ccKeyringType } from "../keyring/index.js";
 
 export class InReceiverSubModule {
 
@@ -37,11 +38,13 @@ export class InReceiverSubModule {
     protected conf: inConfigType;
     public score: ccSystemType;
     public bcore: ccBlockType;
-    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType) {
+    public kcore: ccKeyringType;
+    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, keyringInstance: ccKeyringType) {
         this.conf = conf;
         this.log = log;
         this.score = systemInstance;
         this.bcore = blockInstance;
+        this.kcore = keyringInstance;
     }
 
     /**
@@ -59,7 +62,7 @@ export class InReceiverSubModule {
         try {
             // Not very meaningful. Consider universal identifier/discovery in the network
             const reqObj: ic.icGeneralPacket.AsObject = req.toObject();
-            if (reqObj.version !== 4) {
+            if (reqObj.version !== 5) {
                 LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
                 LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Version is incorrect, drop");
                 return this.irError("generalReceiver", "parse", "Version is incorrect");
@@ -71,7 +74,7 @@ export class InReceiverSubModule {
                 LOG("Debug", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Receiver:set:" + this.conf.self.nodename);
                 return this.irError("generalReceiver", "parse", "Receiver is incorrect");
             }
-            // curently static
+            // currently static
             let allow_communication: boolean = false;
             for (const node of this.conf.nodes) {
                 if (node.nodename === reqObj.sender) {
@@ -92,6 +95,14 @@ export class InReceiverSubModule {
                 return this.irError("generalReceiver", "parse", "Payload is undefined");
             }
             payload = reqObj.payload;
+            if ((this.conf.self.need_auth === true) && (payload.request !== "GetAuth")) {
+                const ret = this.kcore.lib.verifyWithPaseto(this.kcore, reqObj.authToken);
+                if (ret.isFailure()) {
+                    LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + reqObj.packetId);
+                    LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:Authentication is failed, drop");
+                    return ret;
+                }
+            }
         } catch (error: any) {
             try {
                 LOG("Notice", "Ir:" + this.conf.self.nodename + ":generalReceiver:parse:" + req.getPacketId());
@@ -128,6 +139,34 @@ export class InReceiverSubModule {
         const result = new ic.icPacketPayload();
         result.setRequest(payload.request);
         switch (payload.request) {
+            case "GetAuth":
+                resultType = "response";
+                //if (this.conf.self.need_auth !== true) {
+                //    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                //    result.setDataAsString("");
+                //    break;
+                //}
+                if (payload.dataAsString === undefined) {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is undefined")));
+                    break;
+                }
+                let ret00: rpcAuthFormat;
+                try {
+                    ret00 = JSON.parse(payload.dataAsString);
+                } catch (error: any) {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(this.irError("generalReciever", payload.request, "data is invalid:" + error.toString())));
+                    break;
+                }
+                const ret01 = this.kcore.lib.signWithPaseto<rpcAuthFormat>(this.kcore, ret00);
+                if (ret01.isSuccess()) {
+                    result.setPayloadType(ic.payload_type.RESULT_SUCCESS);
+                    result.setDataAsString(ret01.value);
+                } else {
+                    result.setPayloadType(ic.payload_type.RESULT_FAILURE);
+                    result.setGErrorAsString(JSON.stringify(ret01.value));
+                }
             case "Ping":
                 resultType = "response";
                 result.setPayloadType(ic.payload_type.RESULT_SUCCESS);

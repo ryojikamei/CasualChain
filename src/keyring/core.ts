@@ -530,7 +530,7 @@ export class KeyringModule {
      * @param token - set the token to verify
      * @returns returns with gResult, that contains the payload object if it's success, and gError if it's failure.
      */
-    public verifyWithPaseto(core: ccKeyringType, token: string): gResult<object, gError> {
+    public verifyWithPaseto(core: ccKeyringType, token: string): gResult<Payload & { [key: string]: any; }, gError> {
         const LOG = core.log.lib.LogFunc(core.log, "Keyring", "verifyWithPaseto");
         LOG("Info", "start:" + token);
 
@@ -539,7 +539,7 @@ export class KeyringModule {
         }
         try {
             const { payload, footer } = verify(core.cache[0].verify_key_paserk, token);
-            return this.kOK(payload);
+            return this.kOK<Payload & { [key: string]: any; }>(payload);
         } catch (error: any) {
             return this.kError("verifyWithPaseto", "verify", error.toString());
         }

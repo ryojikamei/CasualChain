@@ -377,7 +377,8 @@ proto.icGeneralPacket.toObject = function(includeInstance, msg) {
     sender: jspb.Message.getFieldWithDefault(msg, 3, ""),
     receiver: jspb.Message.getFieldWithDefault(msg, 4, ""),
     payload: (f = msg.getPayload()) && proto.icPacketPayload.toObject(includeInstance, f),
-    prevId: jspb.Message.getFieldWithDefault(msg, 6, "")
+    prevId: jspb.Message.getFieldWithDefault(msg, 6, ""),
+    authToken: jspb.Message.getFieldWithDefault(msg, 7, "")
   };
 
   if (includeInstance) {
@@ -438,6 +439,10 @@ proto.icGeneralPacket.deserializeBinaryFromReader = function(msg, reader) {
     case 6:
       var value = /** @type {string} */ (reader.readString());
       msg.setPrevId(value);
+      break;
+    case 7:
+      var value = /** @type {string} */ (reader.readString());
+      msg.setAuthToken(value);
       break;
     default:
       reader.skipField();
@@ -508,6 +513,13 @@ proto.icGeneralPacket.serializeBinaryToWriter = function(message, writer) {
   if (f.length > 0) {
     writer.writeString(
       6,
+      f
+    );
+  }
+  f = message.getAuthToken();
+  if (f.length > 0) {
+    writer.writeString(
+      7,
       f
     );
   }
@@ -638,6 +650,24 @@ proto.icGeneralPacket.prototype.getPrevId = function() {
  */
 proto.icGeneralPacket.prototype.setPrevId = function(value) {
   return jspb.Message.setProto3StringField(this, 6, value);
+};
+
+
+/**
+ * optional string auth_token = 7;
+ * @return {string}
+ */
+proto.icGeneralPacket.prototype.getAuthToken = function() {
+  return /** @type {string} */ (jspb.Message.getFieldWithDefault(this, 7, ""));
+};
+
+
+/**
+ * @param {string} value
+ * @return {!proto.icGeneralPacket} returns this
+ */
+proto.icGeneralPacket.prototype.setAuthToken = function(value) {
+  return jspb.Message.setProto3StringField(this, 7, value);
 };
 
 

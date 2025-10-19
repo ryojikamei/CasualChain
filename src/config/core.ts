@@ -282,7 +282,9 @@ export class ConfigModule {
                 self: {
                     nodename: nodeConfig.get("internode.self.nodename"),
                     rpc_port: nodeConfig.get("internode.self.rpc_port"),
-                    use_tls_internode: nodeConfig.get("internode.self.use_tls_internode")
+                    use_tls_internode: nodeConfig.get("internode.self.use_tls_internode"),
+                    need_auth: nodeConfig.get("internode.self.need_auth"),
+                    password: nodeConfig.get("internode.self.password")
                 },
                 abnormalCountForJudging: nodeConfig.get("internode.abnormalCountForJudging"),
                 nodes: nodeConfig.get("internode.nodes"),

@@ -25,4 +25,5 @@ message icGeneralPacket {
     string receiver = 4;
     icPacketPayload payload = 5;
     string prev_id = 6;
+    string auth_token = 7;
 }

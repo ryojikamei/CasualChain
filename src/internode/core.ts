@@ -4,7 +4,7 @@ import { promisify } from "util";
 import { readFileSync } from "fs";
 
 import clone from "clone";
-import { Server, ServerCredentials, ChannelCredentials, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream } from "@grpc/grpc-js";
+import { Server, ServerCredentials, ChannelCredentials, ServerDuplexStream, UntypedServiceImplementation, ClientDuplexStream, Metadata } from "@grpc/grpc-js";
 
 import ic_grpc from "../../grpc/interconnect_grpc_pb.js";
 import ic from "../../grpc/interconnect_pb.js";
@@ -99,14 +99,14 @@ export class InModule {
 
     protected debugId: string
 
-    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, serverInstance?: any, receiverInstance?: any) {
+    constructor(conf: inConfigType, log: ccLogType, systemInstance: ccSystemType, blockInstance: ccBlockType, keyringInstance: ccKeyringType, serverInstance?: any, receiverInstance?: any) {
         this.conf = conf;
         this.log = log;
         this.coreCondition = "unloaded";
         this.generalConnections = {};
         this.generalResults = {};
         this.server = serverInstance?? new Server();
-        this.receiver = receiverInstance?? new InReceiverSubModule(this.conf, this.log, systemInstance, blockInstance);
+        this.receiver = receiverInstance?? new InReceiverSubModule(this.conf, this.log, systemInstance, blockInstance, keyringInstance);
         this.debugId = randomUUID();
     }
 
@@ -128,7 +128,7 @@ export class InModule {
         this.coreCondition = "loading";
 
         let core: ccInType = {
-            lib: new InModule(conf, log, systemInstance, blockInstance, ServerInstance, receiverInstance),
+            lib: new InModule(conf, log, systemInstance, blockInstance, keyringInstance, ServerInstance, receiverInstance),
             conf: conf,
             log: log,
             s: systemInstance,
@@ -330,21 +330,38 @@ export class InModule {
         const LOG = core.log.lib.LogFunc(core.log, "In", "waitForRPCisOK");
         LOG("Info", this.conf.self.nodename + ":start");
 
-        let leftNodes = clone(core.conf.nodes);
         if (removeAllChannel === true) {
-            for (const node of leftNodes) {
+            for (const node of core.conf.nodes) {
                 delete core.lib.generalConnections[node.nodename];
             }
         }
 
         for await (const _ of setInterval(1000)) {
-            const ret: gResult<rpcResultFormat[], gError> = await this.runRpcs(core, leftNodes, "Ping", "Ping", waitSec, "check", clientImpl);
-            if (ret.isFailure()) return ret;
-            leftNodes = [];
-            for (const result of ret.value) {
-                if (result.result.isFailure()) { leftNodes.push(result.node); }
+            let leftNodes = 0;
+            for (let index = 0; index < core.conf.nodes.length; index++) {
+                const node = core.conf.nodes[index];
+                if (node.auth_token !== undefined) { continue; }
+                let request: inRequestType = "Ping";
+                let payload: string = "";
+                if (node.need_auth === false) {
+                    request = "Ping";
+                    payload = "Ping";
+                } else {
+                    request = "GetAuth";
+                    payload = JSON.stringify({ id: node.administration_id, password: node.password }); // rpcAuthFormat
+                }
+                const ret: gResult<rpcResultFormat[], gError> = await this.runRpcs(core, [node], request, payload, waitSec, "check", clientImpl);
+                if (ret.isSuccess()) {
+                    if (ret.value[0].result.isSuccess()) {
+                        core.conf.nodes[index].auth_token = ret.value[0].result.value.getPayload()?.getDataAsString();
+                    } else {
+                        leftNodes++;
+                    }
+                } else {
+                    leftNodes++;
+                }
             }
-            if (leftNodes.length === 0) {
+            if (leftNodes === 0) {
                 return this.iOK<void>(undefined);
             } else if (waitSec <= 0) {
                 return this.iError("waitForRPCisOK", "runRpcs", "Unreachable nodes have been remained yet:" + JSON.stringify(leftNodes));
@@ -538,12 +555,17 @@ export class InModule {
             if (core.lib.generalResults[id] === undefined) break;
         }
         const packet = new ic.icGeneralPacket();
-        packet.setVersion(4);
+        packet.setVersion(5);
         packet.setPacketId(id);
         packet.setSender(core.conf.self.nodename);
         packet.setReceiver(target.nodename);
         packet.setPayload(payload);
         packet.setPrevId("");
+        if (target.auth_token !== undefined) {
+            packet.setAuthToken(target.auth_token);
+        } else {
+            packet.setAuthToken("");
+        }
         return packet;
     }
     /**

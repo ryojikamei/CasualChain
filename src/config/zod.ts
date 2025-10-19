@@ -125,7 +125,10 @@ export const nodePropertyInputSchema = z.object({
     rpc_port: z.number().min(0).max(65535),
     abnormal_count: z.number().optional(),
     use_tls_internode: z.boolean(),
-    administration_id: z.string().uuid()
+    administration_id: z.string().uuid(),
+    need_auth: z.boolean(),
+    password: z.string(),
+    auth_token: z.string().optional()
 })
 /**
  * The configuration properties for each node
@@ -137,7 +140,9 @@ export const inConfigInputSchema = z.object({
     self: z.object({
         nodename: z.string().max(255),
         rpc_port: z.number().min(0).max(65535),
-        use_tls_internode: z.boolean()
+        use_tls_internode: z.boolean(),
+        need_auth: z.boolean(),
+        password: z.string()
     }),
     abnormalCountForJudging: z.number().safe().nonnegative(),
     nodes: z.array(nodePropertyInputSchema),

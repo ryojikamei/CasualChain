@@ -101,6 +101,14 @@ export type inExaminePoolDiffernceDataFormat = {
 }
 
 /**
+ * The data format when getting authentication
+ */
+export type rpcAuthFormat = {
+    id: string,
+    password: string
+}
+
+/**
  * The data format when obtaining RPC results
  */
 export type rpcResultFormat = {
@@ -137,5 +145,5 @@ export type inConnection = {
 /**
  * The RPC requests
  */
-export type inRequestType = "Ping" | "AddPool" | "AddBlock" | "AddBlockCa3" | "GetPoolHeight" | "GetBlockHeight" | "GetBlockDigest" | "GetBlock" | 
+export type inRequestType = "GetAuth" | "Ping" | "AddPool" | "AddBlock" | "AddBlockCa3" | "GetPoolHeight" | "GetBlockHeight" | "GetBlockDigest" | "GetBlock" | 
     "ExamineBlockDifference" | "ExaminePoolDifference" | "DeclareBlockCreation" | "SignAndResendOrStore" | "ResetTestNode" | "TestMode";

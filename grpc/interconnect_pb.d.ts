@@ -60,6 +60,8 @@ export class icGeneralPacket extends jspb.Message {
     setPayload(value?: icPacketPayload): icGeneralPacket;
     getPrevId(): string;
     setPrevId(value: string): icGeneralPacket;
+    getAuthToken(): string;
+    setAuthToken(value: string): icGeneralPacket;
 
     serializeBinary(): Uint8Array;
     toObject(includeInstance?: boolean): icGeneralPacket.AsObject;
@@ -79,6 +81,7 @@ export namespace icGeneralPacket {
         receiver: string,
         payload?: icPacketPayload.AsObject,
         prevId: string,
+        authToken: string,
     }
 }
 

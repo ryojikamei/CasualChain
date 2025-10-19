@@ -32,7 +32,9 @@
         "self": {
             "nodename": "node3",
             "rpc_port": 7003,
-            "use_tls_internode": true
+            "use_tls_internode": true,
+            "need_auth": false,
+            "password": ""
         },
         "abnormalCountForJudging": 0,
         "nodes": [
@@ -42,7 +44,9 @@
                 "host": "127.0.0.1",
                 "rpc_port": 7001,
                 "use_tls_internode": true,
-                "administration_id": "<appropriate UUIDv4 string>"
+                "administration_id": "<appropriate UUIDv4 string>",
+                "need_auth": false,
+                "password": ""
             },
             {
                 "allow_outgoing": true,
@@ -50,7 +54,9 @@
                 "host": "127.0.0.1",
                 "rpc_port": 7002,
                 "use_tls_internode": true,
-                "administration_id": "<appropriate UUIDv4 string>"
+                "administration_id": "<appropriate UUIDv4 string>",
+                "need_auth": false,
+                "password": ""
             }
         ]
 
